@@ -5,7 +5,12 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
-  modules: ['@nuxt/eslint', '@nuxtjs/i18n'],
+  modules: ['@nuxt/eslint', '@nuxtjs/i18n', '@nuxt/ui'],
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
+    },
+  },
   i18n: {
     defaultLocale: 'en',
     locales: [

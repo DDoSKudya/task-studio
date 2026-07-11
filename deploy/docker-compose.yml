@@ -107,6 +107,10 @@ services:
     environment:
       <<: *backend-env
       PORT: "8000"
+      AUTH_SERVICE_URL: http://auth:8001
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     labels:
       - traefik.enable=true
       - traefik.docker.network=task-studio-edge
@@ -128,6 +132,9 @@ services:
     environment:
       <<: *backend-env
       PORT: "8001"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s

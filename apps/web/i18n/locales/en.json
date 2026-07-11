@@ -2,5 +2,22 @@
   "app": {
     "title": "Task Studio",
     "welcome": "Self-hosted learning platform scaffold."
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Register",
+    "logout": "Log out",
+    "email": "Email",
+    "password": "Password",
+    "submitLogin": "Sign in",
+    "submitRegister": "Create account",
+    "haveAccount": "Already have an account?",
+    "noAccount": "Need an account?",
+    "signedInAs": "Signed in as {email}",
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "emailTaken": "Email is already registered",
+      "generic": "Something went wrong"
+    }
   }
 }

@@ -2,5 +2,22 @@
   "app": {
     "title": "Task Studio",
     "welcome": "Каркас self-hosted платформы для обучения."
+  },
+  "auth": {
+    "login": "Войти",
+    "register": "Регистрация",
+    "logout": "Выйти",
+    "email": "Email",
+    "password": "Пароль",
+    "submitLogin": "Войти",
+    "submitRegister": "Создать аккаунт",
+    "haveAccount": "Уже есть аккаунт?",
+    "noAccount": "Нет аккаунта?",
+    "signedInAs": "Вы вошли как {email}",
+    "errors": {
+      "invalidCredentials": "Неверный email или пароль",
+      "emailTaken": "Email уже зарегистрирован",
+      "generic": "Что-то пошло не так"
+    }
   }
 }

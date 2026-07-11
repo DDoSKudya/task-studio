@@ -25,8 +25,16 @@ studio-common = { workspace = true }
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "--import-mode=importlib"
-testpaths = ["packages/python-common/tests", "packages/contracts/tests"]
-pythonpath = ["packages/python-common/src", "packages/contracts"]
+testpaths = [
+    "packages/python-common/tests",
+    "packages/contracts/tests",
+    "services/auth/tests",
+    "services/studio-api/tests",
+]
+pythonpath = [
+    "packages/python-common/src",
+    "packages/contracts",
+]
 
 [tool.mypy]
 python_version = "3.12"
