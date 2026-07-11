@@ -1,0 +1,11 @@
+[project]
+name = "studio-contracts"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["pack-schema-v1.json"]

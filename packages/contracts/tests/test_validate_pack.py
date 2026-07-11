@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import jsonschema
+import pytest
+from validate_pack import main, validate_pack
+
+VALID_MANIFEST = {
+    "schema_version": 1,
+    "id": "sample-pack",
+    "version": "1.0.0",
+    "title": "Sample",
+    "topics": [{"id": "topic-1", "title": "Intro", "phases": {}}],
+    "steps": {"step-1": {"kind": "theory"}},
+}
+
+
+def test_validate_pack_accepts_valid_manifest(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps(VALID_MANIFEST), encoding="utf-8")
+    validate_pack(manifest)
+
+
+def test_validate_pack_rejects_invalid_schema(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"title": "missing required fields"}), encoding="utf-8")
+    with pytest.raises(jsonschema.ValidationError):
+        validate_pack(manifest)
+
+
+def test_validate_pack_rejects_invalid_json(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{not-json", encoding="utf-8")
+    with pytest.raises(json.JSONDecodeError):
+        validate_pack(manifest)
+
+
+def test_main_returns_2_when_args_missing() -> None:
+    assert main([]) == 2
+
+
+def test_main_returns_1_when_file_missing(tmp_path: Path) -> None:
+    assert main([str(tmp_path / "missing.json")]) == 1
+
+
+def test_main_returns_1_for_invalid_schema(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"title": "missing required fields"}), encoding="utf-8")
+    assert main([str(manifest)]) == 1
+
+
+def test_main_returns_1_for_invalid_json(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{not-json", encoding="utf-8")
+    assert main([str(manifest)]) == 1
+
+
+def test_main_returns_0_for_valid_manifest(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps(VALID_MANIFEST), encoding="utf-8")
+    assert main([str(manifest)]) == 0
+    assert capsys.readouterr().out == "ok\n"

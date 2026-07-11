@@ -1,0 +1,10 @@
+target-version = "py312"
+line-length = 100
+src = ["packages", "services"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["B008"]
+
+[format]
+quote-style = "double"
