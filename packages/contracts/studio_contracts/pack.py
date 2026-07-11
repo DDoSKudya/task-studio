@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
 import jsonschema
+from jsonschema.exceptions import ValidationError
 
 _SCHEMA_PATH = Path(__file__).resolve().parent.parent / "pack-schema-v1.json"
 _PACK_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -23,8 +27,99 @@ class ParsedManifest:
     raw: dict[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class ValidationIssue:
+    path: str
+    message: str
+
+
 def validate_manifest(manifest: dict[str, object]) -> None:
-    jsonschema.validate(instance=manifest, schema=_PACK_SCHEMA)
+    issues = collect_manifest_errors(manifest)
+    if issues:
+        raise ValueError(issues[0].message)
+
+
+def collect_manifest_errors(manifest: dict[str, object]) -> list[ValidationIssue]:
+    try:
+        jsonschema.validate(instance=manifest, schema=_PACK_SCHEMA)
+    except ValidationError as exc:
+        return [ValidationIssue(path=_json_path(exc.absolute_path), message=exc.message)]
+
+    issues: list[ValidationIssue] = []
+    steps = manifest.get("steps")
+    if not isinstance(steps, dict):
+        return issues
+    for step_id, step in steps.items():
+        if isinstance(step, dict) and step.get("kind") == "lab":
+            issues.extend(_lab_step_errors(step_id, step))
+    return issues
+
+
+def _lab_step_errors(step_id: str, step: dict[str, object]) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    compose_file = step.get("compose_file")
+    if not isinstance(compose_file, str) or not compose_file.strip():
+        issues.append(
+            ValidationIssue(
+                path=f"steps.{step_id}.compose_file",
+                message="lab step requires compose_file",
+            )
+        )
+    checks = step.get("checks")
+    if not isinstance(checks, list) or not checks:
+        issues.append(
+            ValidationIssue(
+                path=f"steps.{step_id}.checks",
+                message="lab step requires at least one check",
+            )
+        )
+    return issues
+
+
+def build_pack_archive(
+    manifest: dict[str, object],
+    assets: dict[str, bytes] | None = None,
+) -> bytes:
+    issues = collect_manifest_errors(manifest)
+    if issues:
+        msg = "; ".join(f"{issue.path}: {issue.message}" for issue in issues)
+        raise ValueError(msg)
+
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            _MANIFEST_NAME,
+            json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+        )
+        for path, content in sorted((assets or {}).items()):
+            _assert_safe_archive_path(path)
+            archive.writestr(path, content)
+    return buffer.getvalue()
+
+
+def decode_build_assets(encoded_assets: list[tuple[str, str]]) -> dict[str, bytes]:
+    assets: dict[str, bytes] = {}
+    for path, content_base64 in encoded_assets:
+        _assert_safe_archive_path(path)
+        try:
+            assets[path] = base64.b64decode(content_base64, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            msg = f"invalid base64 for asset {path!r}"
+            raise ValueError(msg) from exc
+    return assets
+
+
+def _assert_safe_archive_path(path: str) -> None:
+    normalized = Path(path)
+    if normalized.is_absolute() or ".." in normalized.parts:
+        msg = f"unsafe asset path: {path}"
+        raise ValueError(msg)
+
+
+def _json_path(path: Sequence[str | int]) -> str:
+    if not path:
+        return "manifest"
+    return ".".join(str(part) for part in path)
 
 
 def validate_pack_file(manifest_path: Path) -> None:

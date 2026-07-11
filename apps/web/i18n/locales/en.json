@@ -41,6 +41,11 @@
     "skipStudy": "Skip study",
     "runCode": "Run and check",
     "submitAnswer": "Submit answer",
+    "lab": {
+      "run": "Run lab",
+      "starting": "Starting lab environment...",
+      "running": "Lab is running, waiting for results..."
+    },
     "completed": "Session completed",
     "feedback": {
       "passed": "Correct",

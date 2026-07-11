@@ -90,6 +90,8 @@ services:
     depends_on:
       web:
         condition: service_healthy
+      pack-studio:
+        condition: service_healthy
       studio-api:
         condition: service_healthy
     ports:
@@ -200,6 +202,10 @@ services:
       <<: *backend-env
       PORT: "8004"
       PISTON_URL: http://piston:2000
+      CATALOG_SERVICE_URL: http://catalog:8002
+      SESSIONS_SERVICE_URL: http://sessions:8003
+      GRADING_JOBS_QUEUE: grading.jobs
+      LAB_JOBS_QUEUE: lab.jobs
     depends_on:
       postgres:
         condition: service_healthy
@@ -410,6 +416,22 @@ services:
     environment:
       <<: *backend-env
       PORT: "8010"
+      GRADING_SERVICE_URL: http://grading:8004
+      LAB_JOBS_QUEUE: lab.jobs
+      LAB_RUNNER_DRY_RUN: ${LAB_RUNNER_DRY_RUN:-true}
+      LAB_DEFAULT_TIMEOUT_SECONDS: ${LAB_DEFAULT_TIMEOUT_SECONDS:-120}
+    volumes:
+      - ../data/packs:/data/packs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      grading:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
       interval: 30s
@@ -480,6 +502,29 @@ services:
       - traefik.http.services.web.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  pack-studio:
+    profiles: [full]
+    build:
+      context: ../apps/pack-studio
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [edge, internal]
+    environment:
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_APP_BASE_URL: /pack-studio/
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=task-studio-edge
+      - traefik.http.routers.pack-studio.rule=PathPrefix(`/pack-studio`)
+      - traefik.http.routers.pack-studio.entrypoints=web
+      - traefik.http.routers.pack-studio.priority=2
+      - traefik.http.services.pack-studio.loadbalancer.server.port=3000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/pack-studio/health"]
       interval: 30s
       timeout: 5s
       retries: 3

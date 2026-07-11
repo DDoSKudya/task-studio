@@ -1,0 +1,35 @@
+{
+  "app": {
+    "title": "Pack Studio",
+    "subtitle": "Author and validate learning packs"
+  },
+  "auth": {
+    "login": "Log in",
+    "email": "Email",
+    "password": "Password",
+    "submitLogin": "Sign in",
+    "signedInAs": "Signed in as {email}",
+    "logout": "Log out",
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "generic": "Something went wrong"
+    }
+  },
+  "editor": {
+    "manifest": "Manifest JSON",
+    "validate": "Validate",
+    "build": "Build .studio-pack",
+    "upload": "Upload to catalog",
+    "suggestPrompt": "Describe the step you want",
+    "suggest": "AI suggest",
+    "valid": "Manifest is valid",
+    "invalid": "Validation failed",
+    "uploaded": "Pack uploaded: {title} v{version}",
+    "loading": "Loading...",
+    "errors": {
+      "loadFailed": "Could not load editor",
+      "invalidJson": "Manifest is not valid JSON",
+      "actionFailed": "Action failed"
+    }
+  }
+}

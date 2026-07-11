@@ -93,6 +93,7 @@ async def get_pack_version(
         pack_title=pack.title,
         version=pack_version.version,
         manifest=pack_version.manifest,
+        disk_path=pack_version.disk_path,
     )
 
 

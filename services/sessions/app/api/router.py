@@ -16,6 +16,7 @@ from app.domain.analytics_events import (
 )
 from app.domain.messaging import publish_analytics_events
 from app.domain.sessions import (
+    complete_attempt,
     get_owned_session,
     list_attempts,
     list_sessions,
@@ -28,6 +29,7 @@ from app.infra.models import Session
 from fastapi import APIRouter, status
 from studio_common.internal import InternalUserId
 from studio_contracts.session_schemas import (
+    AttemptCompleteRequest,
     AttemptInfo,
     NavigateRequest,
     SessionState,
@@ -159,16 +161,39 @@ async def submit(
         client=client,
     )
     events = [submit_event(learning_session, outcome.attempt, outcome.grading)]
-    if completed := step_completed_event(learning_session, outcome.attempt, outcome.grading):
-        events.append(completed)
+    if outcome.status == "completed":
+        if completed := step_completed_event(learning_session, outcome.attempt, outcome.grading):
+            events.append(completed)
     await publish_analytics_events(settings, events)
     return SubmitResult(
         attempt_id=outcome.attempt.id,
+        status=outcome.status,
         passed=outcome.grading.passed,
         score=outcome.grading.score,
         feedback=outcome.grading.feedback,
         phase_completed=outcome.phase_completed,
     )
+
+
+@router.post("/attempts/{attempt_id}/complete", status_code=status.HTTP_204_NO_CONTENT)
+async def complete_attempt_endpoint(
+    attempt_id: uuid.UUID,
+    body: AttemptCompleteRequest,
+    session: DbSession,
+    settings: Settings,
+) -> None:
+    outcome = await complete_attempt(
+        session,
+        attempt_id,
+        passed=body.passed,
+        score=body.score,
+        feedback=body.feedback,
+        details=body.details,
+    )
+    if outcome.learning_session is not None and (
+        completed := step_completed_event(outcome.learning_session, outcome.attempt, outcome.grading)
+    ):
+        await publish_analytics_events(settings, [completed])
 
 
 @router.get("/{session_id}/attempts", response_model=list[AttemptInfo])

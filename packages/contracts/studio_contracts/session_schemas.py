@@ -92,7 +92,17 @@ class AttemptInfo(BaseModel):
 
 class SubmitResult(BaseModel):
     attempt_id: uuid.UUID
+    status: Literal["completed", "pending"] = "completed"
+    passed: bool = False
+    score: float = 0.0
+    feedback: str | None = None
+    phase_completed: bool = False
+
+
+class AttemptCompleteRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     passed: bool
     score: float
-    feedback: str | None
-    phase_completed: bool
+    feedback: str | None = None
+    details: dict[str, object] = Field(default_factory=dict)

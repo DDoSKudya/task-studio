@@ -1,0 +1,6 @@
+{
+  "id": "docker-lab",
+  "versions": ["1"],
+  "default_version": "1",
+  "description": "Docker Compose lab runtime for isolated task environments"
+}

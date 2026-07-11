@@ -1,0 +1,35 @@
+{
+  "app": {
+    "title": "Pack Studio",
+    "subtitle": "Создание и проверка учебных паков"
+  },
+  "auth": {
+    "login": "Вход",
+    "email": "Email",
+    "password": "Пароль",
+    "submitLogin": "Войти",
+    "signedInAs": "Вы вошли как {email}",
+    "logout": "Выйти",
+    "errors": {
+      "invalidCredentials": "Неверный email или пароль",
+      "generic": "Что-то пошло не так"
+    }
+  },
+  "editor": {
+    "manifest": "Manifest JSON",
+    "validate": "Проверить",
+    "build": "Собрать .studio-pack",
+    "upload": "Загрузить в каталог",
+    "suggestPrompt": "Опишите нужный шаг",
+    "suggest": "ИИ-подсказка",
+    "valid": "Manifest корректен",
+    "invalid": "Ошибки валидации",
+    "uploaded": "Пак загружен: {title} v{version}",
+    "loading": "Загрузка...",
+    "errors": {
+      "loadFailed": "Не удалось открыть редактор",
+      "invalidJson": "Manifest — некорректный JSON",
+      "actionFailed": "Операция не выполнена"
+    }
+  }
+}
