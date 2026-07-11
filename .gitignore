@@ -1,0 +1,50 @@
+.plan/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Node
+node_modules/
+.nuxt/
+.output/
+.data/
+dist/
+*.tsbuildinfo
+
+# Runtime data
+data/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+tmp/
+temp/
+
+# Docker local overrides (keep examples in repo)
+compose.override.yml
