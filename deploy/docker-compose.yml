@@ -111,6 +111,11 @@ services:
       CATALOG_SERVICE_URL: http://catalog:8002
       MEDIA_SERVICE_URL: http://media:8009
       SESSIONS_SERVICE_URL: http://sessions:8003
+      ORCHESTRATOR_SERVICE_URL: http://orchestrator:8011
+      LSP_PYRIGHT_HOST: lsp-pyright
+      LSP_TYPESCRIPT_HOST: lsp-typescript
+      LSP_GOPLS_HOST: lsp-gopls
+      LSP_SQLS_HOST: lsp-sqls
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -339,6 +344,38 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  lsp-pyright:
+    build:
+      context: ..
+      dockerfile: deploy/lsp/pyright/Dockerfile
+    profiles: [editor]
+    restart: unless-stopped
+    networks: [internal]
+
+  lsp-typescript:
+    build:
+      context: ..
+      dockerfile: deploy/lsp/typescript/Dockerfile
+    profiles: [editor]
+    restart: unless-stopped
+    networks: [internal]
+
+  lsp-gopls:
+    build:
+      context: ..
+      dockerfile: deploy/lsp/gopls/Dockerfile
+    profiles: [editor]
+    restart: unless-stopped
+    networks: [internal]
+
+  lsp-sqls:
+    build:
+      context: ..
+      dockerfile: deploy/lsp/sqls/Dockerfile
+    profiles: [editor]
+    restart: unless-stopped
+    networks: [internal]
 
   web:
     profiles: [full]

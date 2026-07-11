@@ -4,8 +4,27 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
     typeCheck: true,
+    tsConfig: {
+      compilerOptions: {
+        types: ['node', 'vidstack/vue'],
+      },
+      exclude: ['**/*.spec.ts'],
+    },
+  },
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag) => tag.startsWith('media-'),
+    },
   },
   modules: ['@nuxt/eslint', '@nuxtjs/i18n', '@nuxt/ui'],
+  build: {
+    transpile: ['vidstack'],
+  },
+  vite: {
+    optimizeDeps: {
+      exclude: ['monaco-editor'],
+    },
+  },
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
@@ -17,6 +36,6 @@ export default defineNuxtConfig({
       { code: 'en', name: 'English', file: 'en.json' },
       { code: 'ru', name: 'Русский', file: 'ru.json' },
     ],
-    langDir: 'i18n/locales',
+    langDir: 'locales',
   },
 })

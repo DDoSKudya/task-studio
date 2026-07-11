@@ -50,5 +50,15 @@
       "loadFailed": "Could not load session",
       "actionFailed": "Action failed"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "loading": "Loading settings...",
+    "editorTitle": "Editor",
+    "autocomplete": "Enable autocomplete",
+    "modeFull": "Full editor with LSP",
+    "modeSyntaxOnly": "Syntax highlighting only",
+    "languages": "Per-language autocomplete",
+    "save": "Save"
   }
 }

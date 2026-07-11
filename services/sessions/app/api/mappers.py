@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from app.infra.models import Attempt, PhaseProgress, Session
+from studio_contracts.editor_schemas import runtime_lsp
 from studio_contracts.manifest import PhaseName, get_step, phase_step_ids, read_policies
 from studio_contracts.session_schemas import (
     AttemptInfo,
@@ -80,14 +81,17 @@ def _phase_transitions(manifest: dict[str, object], topic_id: str) -> dict[str, 
 
 
 def _code_editor(learning_session: Session, step: dict[str, object]) -> dict[str, object]:
+    runtime = step.get("runtime", "python")
+    runtime_name = runtime if isinstance(runtime, str) else "python"
     autocomplete = True
     if learning_session.current_phase == "assess":
         autocomplete = read_policies(learning_session.manifest).assess_autocomplete
     return {
-        "runtime": step.get("runtime", "python"),
+        "runtime": runtime_name,
         "runtime_version": step.get("runtime_version", "3.12"),
         "template": step.get("template", ""),
         "autocomplete": autocomplete,
+        "lsp": runtime_lsp(runtime_name),
     }
 
 

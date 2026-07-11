@@ -1,0 +1,16 @@
+{
+  "name": "editor-core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./policy": "./src/editor-policy.ts"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.2",
+    "monaco-languageclient": "^9.0.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "vscode-ws-jsonrpc": "^3.3.2"
+  }
+}

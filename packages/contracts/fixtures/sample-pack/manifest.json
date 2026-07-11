@@ -19,7 +19,7 @@
       "id": "basics",
       "title": "Python basics",
       "phases": {
-        "study": { "steps": ["theory-hello"] },
+        "study": { "steps": ["theory-hello", "video-intro"] },
         "practice": { "steps": ["code-sum"] },
         "assess": { "steps": ["quiz-types"] }
       }
@@ -30,6 +30,11 @@
       "kind": "theory",
       "title": "Hello Python",
       "content": "Python uses indentation to define code blocks."
+    },
+    "video-intro": {
+      "kind": "video",
+      "title": "Python overview",
+      "asset_id": "videos/intro.mp4"
     },
     "code-sum": {
       "kind": "code",
