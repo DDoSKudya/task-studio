@@ -15,10 +15,14 @@ export function useApi() {
     const payload: RequestInit = { ...rest, headers, credentials: 'include' }
 
     if (body !== undefined) {
-      if (!headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json')
+      if (body instanceof FormData) {
+        payload.body = body
+      } else {
+        if (!headers.has('Content-Type')) {
+          headers.set('Content-Type', 'application/json')
+        }
+        payload.body = JSON.stringify(body)
       }
-      payload.body = JSON.stringify(body)
     }
 
     const response = await fetch(`${config.public.apiBase}${path}`, payload)

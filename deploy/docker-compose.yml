@@ -108,6 +108,8 @@ services:
       <<: *backend-env
       PORT: "8000"
       AUTH_SERVICE_URL: http://auth:8001
+      CATALOG_SERVICE_URL: http://catalog:8002
+      MEDIA_SERVICE_URL: http://media:8009
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -150,6 +152,10 @@ services:
     environment:
       <<: *backend-env
       PORT: "8002"
+      PACKS_ROOT: /data/packs
+      PACK_MAX_UPLOAD_MB: ${PACK_MAX_UPLOAD_MB}
+    volumes:
+      - ../data/packs:/data/packs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
@@ -255,6 +261,14 @@ services:
     environment:
       <<: *backend-env
       PORT: "8009"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: studio
+      MINIO_SECURE: "false"
+    depends_on:
+      minio:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
       interval: 30s
@@ -311,6 +325,23 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ../data/minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:v3.2.1

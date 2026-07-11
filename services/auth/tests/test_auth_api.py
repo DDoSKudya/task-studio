@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +14,7 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture
-async def auth_client(build_app) -> AsyncClient:
+async def auth_client(build_app) -> AsyncGenerator[AsyncClient, None]:
     app = build_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

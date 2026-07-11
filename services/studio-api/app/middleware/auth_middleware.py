@@ -8,11 +8,13 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse, Response
 from studio_common.jwt_tokens import decode_user_id
 
-PUBLIC_AUTH_PATHS = frozenset({
-    "/v1/auth/register",
-    "/v1/auth/login",
-    "/v1/auth/logout",
-})
+PUBLIC_AUTH_PATHS = frozenset(
+    {
+        "/v1/auth/register",
+        "/v1/auth/login",
+        "/v1/auth/logout",
+    }
+)
 
 
 def register_auth_middleware(

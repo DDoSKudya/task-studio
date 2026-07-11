@@ -14,6 +14,8 @@ from studio_common.middleware import register_request_id_middleware
 from studio_common.otel import configure_otel
 
 from app.api.auth import router as auth_router
+from app.api.catalog import router as catalog_router
+from app.api.media import router as media_router
 from app.config import load_settings
 from app.middleware.auth_middleware import register_auth_middleware
 
@@ -28,8 +30,8 @@ def build_app() -> FastAPI:
         engine = create_engine()
         if engine is not None:
             app.state.db_session_factory = create_session_factory(engine)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            app.state.auth_client = client
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            app.state.upstream_client = client
             log.info("service_started")
             try:
                 yield
@@ -46,6 +48,8 @@ def build_app() -> FastAPI:
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
     register_ops_routes(app, log)
     app.include_router(auth_router)
+    app.include_router(catalog_router)
+    app.include_router(media_router)
     return app
 
 

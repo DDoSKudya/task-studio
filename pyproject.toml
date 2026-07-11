@@ -15,12 +15,17 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.8",
     "mypy>=1.14",
+    "pyright>=1.1.400",
     "jsonschema>=4.23",
     "studio-common",
+    "studio-contracts",
+    "minio>=7.2",
+    "python-multipart>=0.0.20",
 ]
 
 [tool.uv.sources]
 studio-common = { workspace = true }
+studio-contracts = { workspace = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -29,6 +34,8 @@ testpaths = [
     "packages/python-common/tests",
     "packages/contracts/tests",
     "services/auth/tests",
+    "services/catalog/tests",
+    "services/media/tests",
     "services/studio-api/tests",
 ]
 pythonpath = [
@@ -40,3 +47,39 @@ pythonpath = [
 python_version = "3.12"
 strict = true
 packages = ["studio_common"]
+
+[tool.pyright]
+include = ["packages", "services"]
+exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+
+[[tool.pyright.executionEnvironments]]
+root = "services/auth"
+extraPaths = ["../../packages/python-common/src"]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/catalog"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/media"
+extraPaths = ["../../packages/python-common/src"]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/studio-api"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "packages/python-common/src"
+
+[[tool.pyright.executionEnvironments]]
+root = "packages/contracts"

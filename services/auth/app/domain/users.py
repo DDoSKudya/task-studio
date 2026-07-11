@@ -26,6 +26,13 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _setting_value(raw: object) -> dict[str, object]:
+    if not isinstance(raw, dict):
+        msg = "user setting value must be a JSON object"
+        raise ValueError(msg)
+    return {str(key): value for key, value in raw.items()}
+
+
 async def register_user(session: AsyncSession, email: str, password: str) -> User:
     user = User(email=normalize_email(email), password_hash=hash_password(password))
     session.add(user)
@@ -70,6 +77,6 @@ async def upsert_user_settings(
         )
         setting = result.scalar_one_or_none()
         if setting is None:
-            session.add(UserSetting(user_id=user_id, key=key, value=value))
+            session.add(UserSetting(user_id=user_id, key=key, value=_setting_value(value)))
         else:
-            setting.value = value
+            setting.value = _setting_value(value)

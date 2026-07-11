@@ -1,9 +1,62 @@
-from studio_common.app import create_service_app, service_port
-from studio_common.runtime import bind_host
+from __future__ import annotations
 
-app = create_service_app("catalog")
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-if __name__ == "__main__":
-    import uvicorn
+import structlog
+from alembic import command
+from alembic.config import Config
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
+from studio_common.app import register_ops_routes
+from studio_common.db import create_engine, create_session_factory
+from studio_common.logging import configure_logging
+from studio_common.middleware import register_request_id_middleware
+from studio_common.otel import configure_otel
 
-    uvicorn.run("app.main:app", host=bind_host(), port=service_port(8002), factory=False)
+from app.api.router import router as catalog_router
+from app.config import load_settings
+from app.domain.packs import PackError
+
+
+def _run_migrations() -> None:
+    command.upgrade(Config("alembic.ini"), "head")
+
+
+def build_app() -> FastAPI:
+    configure_logging("catalog")
+    log = structlog.get_logger("catalog")
+    catalog_settings = load_settings()
+    catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        engine = create_engine()
+        if engine is not None:
+            _run_migrations()
+            app.state.db_session_factory = create_session_factory(engine)
+        log.info("service_started")
+        try:
+            yield
+        finally:
+            if engine is not None:
+                await engine.dispose()
+            log.info("service_stopped")
+
+    app = FastAPI(title="catalog", lifespan=lifespan)
+    app.state.catalog_settings = catalog_settings
+
+    @app.exception_handler(PackError)
+    async def pack_error(_request: Request, exc: PackError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    register_request_id_middleware(app)
+    configure_otel("catalog", app)
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    register_ops_routes(app, log)
+    app.include_router(catalog_router)
+    return app
+
+
+app = build_app()
