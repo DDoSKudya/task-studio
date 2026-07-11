@@ -13,6 +13,7 @@ from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
 from studio_common.otel import configure_otel
 
+from app.api.integrations import router as integrations_router
 from app.api.auth import router as auth_router
 from app.api.catalog import router as catalog_router
 from app.api.media import router as media_router
@@ -54,6 +55,7 @@ def build_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(media_router)
     app.include_router(sessions_router)
+    app.include_router(integrations_router)
     app.include_router(tutor_router)
     app.include_router(editor_router)
     return app

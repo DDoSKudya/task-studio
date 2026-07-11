@@ -10,7 +10,7 @@ from app.infra.models import Pack, PackVersion, UserPack
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.pack import ParsedManifest, extract_pack_archive
+from studio_contracts.pack import ParsedManifest, extract_pack_archive, parse_manifest
 
 
 class PackError(Exception):
@@ -27,6 +27,91 @@ class UploadedPack:
     slug: str
     title: str
     version: str
+
+
+async def register_imported_pack(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    manifest: dict[str, object],
+    disk_path: Path,
+    external_id: str,
+    source: str,
+    import_report: dict[str, object] | None,
+) -> UploadedPack:
+    parsed = parse_manifest(manifest)
+
+    pack = await _get_or_create_imported_pack(
+        session,
+        user_id,
+        parsed,
+        external_id=external_id,
+        source=source,
+    )
+    await _reject_duplicate_version(
+        session,
+        pack.id,
+        parsed.version,
+        disk_path,
+        cleanup_on_conflict=False,
+    )
+
+    pack_version = PackVersion(
+        pack_id=pack.id,
+        version=parsed.version,
+        manifest=parsed.raw,
+        disk_path=str(disk_path),
+        import_report=import_report,
+    )
+    session.add(pack_version)
+    await session.flush()
+    await _upsert_installation(session, user_id, pack.id, pack_version.id)
+
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise PackError(409, "pack version already exists") from exc
+
+    return UploadedPack(
+        pack_id=pack.id,
+        version_id=pack_version.id,
+        slug=parsed.slug,
+        title=parsed.title,
+        version=parsed.version,
+    )
+
+
+async def _get_or_create_imported_pack(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    parsed: ParsedManifest,
+    *,
+    external_id: str,
+    source: str,
+) -> Pack:
+    result = await session.execute(
+        select(Pack).where(Pack.owner_user_id == user_id, Pack.slug == parsed.slug),
+    )
+    pack = result.scalar_one_or_none()
+    if pack is None:
+        pack = Pack(
+            owner_user_id=user_id,
+            slug=parsed.slug,
+            title=parsed.title,
+            source=source,
+            external_id=external_id,
+            schema_version=parsed.schema_version,
+        )
+        session.add(pack)
+        await session.flush()
+        return pack
+
+    pack.title = parsed.title
+    pack.source = source
+    pack.external_id = external_id
+    pack.schema_version = parsed.schema_version
+    return pack
 
 
 async def upload_pack(
@@ -106,12 +191,15 @@ async def _reject_duplicate_version(
     pack_id: uuid.UUID,
     version: str,
     staging: Path,
+    *,
+    cleanup_on_conflict: bool = True,
 ) -> None:
     existing = await session.execute(
         select(PackVersion).where(PackVersion.pack_id == pack_id, PackVersion.version == version),
     )
     if existing.scalar_one_or_none() is not None:
-        shutil.rmtree(staging, ignore_errors=True)
+        if cleanup_on_conflict:
+            shutil.rmtree(staging, ignore_errors=True)
         raise PackError(409, "pack version already exists")
 
 

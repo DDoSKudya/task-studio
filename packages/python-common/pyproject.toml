@@ -14,6 +14,7 @@ dependencies = [
     "asyncpg>=0.30",
     "pyjwt>=2.10",
     "cryptography>=44.0",
+    "aio-pika>=9.5",
 ]
 
 [build-system]

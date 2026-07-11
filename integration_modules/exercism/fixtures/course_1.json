@@ -1,0 +1,30 @@
+{
+  "title": "Exercism Python Track",
+  "version": "1.0.0",
+  "locale": "en",
+  "topics": [
+    {
+      "id": "track",
+      "title": "Python track",
+      "study": [],
+      "practice": ["hello-world"],
+      "assess": []
+    }
+  ],
+  "steps": {
+    "hello-world": {
+      "id": "hello-world",
+      "kind": "code",
+      "title": "Hello World",
+      "phase": "practice",
+      "fidelity": "full",
+      "payload": {
+        "runtime": "python",
+        "runtime_version": "3.12",
+        "template": "def hello() -> str:\n    return 'Hello, World!'\n",
+        "tests": [{ "input": [], "output": "Hello, World!" }]
+      }
+    }
+  },
+  "course_assess": []
+}

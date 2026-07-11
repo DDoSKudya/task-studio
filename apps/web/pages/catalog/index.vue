@@ -82,6 +82,9 @@ onMounted(loadPacks)
         </template>
         <p class="text-sm text-muted">
           {{ pack.slug }} · v{{ pack.version }}
+          <UBadge v-if="pack.source !== 'local'" class="ml-2" size="xs" variant="subtle">
+            {{ pack.source }}
+          </UBadge>
         </p>
       </UCard>
     </div>

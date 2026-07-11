@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+from pathlib import Path
+
 from app.api.deps import DbSession, Settings
 from app.api.mappers import pack_detail, pack_summary, pack_upload_response, pack_version_info
 from app.domain.packs import (
@@ -10,6 +12,7 @@ from app.domain.packs import (
     get_user_pack,
     get_user_pack_version,
     list_user_packs,
+    register_imported_pack,
     upload_pack,
 )
 from fastapi import APIRouter, UploadFile, status
@@ -21,9 +24,32 @@ from studio_contracts.catalog_schemas import (
     PackUploadResponse,
     PackVersionContext,
     PackVersionInfo,
+    RegisterImportedPackRequest,
 )
 
 router = APIRouter(prefix="/internal/v1/catalog", tags=["catalog"])
+
+
+@router.post(
+    "/packs/register",
+    response_model=PackUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register_pack(
+    body: RegisterImportedPackRequest,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> PackUploadResponse:
+    uploaded = await register_imported_pack(
+        session,
+        user_id,
+        manifest=body.manifest,
+        disk_path=Path(body.disk_path),
+        external_id=body.external_id,
+        source=body.source,
+        import_report=body.import_report,
+    )
+    return pack_upload_response(uploaded)
 
 
 @router.get("/packs", response_model=list[PackSummary])

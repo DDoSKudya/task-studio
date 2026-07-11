@@ -17,12 +17,17 @@ COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock ./
 COPY packages/python-common packages/python-common
+COPY packages/contracts packages/contracts
+COPY packages/integration-sdk packages/integration-sdk
+COPY integration_modules integration_modules
 COPY services/integrations services/integrations
 
 RUN uv sync --package studio-integrations --no-dev --frozen || uv sync --package studio-integrations --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV HOST=0.0.0.0
+ENV INTEGRATION_MODULES_ROOT=/app/integration_modules
+ENV PACKS_ROOT=/data/packs
 WORKDIR /app/services/integrations
 USER appuser
 

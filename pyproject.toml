@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["packages/python-common", "packages/contracts", "services/*"]
+members = ["packages/python-common", "packages/contracts", "packages/integration-sdk", "services/*"]
 
 [dependency-groups]
 dev = [
@@ -40,10 +40,12 @@ testpaths = [
     "services/grading/tests",
     "services/sessions/tests",
     "services/tutor/tests",
+    "services/integrations/tests",
 ]
 pythonpath = [
     "packages/python-common/src",
     "packages/contracts",
+    "packages/integration-sdk",
     "services/grading",
     "services/sessions",
     "services/tutor",
@@ -104,6 +106,44 @@ extraPaths = [
     "../../packages/python-common/src",
     "../../packages/contracts",
 ]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/tutor/tests"
+extraPaths = [
+    "../../../packages/python-common/src",
+    "../../../packages/contracts",
+    "..",
+    ".",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/integrations"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+    "../../packages/integration-sdk",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/integrations/tests"
+extraPaths = [
+    "../../../packages/python-common/src",
+    "../../../packages/contracts",
+    "../../../packages/integration-sdk",
+    "..",
+    ".",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/search"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "packages/integration-sdk"
+extraPaths = ["../contracts"]
 
 [[tool.pyright.executionEnvironments]]
 root = "packages/python-common/src"

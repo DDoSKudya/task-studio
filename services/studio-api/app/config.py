@@ -13,6 +13,8 @@ class StudioApiSettings:
     media_service_url: str
     sessions_service_url: str
     tutor_service_url: str
+    integrations_service_url: str
+    search_service_url: str
     orchestrator_service_url: str
     jwt_secret: str
     jwt_expire_hours: int
@@ -36,6 +38,11 @@ def load_settings() -> StudioApiSettings:
         media_service_url=os.getenv("MEDIA_SERVICE_URL", "http://media:8009").rstrip("/"),
         sessions_service_url=os.getenv("SESSIONS_SERVICE_URL", "http://sessions:8003").rstrip("/"),
         tutor_service_url=os.getenv("TUTOR_SERVICE_URL", "http://tutor:8006").rstrip("/"),
+        integrations_service_url=os.getenv(
+            "INTEGRATIONS_SERVICE_URL",
+            "http://integrations:8005",
+        ).rstrip("/"),
+        search_service_url=os.getenv("SEARCH_SERVICE_URL", "http://search:8007").rstrip("/"),
         orchestrator_service_url=os.getenv(
             "ORCHESTRATOR_SERVICE_URL",
             "http://orchestrator:8011",
