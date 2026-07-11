@@ -100,5 +100,27 @@
       "olx": "OLX",
       "moodle": "Moodle"
     }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Learning progress, study skips, and attempt history.",
+    "loading": "Loading analytics...",
+    "progressChart": "Progress over time",
+    "skipsTitle": "Study skips",
+    "attemptsTitle": "Recent attempts",
+    "emptyProgress": "No activity recorded yet.",
+    "emptySkips": "No study skips recorded.",
+    "emptyAttempts": "No attempts recorded yet.",
+    "topicLabel": "Topic: {topic}",
+    "passed": "Passed",
+    "failed": "Failed",
+    "stats": {
+      "sessions": "Sessions started",
+      "steps": "Steps completed",
+      "skips": "Study skips"
+    },
+    "errors": {
+      "loadFailed": "Could not load analytics"
+    }
   }
 }

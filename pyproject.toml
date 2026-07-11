@@ -21,11 +21,17 @@ dev = [
     "studio-contracts",
     "minio>=7.2",
     "python-multipart>=0.0.20",
+    "studio-integration-sdk",
+    "meilisearch>=0.34",
+    "redis>=5.2",
+    "clickhouse-connect>=0.8",
+    "alembic>=1.14",
 ]
 
 [tool.uv.sources]
 studio-common = { workspace = true }
 studio-contracts = { workspace = true }
+studio-integration-sdk = { workspace = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -41,6 +47,7 @@ testpaths = [
     "services/sessions/tests",
     "services/tutor/tests",
     "services/integrations/tests",
+    "services/analytics/tests",
 ]
 pythonpath = [
     "packages/python-common/src",
@@ -49,6 +56,7 @@ pythonpath = [
     "services/grading",
     "services/sessions",
     "services/tutor",
+    "services/analytics/tests",
 ]
 
 [tool.mypy]
@@ -139,6 +147,22 @@ root = "services/search"
 extraPaths = [
     "../../packages/python-common/src",
     "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/analytics"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/analytics/tests"
+extraPaths = [
+    "../../../packages/python-common/src",
+    "../../../packages/contracts",
+    "..",
+    ".",
 ]
 
 [[tool.pyright.executionEnvironments]]
