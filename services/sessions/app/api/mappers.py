@@ -4,7 +4,13 @@ from typing import cast
 
 from app.infra.models import Attempt, PhaseProgress, Session
 from studio_contracts.editor_schemas import runtime_lsp
-from studio_contracts.manifest import PhaseName, get_step, phase_step_ids, read_policies
+from studio_contracts.manifest import (
+    PackPolicies,
+    PhaseName,
+    get_step,
+    phase_step_ids,
+    read_policies,
+)
 from studio_contracts.session_schemas import (
     AttemptInfo,
     PhaseProgressInfo,
@@ -13,6 +19,7 @@ from studio_contracts.session_schemas import (
     SessionSummary,
     StepContent,
 )
+from studio_contracts.tutor_schemas import StepTutorInfo, tutor_allowed, tutor_mode_for_phase
 
 _CODE_EDITOR_KEYS = frozenset({"runtime", "runtime_version", "template"})
 
@@ -53,12 +60,14 @@ def build_step_view(learning_session: Session) -> StepContent:
     kind = step.get("kind")
     title = step.get("title")
     is_code = kind == "code"
+    policies = read_policies(learning_session.manifest)
     content = {
         key: value
         for key, value in step.items()
         if key != "kind" and (not is_code or key not in _CODE_EDITOR_KEYS)
     }
-    editor = _code_editor(learning_session, step) if is_code else None
+    editor = _code_editor(learning_session, step, policies) if is_code else None
+    tutor = _tutor_meta(phase=cast(PhaseName, learning_session.current_phase), policies=policies)
     topic_id = learning_session.current_topic_id
     return StepContent(
         topic_id=topic_id,
@@ -68,6 +77,7 @@ def build_step_view(learning_session: Session) -> StepContent:
         title=title if isinstance(title, str) else "",
         content=content,
         editor=editor,
+        tutor=tutor,
         transitions=_phase_transitions(learning_session.manifest, topic_id),
     )
 
@@ -80,12 +90,24 @@ def _phase_transitions(manifest: dict[str, object], topic_id: str) -> dict[str, 
     }
 
 
-def _code_editor(learning_session: Session, step: dict[str, object]) -> dict[str, object]:
+def _tutor_meta(*, phase: PhaseName, policies: PackPolicies) -> StepTutorInfo | None:
+    mode = tutor_mode_for_phase(phase)
+    if mode is None:
+        return None
+    if not tutor_allowed(phase, pack_tutor_enabled=policies.tutor_enabled, user_enabled=True):
+        return None
+    return StepTutorInfo(enabled=True, mode=mode)
+
+
+def _code_editor(
+    learning_session: Session,
+    step: dict[str, object],
+    policies: PackPolicies,
+) -> dict[str, object]:
     runtime = step.get("runtime", "python")
     runtime_name = runtime if isinstance(runtime, str) else "python"
-    autocomplete = True
-    if learning_session.current_phase == "assess":
-        autocomplete = read_policies(learning_session.manifest).assess_autocomplete
+    is_assess = learning_session.current_phase == "assess"
+    autocomplete = policies.assess_autocomplete if is_assess else True
     return {
         "runtime": runtime_name,
         "runtime_version": step.get("runtime_version", "3.12"),

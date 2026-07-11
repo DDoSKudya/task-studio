@@ -4,11 +4,15 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "studio-common",
+    "studio-contracts",
+    "httpx>=0.28",
+    "redis>=5.2",
     "uvicorn[standard]>=0.32",
 ]
 
 [tool.uv.sources]
 studio-common = { workspace = true }
+studio-contracts = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

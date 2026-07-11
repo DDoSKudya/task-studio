@@ -12,11 +12,13 @@ class StudioApiSettings:
     catalog_service_url: str
     media_service_url: str
     sessions_service_url: str
+    tutor_service_url: str
     orchestrator_service_url: str
     jwt_secret: str
     jwt_expire_hours: int
     cookie_name: str
     cookie_secure: bool
+    secrets_master_key: str | None
     lsp_pyright_host: str
     lsp_pyright_port: int
     lsp_typescript_host: str
@@ -33,6 +35,7 @@ def load_settings() -> StudioApiSettings:
         catalog_service_url=os.getenv("CATALOG_SERVICE_URL", "http://catalog:8002").rstrip("/"),
         media_service_url=os.getenv("MEDIA_SERVICE_URL", "http://media:8009").rstrip("/"),
         sessions_service_url=os.getenv("SESSIONS_SERVICE_URL", "http://sessions:8003").rstrip("/"),
+        tutor_service_url=os.getenv("TUTOR_SERVICE_URL", "http://tutor:8006").rstrip("/"),
         orchestrator_service_url=os.getenv(
             "ORCHESTRATOR_SERVICE_URL",
             "http://orchestrator:8011",
@@ -41,6 +44,7 @@ def load_settings() -> StudioApiSettings:
         jwt_expire_hours=int(os.getenv("JWT_EXPIRE_HOURS", "168")),
         cookie_name=os.getenv("AUTH_COOKIE_NAME", "studio_access_token"),
         cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        secrets_master_key=os.getenv("SECRETS_MASTER_KEY"),
         lsp_pyright_host=os.getenv("LSP_PYRIGHT_HOST", "lsp-pyright"),
         lsp_pyright_port=int(os.getenv("LSP_PYRIGHT_PORT", "3000")),
         lsp_typescript_host=os.getenv("LSP_TYPESCRIPT_HOST", "lsp-typescript"),

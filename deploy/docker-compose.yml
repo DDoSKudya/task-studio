@@ -111,7 +111,9 @@ services:
       CATALOG_SERVICE_URL: http://catalog:8002
       MEDIA_SERVICE_URL: http://media:8009
       SESSIONS_SERVICE_URL: http://sessions:8003
+      TUTOR_SERVICE_URL: http://tutor:8006
       ORCHESTRATOR_SERVICE_URL: http://orchestrator:8011
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
       LSP_PYRIGHT_HOST: lsp-pyright
       LSP_TYPESCRIPT_HOST: lsp-typescript
       LSP_GOPLS_HOST: lsp-gopls
@@ -255,11 +257,40 @@ services:
     environment:
       <<: *backend-env
       PORT: "8006"
+      AUTH_SERVICE_URL: http://auth:8001
+      SESSIONS_SERVICE_URL: http://sessions:8003
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      TUTOR_RATE_LIMIT_PER_MINUTE: ${TUTOR_RATE_LIMIT_PER_MINUTE:-30}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    volumes:
+      - ../data/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   search:
     <<: *backend

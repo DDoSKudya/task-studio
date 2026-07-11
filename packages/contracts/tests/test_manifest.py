@@ -46,6 +46,7 @@ def test_read_policies(sample_manifest: dict[str, object]) -> None:
     assert policies.skip_study_allowed is True
     assert policies.assess_max_attempts == 3
     assert policies.assess_autocomplete is False
+    assert policies.tutor_enabled is True
 
 
 def test_phase_step_ids(sample_manifest: dict[str, object]) -> None:

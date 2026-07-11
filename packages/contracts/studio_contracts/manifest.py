@@ -25,6 +25,7 @@ class PackPolicies:
     assess_without_practice: bool
     assess_max_attempts: int | None
     assess_autocomplete: bool
+    tutor_enabled: bool
 
 
 def list_topics(manifest: dict[str, object]) -> list[TopicRef]:
@@ -118,6 +119,7 @@ def read_policies(manifest: dict[str, object]) -> PackPolicies:
             assess_without_practice=False,
             assess_max_attempts=None,
             assess_autocomplete=False,
+            tutor_enabled=True,
         )
 
     assess = policies.get("assess")
@@ -126,11 +128,14 @@ def read_policies(manifest: dict[str, object]) -> PackPolicies:
     is_int = isinstance(max_attempts, int) and not isinstance(max_attempts, bool)
     parsed_max = max_attempts if is_int else None
     autocomplete = assess_body.get("autocomplete")
+    tutor = policies.get("tutor")
+    tutor_body = tutor if isinstance(tutor, dict) else {}
     return PackPolicies(
         skip_study_allowed=policies.get("skip_study_allowed") is not False,
         assess_without_practice=policies.get("assess_without_practice") is True,
         assess_max_attempts=parsed_max,
         assess_autocomplete=autocomplete is True,
+        tutor_enabled=tutor_body.get("enabled") is not False,
     )
 
 
