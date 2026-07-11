@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "studio-common",
     "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
 ]
 
 [tool.uv.sources]

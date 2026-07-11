@@ -9,6 +9,10 @@ type LocalePayload = {
     title: string
     welcome: string
   }
+  auth: {
+    login: string
+    register: string
+  }
 }
 
 function loadLocale(code: 'en' | 'ru'): LocalePayload {
@@ -21,10 +25,12 @@ describe('web scaffold', () => {
     expect(health()).toEqual({ status: 'ok' })
   })
 
-  it.each(['en', 'ru'] as const)('locale %s defines app title and welcome', (code) => {
+  it.each(['en', 'ru'] as const)('locale %s defines app and auth strings', (code) => {
     const locale = loadLocale(code)
     expect(locale.app.title).toBeTruthy()
     expect(locale.app.welcome).toBeTruthy()
+    expect(locale.auth.login).toBeTruthy()
+    expect(locale.auth.register).toBeTruthy()
   })
 
   it('locales differ for welcome message', () => {

@@ -25,7 +25,7 @@ class StatusResponse(BaseModel):
     status: ReadinessStatus
 
 
-async def _ping_database(
+async def ping_database(
     factory: async_sessionmaker[AsyncSession],
     log: structlog.stdlib.BoundLogger,
 ) -> ReadinessStatus:
@@ -36,6 +36,24 @@ async def _ping_database(
         log.warning("ready_check_failed", exc_info=True)
         return "degraded"
     return "ok"
+
+
+def register_ops_routes(app: FastAPI, log: structlog.stdlib.BoundLogger) -> None:
+    async def health() -> StatusResponse:
+        return StatusResponse(status="ok")
+
+    async def ready() -> StatusResponse:
+        factory: async_sessionmaker[AsyncSession] | None = getattr(
+            app.state,
+            "db_session_factory",
+            None,
+        )
+        if factory is None:
+            return StatusResponse(status="ok")
+        return StatusResponse(status=await ping_database(factory, log))
+
+    app.add_api_route("/health", health, methods=["GET"], response_model=StatusResponse)
+    app.add_api_route("/ready", ready, methods=["GET"], response_model=StatusResponse)
 
 
 def create_service_app(service_name: str) -> FastAPI:
@@ -59,21 +77,7 @@ def create_service_app(service_name: str) -> FastAPI:
     register_request_id_middleware(app)
     configure_otel(service_name, app)
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
-
-    async def health() -> StatusResponse:
-        return StatusResponse(status="ok")
-
-    async def ready() -> StatusResponse:
-        factory: async_sessionmaker[AsyncSession] | None = getattr(
-            app.state, "db_session_factory", None
-        )
-        if factory is None:
-            return StatusResponse(status="ok")
-        return StatusResponse(status=await _ping_database(factory, log))
-
-    app.add_api_route("/health", health, methods=["GET"], response_model=StatusResponse)
-    app.add_api_route("/ready", ready, methods=["GET"], response_model=StatusResponse)
-
+    register_ops_routes(app, log)
     return app
 
 

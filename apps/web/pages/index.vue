@@ -1,58 +1,53 @@
 <script setup lang="ts">
 const { t, locale, locales, setLocale } = useI18n()
+const { user, fetchMe, logout } = useAuth()
+
+onMounted(async () => {
+  try {
+    await fetchMe()
+  } catch {
+    user.value = null
+  }
+})
 </script>
 
 <template>
-  <main class="page">
-    <header class="header">
-      <h1>{{ t('app.title') }}</h1>
-      <nav class="locales">
-        <button
+  <UContainer class="py-8 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <h1 class="text-2xl font-semibold">
+        {{ t('app.title') }}
+      </h1>
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
           v-for="item in locales"
           :key="item.code"
-          type="button"
-          :class="{ active: locale === item.code }"
+          size="sm"
+          :variant="locale === item.code ? 'solid' : 'outline'"
           @click="setLocale(item.code)"
         >
           {{ item.name }}
-        </button>
-      </nav>
-    </header>
+        </UButton>
+      </div>
+    </div>
+
     <p>{{ t('app.welcome') }}</p>
-  </main>
+
+    <UCard v-if="user">
+      <p>{{ t('auth.signedInAs', { email: user.email }) }}</p>
+      <div class="mt-4">
+        <UButton color="neutral" variant="soft" @click="logout">
+          {{ t('auth.logout') }}
+        </UButton>
+      </div>
+    </UCard>
+
+    <div v-else class="flex gap-3">
+      <UButton to="/login">
+        {{ t('auth.login') }}
+      </UButton>
+      <UButton to="/register" variant="outline">
+        {{ t('auth.register') }}
+      </UButton>
+    </div>
+  </UContainer>
 </template>
-
-<style scoped>
-.page {
-  margin: 0 auto;
-  max-width: 48rem;
-  padding: 2rem 1.5rem;
-  font-family: system-ui, sans-serif;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.locales {
-  display: flex;
-  gap: 0.5rem;
-}
-
-button {
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  cursor: pointer;
-}
-
-button.active {
-  border-color: #2563eb;
-  color: #2563eb;
-}
-</style>
