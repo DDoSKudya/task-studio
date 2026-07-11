@@ -27,9 +27,28 @@
     "empty": "No packs installed yet.",
     "back": "Back to catalog",
     "topics": "Topics",
+    "startSession": "Start session",
     "errors": {
       "loadFailed": "Could not load catalog",
-      "uploadFailed": "Could not upload pack"
+      "uploadFailed": "Could not upload pack",
+      "startFailed": "Could not start session"
+    }
+  },
+  "session": {
+    "back": "Back to catalog",
+    "loading": "Loading session...",
+    "continuePractice": "Continue to practice",
+    "skipStudy": "Skip study",
+    "runCode": "Run and check",
+    "submitAnswer": "Submit answer",
+    "completed": "Session completed",
+    "feedback": {
+      "passed": "Correct",
+      "failed": "Try again"
+    },
+    "errors": {
+      "loadFailed": "Could not load session",
+      "actionFailed": "Action failed"
     }
   }
 }

@@ -167,6 +167,28 @@ async def _upsert_installation(
     installation.active = True
 
 
+async def get_user_pack_version(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    pack_version_id: uuid.UUID,
+) -> tuple[Pack, PackVersion]:
+    result = await session.execute(
+        select(Pack, PackVersion)
+        .join(PackVersion, PackVersion.pack_id == Pack.id)
+        .join(UserPack, UserPack.pack_id == Pack.id)
+        .where(
+            PackVersion.id == pack_version_id,
+            UserPack.user_id == user_id,
+            UserPack.active.is_(True),
+        ),
+    )
+    row = result.first()
+    if row is None:
+        raise PackError(404, "pack version not found")
+    pack, pack_version = row
+    return pack, pack_version
+
+
 async def list_user_packs(
     session: AsyncSession,
     user_id: uuid.UUID,

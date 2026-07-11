@@ -110,6 +110,7 @@ services:
       AUTH_SERVICE_URL: http://auth:8001
       CATALOG_SERVICE_URL: http://catalog:8002
       MEDIA_SERVICE_URL: http://media:8009
+      SESSIONS_SERVICE_URL: http://sessions:8003
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -171,6 +172,8 @@ services:
     environment:
       <<: *backend-env
       PORT: "8003"
+      CATALOG_SERVICE_URL: http://catalog:8002
+      GRADING_SERVICE_URL: http://grading:8004
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
       interval: 30s
@@ -186,11 +189,42 @@ services:
     environment:
       <<: *backend-env
       PORT: "8004"
+      PISTON_URL: http://piston:2000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      piston:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  piston:
+    image: ghcr.io/engineer-man/piston
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    privileged: true
+    tmpfs:
+      - /tmp:exec
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:2000/api/v2/runtimes').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   integrations:
     <<: *backend

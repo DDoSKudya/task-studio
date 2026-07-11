@@ -8,6 +8,7 @@ from app.domain.packs import (
     activate_pack_version,
     delete_user_pack,
     get_user_pack,
+    get_user_pack_version,
     list_user_packs,
     upload_pack,
 )
@@ -18,6 +19,7 @@ from studio_contracts.catalog_schemas import (
     PackDetail,
     PackSummary,
     PackUploadResponse,
+    PackVersionContext,
     PackVersionInfo,
 )
 
@@ -50,6 +52,22 @@ async def upload_pack_endpoint(
         max_upload_bytes=settings.max_upload_bytes,
     )
     return pack_upload_response(uploaded)
+
+
+@router.get("/pack-versions/{version_id}", response_model=PackVersionContext)
+async def get_pack_version(
+    version_id: uuid.UUID,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> PackVersionContext:
+    pack, pack_version = await get_user_pack_version(session, user_id, version_id)
+    return PackVersionContext(
+        id=pack_version.id,
+        pack_id=pack.id,
+        pack_title=pack.title,
+        version=pack_version.version,
+        manifest=pack_version.manifest,
+    )
 
 
 @router.get("/packs/{pack_id}", response_model=PackDetail)

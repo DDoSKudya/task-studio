@@ -37,10 +37,14 @@ testpaths = [
     "services/catalog/tests",
     "services/media/tests",
     "services/studio-api/tests",
+    "services/grading/tests",
+    "services/sessions/tests",
 ]
 pythonpath = [
     "packages/python-common/src",
     "packages/contracts",
+    "services/grading",
+    "services/sessions",
 ]
 
 [tool.mypy]
@@ -73,6 +77,20 @@ extraPaths = ["../../packages/python-common/src"]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/studio-api"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/sessions"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/grading"
 extraPaths = [
     "../../packages/python-common/src",
     "../../packages/contracts",

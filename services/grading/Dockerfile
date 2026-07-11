@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get upgrade -y --no-install-recommends \
+    && apt-get -y dist-upgrade \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 10001 appuser
@@ -17,6 +17,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock ./
 COPY packages/python-common packages/python-common
+COPY packages/contracts packages/contracts
 COPY services/grading services/grading
 
 RUN uv sync --package studio-grading --no-dev --frozen || uv sync --package studio-grading --no-dev
