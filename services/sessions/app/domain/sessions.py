@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 import httpx
 import structlog
@@ -11,7 +12,7 @@ from app.infra.models import Attempt, CourseAssessSession, PhaseProgress, Sessio
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.catalog_schemas import PackVersionContext
-from studio_contracts.grading_schemas import GradingCheckResponse
+from studio_contracts.grading_schemas import GradingCheckResponse, GradingLabSubmitResponse
 from studio_contracts.manifest import (
     PackPolicies,
     PhaseName,
@@ -40,6 +41,8 @@ class SubmitOutcome:
     attempt: Attempt
     grading: GradingCheckResponse
     phase_completed: bool
+    status: Literal["completed", "pending"] = "completed"
+    learning_session: Session | None = None
 
 
 async def fetch_pack_version(
@@ -215,6 +218,16 @@ async def submit_step(
 
     step = get_step(learning_session.manifest, learning_session.current_step_id)
     kind = step.get("kind")
+    if kind == "lab":
+        return await _submit_lab(
+            session,
+            user_id,
+            learning_session,
+            submission,
+            step=step,
+            settings=settings,
+            client=client,
+        )
     if kind not in {"quiz", "code"}:
         raise SessionError(422, "current step is not submittable")
 
@@ -253,6 +266,107 @@ async def submit_step(
     await session.commit()
     await session.refresh(attempt)
     return SubmitOutcome(attempt=attempt, grading=grading, phase_completed=phase_completed)
+
+
+async def _submit_lab(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    learning_session: Session,
+    submission: dict[str, object],
+    *,
+    step: dict[str, object],
+    settings: SessionsSettings,
+    client: httpx.AsyncClient,
+) -> SubmitOutcome:
+    attempt_number = await _next_attempt_number(
+        session,
+        learning_session.id,
+        learning_session.current_topic_id,
+        learning_session.current_phase,
+        learning_session.current_step_id,
+    )
+    attempt = Attempt(
+        session_id=learning_session.id,
+        user_id=user_id,
+        topic_id=learning_session.current_topic_id,
+        phase=learning_session.current_phase,
+        step_id=learning_session.current_step_id,
+        attempt_number=attempt_number,
+        submission=submission,
+        result={"status": "pending"},
+    )
+    session.add(attempt)
+    await session.flush()
+
+    try:
+        response = await client.post(
+            f"{settings.grading_service_url}/internal/v1/grading/lab",
+            json={
+                "step": step,
+                "submission": {**submission, "attempt_id": str(attempt.id)},
+                "user_id": str(user_id),
+                "pack_version_id": str(learning_session.pack_version_id),
+            },
+        )
+    except httpx.HTTPError as exc:
+        raise SessionError(503, "grading unavailable") from exc
+    if response.is_error:
+        raise SessionError(response.status_code, _upstream_error_detail(response))
+
+    lab_response = GradingLabSubmitResponse.model_validate(response.json())
+    grading = GradingCheckResponse(
+        passed=False,
+        score=0.0,
+        feedback=None,
+        details={"status": lab_response.status},
+    )
+    learning_session.updated_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(attempt)
+    return SubmitOutcome(
+        attempt=attempt,
+        grading=grading,
+        phase_completed=False,
+        status="pending",
+    )
+
+
+async def complete_attempt(
+    session: AsyncSession,
+    attempt_id: uuid.UUID,
+    *,
+    passed: bool,
+    score: float,
+    feedback: str | None,
+    details: dict[str, object],
+) -> SubmitOutcome:
+    result = await session.execute(select(Attempt).where(Attempt.id == attempt_id))
+    attempt = result.scalar_one_or_none()
+    if attempt is None:
+        raise SessionError(404, "attempt not found")
+
+    learning_session = await session.get(Session, attempt.session_id)
+    if learning_session is None:
+        raise SessionError(404, "session not found")
+
+    grading = GradingCheckResponse(
+        passed=passed,
+        score=score,
+        feedback=feedback,
+        details=details,
+    )
+    attempt.result = grading.model_dump(mode="json")
+    phase_completed = await _apply_grading_result(session, learning_session, grading)
+    learning_session.updated_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(attempt)
+    return SubmitOutcome(
+        attempt=attempt,
+        grading=grading,
+        phase_completed=phase_completed,
+        status="completed",
+        learning_session=learning_session,
+    )
 
 
 async def list_attempts(

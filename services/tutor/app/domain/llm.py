@@ -46,6 +46,77 @@ def _decrypt_api_key(master_key: str | None, encrypted_b64: str | None) -> str |
         return None
 
 
+def _request_headers(target: LlmTarget) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if target.api_key:
+        headers["Authorization"] = f"Bearer {target.api_key}"
+    return headers
+
+
+def _chat_payload(
+    target: LlmTarget,
+    *,
+    system_prompt: str,
+    user_message: str,
+    stream: bool,
+) -> dict[str, object]:
+    return {
+        "model": target.model,
+        "stream": stream,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+    }
+
+
+def _message_content(body: dict[str, object]) -> str:
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        msg = "empty LLM response"
+        raise ValueError(msg)
+    first = choices[0]
+    if not isinstance(first, dict):
+        msg = "invalid LLM response"
+        raise ValueError(msg)
+    message = first.get("message")
+    if not isinstance(message, dict):
+        msg = "invalid LLM response"
+        raise ValueError(msg)
+    content = message.get("content")
+    if not isinstance(content, str) or not content.strip():
+        msg = "empty LLM content"
+        raise ValueError(msg)
+    return content.strip()
+
+
+async def complete_chat_completion(
+    client: httpx.AsyncClient,
+    target: LlmTarget,
+    *,
+    system_prompt: str,
+    user_message: str,
+) -> str:
+    url = f"{target.base_url}/chat/completions"
+    response = await client.post(
+        url,
+        headers=_request_headers(target),
+        json=_chat_payload(
+            target,
+            system_prompt=system_prompt,
+            user_message=user_message,
+            stream=False,
+        ),
+        timeout=120.0,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if not isinstance(body, dict):
+        msg = "invalid LLM response"
+        raise ValueError(msg)
+    return _message_content(body)
+
+
 async def stream_chat_completion(
     client: httpx.AsyncClient,
     target: LlmTarget,
@@ -53,20 +124,19 @@ async def stream_chat_completion(
     system_prompt: str,
     user_message: str,
 ) -> AsyncIterator[str]:
-    headers = {"Content-Type": "application/json"}
-    if target.api_key:
-        headers["Authorization"] = f"Bearer {target.api_key}"
-
-    payload = {
-        "model": target.model,
-        "stream": True,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-    }
     url = f"{target.base_url}/chat/completions"
-    async with client.stream("POST", url, headers=headers, json=payload, timeout=120.0) as response:
+    async with client.stream(
+        "POST",
+        url,
+        headers=_request_headers(target),
+        json=_chat_payload(
+            target,
+            system_prompt=system_prompt,
+            user_message=user_message,
+            stream=True,
+        ),
+        timeout=120.0,
+    ) as response:
         if response.is_error:
             body = await response.aread()
             raise httpx.HTTPStatusError(

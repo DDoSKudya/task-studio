@@ -48,6 +48,7 @@ testpaths = [
     "services/tutor/tests",
     "services/integrations/tests",
     "services/analytics/tests",
+    "services/lab-runner/tests",
 ]
 pythonpath = [
     "packages/python-common/src",

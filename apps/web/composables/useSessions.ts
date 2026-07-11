@@ -64,10 +64,22 @@ export type StepContent = {
 
 export type SubmitResult = {
   attempt_id: string
+  status?: 'completed' | 'pending'
   passed: boolean
   score: number
   feedback: string | null
   phase_completed: boolean
+}
+
+export type AttemptInfo = {
+  id: string
+  topic_id: string
+  phase: SessionSummary['current_phase']
+  step_id: string
+  attempt_number: number
+  submission: Record<string, unknown>
+  result: Record<string, unknown> | null
+  created_at: string
 }
 
 export function useSessions() {
@@ -111,6 +123,10 @@ export function useSessions() {
     })
   }
 
+  async function listAttempts(sessionId: string) {
+    return request<AttemptInfo[]>(`/v1/sessions/${sessionId}/attempts`)
+  }
+
   return {
     startSession,
     getSession,
@@ -118,5 +134,6 @@ export function useSessions() {
     navigate,
     skipStudy,
     submit,
+    listAttempts,
   }
 }

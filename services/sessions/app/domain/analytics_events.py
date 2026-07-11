@@ -39,7 +39,13 @@ def submit_event(
     grading: GradingCheckResponse,
 ) -> AnalyticsEventMessage:
     step = get_step(learning_session.manifest, attempt.step_id)
-    event_type = "quiz_answered" if step.get("kind") == "quiz" else "code_submitted"
+    match step.get("kind"):
+        case "quiz":
+            event_type = "quiz_answered"
+        case "lab":
+            event_type = "lab_submitted"
+        case _:
+            event_type = "code_submitted"
     return analytics_event(
         learning_session,
         event_type,

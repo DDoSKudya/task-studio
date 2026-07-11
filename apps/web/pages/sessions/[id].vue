@@ -165,6 +165,11 @@ const videoSrc = computed(() => {
 })
 
 const editorLanguage = computed(() => step.value?.editor?.runtime ?? 'python')
+
+const labInstructions = computed(() => {
+  const instructions = step.value?.content.instructions
+  return typeof instructions === 'string' ? instructions : ''
+})
 </script>
 
 <template>
@@ -280,6 +285,18 @@ const editorLanguage = computed(() => step.value?.editor?.runtime ?? 'python')
           >
             {{ t('session.runCode') }}
           </UButton>
+        </div>
+
+        <div
+          v-else-if="step.kind === 'lab'"
+          class="space-y-4"
+        >
+          <SessionLabPanel
+            :session-id="sessionId"
+            :instructions="labInstructions"
+            :disabled="actionPending"
+            @completed="reload"
+          />
         </div>
 
         <div

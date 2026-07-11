@@ -1,9 +1,62 @@
-from studio_common.app import create_service_app, service_port
-from studio_common.runtime import bind_host
+from __future__ import annotations
 
-app = create_service_app("lab-runner")
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-if __name__ == "__main__":
-    import uvicorn
+import httpx
+import structlog
+from alembic import command
+from alembic.config import Config
+from app.config import load_settings
+from app.worker import start_lab_worker
+from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
+from studio_common.app import register_ops_routes
+from studio_common.db import create_engine, create_session_factory
+from studio_common.logging import configure_logging
+from studio_common.middleware import register_request_id_middleware
+from studio_common.otel import configure_otel
 
-    uvicorn.run("app.main:app", host=bind_host(), port=service_port(8010), factory=False)
+
+def _run_migrations() -> None:
+    command.upgrade(Config("alembic.ini"), "head")
+
+
+def build_app() -> FastAPI:
+    configure_logging("lab-runner")
+    log = structlog.get_logger("lab-runner")
+    settings = load_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        engine = create_engine()
+        worker_task: asyncio.Task[None] | None = None
+        if engine is not None:
+            _run_migrations()
+            app.state.db_session_factory = create_session_factory(engine)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            if engine is not None:
+                worker_task = start_lab_worker(settings, app.state.db_session_factory, client)
+            log.info("service_started", dry_run=settings.dry_run)
+            try:
+                yield
+            finally:
+                if worker_task is not None:
+                    worker_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await worker_task
+                if engine is not None:
+                    await engine.dispose()
+                log.info("service_stopped")
+
+    app = FastAPI(title="lab-runner", lifespan=lifespan)
+    register_request_id_middleware(app)
+    configure_otel("lab-runner", app)
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    register_ops_routes(app, log)
+    return app
+
+
+app = build_app()

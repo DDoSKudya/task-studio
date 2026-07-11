@@ -29,6 +29,7 @@ class PackVersionContext(BaseModel):
     pack_title: str
     version: str
     manifest: dict[str, object]
+    disk_path: str
 
 
 class PackDetail(BaseModel):
