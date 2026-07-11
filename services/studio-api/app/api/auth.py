@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from typing import Annotated, Literal, assert_never
 
 import httpx
@@ -14,6 +15,7 @@ from studio_common.auth_schemas import (
     RegisterRequest,
     SettingsPatch,
 )
+from studio_common.crypto import encrypt_bytes
 from studio_common.jwt_tokens import create_access_token
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
@@ -22,6 +24,36 @@ type AuthAction = Literal["register", "login"]
 type AuthHttpMethod = Literal["get", "post", "patch"]
 
 type Settings = Annotated[StudioApiSettings, Depends(get_settings)]
+
+
+def _encrypt_tutor_api_key(
+    settings_blob: dict[str, object],
+    *,
+    master_key: str | None,
+) -> dict[str, object]:
+    tutor = settings_blob.get("tutor")
+    if not isinstance(tutor, dict):
+        return settings_blob
+    api_key = tutor.get("api_key")
+    if not isinstance(api_key, str) or not api_key.strip():
+        return settings_blob
+    if not master_key:
+        return settings_blob
+    encrypted = encrypt_bytes(api_key.encode("utf-8"), key_b64=master_key)
+    sanitized_tutor = {key: value for key, value in tutor.items() if key != "api_key"}
+    sanitized_tutor["api_key_encrypted"] = base64.b64encode(encrypted).decode("ascii")
+    return {**settings_blob, "tutor": sanitized_tutor}
+
+
+def _prepare_settings_patch(body: SettingsPatch, settings: StudioApiSettings) -> dict[str, object]:
+    payload = body.model_dump(mode="json", exclude_unset=True)
+    settings_blob = payload.get("settings")
+    if isinstance(settings_blob, dict):
+        payload["settings"] = _encrypt_tutor_api_key(
+            dict(settings_blob),
+            master_key=settings.secrets_master_key,
+        )
+    return payload
 
 
 async def _call_auth(
@@ -145,6 +177,6 @@ async def patch_settings(
         "patch",
         "/internal/v1/auth/me/settings",
         user_id=str(user_id),
-        json=body.model_dump(mode="json", exclude_unset=True),
+        json=_prepare_settings_patch(body, settings),
     )
     return parse_upstream(upstream, MeResponse)

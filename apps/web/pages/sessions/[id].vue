@@ -302,6 +302,13 @@ const editorLanguage = computed(() => step.value?.editor?.runtime ?? 'python')
         </div>
       </UCard>
 
+      <SessionTutorPanel
+        v-if="step.tutor?.enabled"
+        :session-id="sessionId"
+        :step-id="step.step_id"
+        :mode="step.tutor.mode"
+      />
+
       <p
         v-if="feedback"
         class="text-sm"

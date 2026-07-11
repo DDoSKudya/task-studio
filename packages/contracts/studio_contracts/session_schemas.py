@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from studio_contracts.manifest import PackPolicies, PhaseName
+from studio_contracts.tutor_schemas import StepTutorInfo
 
 SessionStatus = Literal["active", "completed", "abandoned"]
 
@@ -74,6 +75,7 @@ class StepContent(BaseModel):
     title: str
     content: dict[str, object]
     editor: dict[str, object] | None = None
+    tutor: StepTutorInfo | None = None
     transitions: dict[str, str] = Field(default_factory=dict)
 
 

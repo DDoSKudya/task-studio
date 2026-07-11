@@ -59,6 +59,26 @@
     "modeFull": "Full editor with LSP",
     "modeSyntaxOnly": "Syntax highlighting only",
     "languages": "Per-language autocomplete",
-    "save": "Save"
+    "save": "Save",
+    "tutorTitle": "Tutor",
+    "tutorEnabled": "Enable AI tutor",
+    "tutorProviderUrl": "Provider URL (OpenAI-compatible)",
+    "tutorApiKey": "API key (leave blank to keep current)",
+    "tutorDailyLimit": "Daily request limit (0 = unlimited)",
+    "tutorModel": "Model name"
+  },
+  "tutor": {
+    "showHints": "Show hints",
+    "openChat": "Ask tutor",
+    "hideChat": "Hide tutor",
+    "hintsTitle": "Hints",
+    "you": "You",
+    "tutor": "Tutor",
+    "messagePlaceholder": "Ask a question...",
+    "send": "Send",
+    "errors": {
+      "hintsFailed": "Could not load hints",
+      "chatFailed": "Tutor is unavailable"
+    }
   }
 }

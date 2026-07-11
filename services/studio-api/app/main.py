@@ -17,6 +17,7 @@ from app.api.auth import router as auth_router
 from app.api.catalog import router as catalog_router
 from app.api.media import router as media_router
 from app.api.sessions import router as sessions_router
+from app.api.tutor import router as tutor_router
 from app.config import load_settings
 from app.lsp_gateway.router import router as editor_router
 from app.middleware.auth_middleware import register_auth_middleware
@@ -53,6 +54,7 @@ def build_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(media_router)
     app.include_router(sessions_router)
+    app.include_router(tutor_router)
     app.include_router(editor_router)
     return app
 

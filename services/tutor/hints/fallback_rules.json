@@ -1,0 +1,18 @@
+{
+  "theory": [
+    "Read the section again and underline key terms.",
+    "Try explaining the idea in one sentence without looking at the text."
+  ],
+  "video": [
+    "Watch the clip once for the main idea, then replay for details.",
+    "Pause after each section and note one takeaway."
+  ],
+  "code": [
+    "Start from the function signature and expected return type.",
+    "Solve the simplest test case before handling edge cases."
+  ],
+  "quiz": [
+    "Eliminate answers that contradict the study material.",
+    "Recall definitions before guessing between similar options."
+  ]
+}

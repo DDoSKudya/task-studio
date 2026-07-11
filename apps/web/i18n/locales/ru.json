@@ -59,6 +59,26 @@
     "modeFull": "Полный редактор с LSP",
     "modeSyntaxOnly": "Только подсветка синтаксиса",
     "languages": "Автодополнение по языкам",
-    "save": "Сохранить"
+    "save": "Сохранить",
+    "tutorTitle": "Наставник",
+    "tutorEnabled": "Включить ИИ-наставника",
+    "tutorProviderUrl": "URL провайдера (OpenAI-compatible)",
+    "tutorApiKey": "API-ключ (оставьте пустым, чтобы не менять)",
+    "tutorDailyLimit": "Дневной лимит запросов (0 = без лимита)",
+    "tutorModel": "Название модели"
+  },
+  "tutor": {
+    "showHints": "Показать подсказки",
+    "openChat": "Спросить наставника",
+    "hideChat": "Скрыть наставника",
+    "hintsTitle": "Подсказки",
+    "you": "Вы",
+    "tutor": "Наставник",
+    "messagePlaceholder": "Задайте вопрос...",
+    "send": "Отправить",
+    "errors": {
+      "hintsFailed": "Не удалось загрузить подсказки",
+      "chatFailed": "Наставник недоступен"
+    }
   }
 }

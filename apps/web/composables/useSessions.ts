@@ -24,6 +24,7 @@ export type PackPolicies = {
   assess_without_practice: boolean
   assess_max_attempts: number | null
   assess_autocomplete: boolean
+  tutor_enabled: boolean
 }
 
 export type SessionState = {
@@ -53,6 +54,10 @@ export type StepContent = {
     template: string
     autocomplete: boolean
     lsp: string | null
+  } | null
+  tutor: {
+    enabled: boolean
+    mode: 'hint' | 'chat'
   } | null
   transitions: Record<string, string>
 }
