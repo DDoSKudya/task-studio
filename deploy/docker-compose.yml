@@ -1,0 +1,346 @@
+x-backend-env: &backend-env
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  RABBITMQ_URL: ${RABBITMQ_URL}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+
+x-backend: &backend
+  restart: unless-stopped
+  networks:
+    - internal
+  environment:
+    <<: *backend-env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ../data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ../data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${POSTGRES_USER}
+      RABBITMQ_DEFAULT_PASS: ${POSTGRES_PASSWORD}
+    volumes:
+      - ../data/rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  traefik:
+    image: traefik:v3.4
+    profiles: [full]
+    restart: unless-stopped
+    networks: [edge, internal]
+    environment:
+      DOCKER_API_VERSION: "1.44"
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    ports:
+      - "8080:8080"
+
+  nginx:
+    image: nginx:alpine
+    profiles: [full]
+    restart: unless-stopped
+    networks: [edge, internal]
+    depends_on:
+      web:
+        condition: service_healthy
+      studio-api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  studio-api:
+    <<: *backend
+    profiles: [full]
+    networks: [internal, edge]
+    build:
+      context: ..
+      dockerfile: services/studio-api/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8000"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=task-studio-edge
+      - traefik.http.routers.studio-api.rule=PathPrefix(`/api`)
+      - traefik.http.routers.studio-api.entrypoints=web
+      - traefik.http.services.studio-api.loadbalancer.server.port=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  auth:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/auth/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  catalog:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/catalog/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  sessions:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/sessions/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  grading:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/grading/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8004"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  integrations:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/integrations/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8005"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  tutor:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/tutor/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8006"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  search:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/search/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8007"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  analytics:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/analytics/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8008"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  media:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/media/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8009"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  lab-runner:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/lab-runner/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8010"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  orchestrator:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/orchestrator/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8011"
+      ORCHESTRATOR_MODE: ${ORCHESTRATOR_MODE}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    profiles: [full]
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [edge, internal]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=task-studio-edge
+      - traefik.http.routers.web.rule=PathPrefix(`/`)
+      - traefik.http.routers.web.entrypoints=web
+      - traefik.http.routers.web.priority=1
+      - traefik.http.services.web.loadbalancer.server.port=3000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    user: "65534:65534"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    user: "472:472"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+networks:
+  edge:
+    name: task-studio-edge
+  internal:
+    name: task-studio-internal
+
+volumes:
+  prometheus_data:
+  grafana_data:

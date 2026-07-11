@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: fastapi
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - studio-api:8000
+          - auth:8001
+          - catalog:8002
+          - sessions:8003
+          - grading:8004
+          - integrations:8005
+          - tutor:8006
+          - search:8007
+          - analytics:8008
+          - media:8009
+          - lab-runner:8010
+          - orchestrator:8011
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "([^:]+):.*"
+        target_label: service
+        replacement: "$1"

@@ -1,0 +1,25 @@
+{
+  "name": "task-studio-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nuxtjs/i18n": "^9.5.4",
+    "nuxt": "^3.17.4"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.4.1",
+    "eslint": "^9.28.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1",
+    "vue-tsc": "^2.2.10"
+  }
+}
