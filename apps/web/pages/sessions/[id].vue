@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const route = useRoute()
 const { t } = useI18n()
+const config = useRuntimeConfig()
+const { settings, fetchMe } = useAuth()
 const { getSession, getStep, navigate, skipStudy, submit } = useSessions()
 
 const sessionId = computed(() => String(route.params.id))
@@ -13,6 +15,8 @@ const feedback = ref('')
 const codeSource = ref('')
 const quizChoice = ref<number | null>(null)
 
+const mediaBase = computed(() => String(config.public.apiBase).replace(/\/$/, ''))
+
 async function reload() {
   session.value = await getSession(sessionId.value)
   step.value = await getStep(sessionId.value)
@@ -23,6 +27,7 @@ async function reload() {
 
 onMounted(async () => {
   try {
+    await fetchMe()
     await reload()
   } catch {
     errorMessage.value = t('session.errors.loadFailed')
@@ -146,6 +151,20 @@ const quizChoices = computed(() => {
     ? choices.filter((item): item is string => typeof item === 'string')
     : []
 })
+
+const videoAssetId = computed(() => {
+  const assetId = step.value?.content.asset_id
+  return typeof assetId === 'string' ? assetId : ''
+})
+
+const videoSrc = computed(() => {
+  if (!videoAssetId.value) {
+    return ''
+  }
+  return `${mediaBase.value}/v1/media/${videoAssetId.value}`
+})
+
+const editorLanguage = computed(() => step.value?.editor?.runtime ?? 'python')
 </script>
 
 <template>
@@ -214,13 +233,45 @@ const quizChoices = computed(() => {
         </div>
 
         <div
+          v-else-if="step.kind === 'video'"
+          class="space-y-4"
+        >
+          <SessionVideoPlayer
+            v-if="videoSrc"
+            :src="videoSrc"
+            :title="step.title"
+          />
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              :loading="actionPending"
+              @click="goToPractice"
+            >
+              {{ t('session.continuePractice') }}
+            </UButton>
+            <UButton
+              v-if="session.policies.skip_study_allowed"
+              variant="outline"
+              :loading="actionPending"
+              @click="onSkipStudy"
+            >
+              {{ t('session.skipStudy') }}
+            </UButton>
+          </div>
+        </div>
+
+        <div
           v-else-if="step.kind === 'code'"
           class="space-y-4"
         >
           <ClientOnly>
             <SessionCodeEditor
               v-model="codeSource"
-              language="python"
+              :language="editorLanguage"
+              :session-id="sessionId"
+              :phase="session.current_phase"
+              :pack-autocomplete="session.policies.assess_autocomplete"
+              :lsp-id="step.editor?.lsp"
+              :editor-settings="settings"
             />
           </ClientOnly>
           <UButton

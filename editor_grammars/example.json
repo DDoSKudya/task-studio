@@ -1,0 +1,19 @@
+{
+  "language": "example",
+  "monarch": {
+    "defaultToken": "",
+    "tokenizer": {
+      "root": [
+        ["/[a-z_$][\\w$]*/", "identifier"],
+        ["/\\d+/", "number"],
+        ["/\"([^\"\\\\]|\\\\.)*$/", "string.invalid"],
+        ["/\"/", "string", "@string"]
+      ],
+      "string": [
+        ["/[^\\\\\"]+/", "string"],
+        ["/\\\\./", "string.escape"],
+        ["/\"/", "string", "@pop"]
+      ]
+    }
+  }
+}

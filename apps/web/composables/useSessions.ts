@@ -52,6 +52,7 @@ export type StepContent = {
     runtime_version: string
     template: string
     autocomplete: boolean
+    lsp: string | null
   } | null
   transitions: Record<string, string>
 }

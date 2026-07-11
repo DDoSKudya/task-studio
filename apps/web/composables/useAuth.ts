@@ -13,10 +13,12 @@ export type MeResponse = {
 export function useAuth() {
   const { request } = useApi()
   const user = useState<AuthUser | null>('auth-user', () => null)
+  const settings = useState<Record<string, unknown>>('auth-settings', () => ({}))
 
   async function fetchMe() {
     const response = await request<MeResponse>('/v1/auth/me')
     user.value = response.user
+    settings.value = response.settings
     return response
   }
 
@@ -39,13 +41,30 @@ export function useAuth() {
   async function logout() {
     await request('/v1/auth/logout', { method: 'POST' })
     user.value = null
+    settings.value = {}
+  }
+
+  async function patchSettings(body: {
+    locale?: string
+    theme?: string
+    settings?: Record<string, unknown>
+  }) {
+    const response = await request<MeResponse>('/v1/auth/me/settings', {
+      method: 'PATCH',
+      body,
+    })
+    user.value = response.user
+    settings.value = response.settings
+    return response
   }
 
   return {
     user,
+    settings,
     fetchMe,
     login,
     register,
     logout,
+    patchSettings,
   }
 }
