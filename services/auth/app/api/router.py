@@ -50,7 +50,9 @@ async def get_db(
         yield session
 
 
-def get_user_id(x_user_id: str | None = Header(default=None, alias="X-User-Id")) -> uuid.UUID:
+def get_user_id(
+    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+) -> uuid.UUID:
     if not x_user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing user id")
     try:
@@ -62,8 +64,8 @@ def get_user_id(x_user_id: str | None = Header(default=None, alias="X-User-Id"))
         ) from exc
 
 
-DbSession = Annotated[AsyncSession, Depends(get_db)]
-UserId = Annotated[uuid.UUID, Depends(get_user_id)]
+type DbSession = Annotated[AsyncSession, Depends(get_db)]
+type UserId = Annotated[uuid.UUID, Depends(get_user_id)]
 
 
 async def _user_or_404(session: AsyncSession, user_id: uuid.UUID) -> User:

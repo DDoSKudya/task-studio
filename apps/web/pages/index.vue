@@ -34,7 +34,10 @@ onMounted(async () => {
 
     <UCard v-if="user">
       <p>{{ t('auth.signedInAs', { email: user.email }) }}</p>
-      <div class="mt-4">
+      <div class="mt-4 flex flex-wrap gap-3">
+        <UButton to="/catalog">
+          {{ t('catalog.title') }}
+        </UButton>
         <UButton color="neutral" variant="soft" @click="logout">
           {{ t('auth.logout') }}
         </UButton>

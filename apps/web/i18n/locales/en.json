@@ -19,5 +19,17 @@
       "emailTaken": "Email is already registered",
       "generic": "Something went wrong"
     }
+  },
+  "catalog": {
+    "title": "Catalog",
+    "upload": "Upload pack",
+    "loading": "Loading packs...",
+    "empty": "No packs installed yet.",
+    "back": "Back to catalog",
+    "topics": "Topics",
+    "errors": {
+      "loadFailed": "Could not load catalog",
+      "uploadFailed": "Could not upload pack"
+    }
   }
 }

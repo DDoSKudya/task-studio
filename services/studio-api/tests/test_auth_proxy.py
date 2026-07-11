@@ -29,7 +29,7 @@ async def test_register_sets_auth_cookie(jwt_env: None, build_app) -> None:
             }
         },
     )
-    app.state.auth_client = mock_client
+    app.state.upstream_client = mock_client
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -45,7 +45,7 @@ async def test_register_sets_auth_cookie(jwt_env: None, build_app) -> None:
 @pytest.mark.asyncio
 async def test_me_requires_cookie(jwt_env: None, build_app) -> None:
     app = build_app()
-    app.state.auth_client = AsyncMock()
+    app.state.upstream_client = AsyncMock()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/v1/auth/me")

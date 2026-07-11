@@ -1,0 +1,7 @@
+{
+  "id": "python",
+  "versions": ["3.12"],
+  "default_version": "3.12",
+  "piston_runtime": "python-3.12",
+  "lsp": "pyright"
+}

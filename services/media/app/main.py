@@ -1,9 +1,44 @@
-from studio_common.app import create_service_app, service_port
-from studio_common.runtime import bind_host
+from __future__ import annotations
 
-app = create_service_app("media")
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-if __name__ == "__main__":
-    import uvicorn
+import structlog
+from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
+from studio_common.app import register_ops_routes
+from studio_common.logging import configure_logging
+from studio_common.middleware import register_request_id_middleware
+from studio_common.otel import configure_otel
 
-    uvicorn.run("app.main:app", host=bind_host(), port=service_port(8009), factory=False)
+from app.api.router import router as media_router
+from app.config import build_client, ensure_bucket, load_settings
+
+
+def build_app() -> FastAPI:
+    configure_logging("media")
+    log = structlog.get_logger("media")
+    media_settings = load_settings()
+    minio_client = build_client(media_settings)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        ensure_bucket(minio_client, media_settings.bucket)
+        log.info("service_started")
+        try:
+            yield
+        finally:
+            log.info("service_stopped")
+
+    app = FastAPI(title="media", lifespan=lifespan)
+    app.state.media_settings = media_settings
+    app.state.minio_client = minio_client
+    register_request_id_middleware(app)
+    configure_otel("media", app)
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    register_ops_routes(app, log)
+    app.include_router(media_router)
+    return app
+
+
+app = build_app()

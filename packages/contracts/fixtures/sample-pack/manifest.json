@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "intro-python",
+  "version": "1.0.0",
+  "title": "Intro Python",
+  "locale": "en",
+  "source": { "type": "local" },
+  "defaults": {
+    "runtime": "python",
+    "runtime_version": "3.12"
+  },
+  "policies": {
+    "skip_study_allowed": true,
+    "assess_without_practice": false,
+    "assess": { "max_attempts": 3, "autocomplete": false }
+  },
+  "topics": [
+    {
+      "id": "basics",
+      "title": "Python basics",
+      "phases": {
+        "study": { "steps": ["theory-hello"] },
+        "practice": { "steps": ["code-sum"] },
+        "assess": { "steps": ["quiz-types"] }
+      }
+    }
+  ],
+  "steps": {
+    "theory-hello": {
+      "kind": "theory",
+      "title": "Hello Python",
+      "content": "Python uses indentation to define code blocks."
+    },
+    "code-sum": {
+      "kind": "code",
+      "title": "Sum two numbers",
+      "runtime": "python",
+      "runtime_version": "3.12",
+      "template": "def solve(a: int, b: int) -> int:\n    return a + b\n",
+      "tests": [{ "input": [2, 3], "output": 5 }]
+    },
+    "quiz-types": {
+      "kind": "quiz",
+      "title": "Python types",
+      "question": "Which type is immutable?",
+      "choices": ["list", "dict", "tuple", "set"],
+      "answer": 2
+    }
+  }
+}
