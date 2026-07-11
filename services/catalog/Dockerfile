@@ -1,5 +1,5 @@
 # Build from repository root: docker build -f services/catalog/Dockerfile .
-FROM python:3.12-slim-bookworm
+FROM python:3.12.9-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

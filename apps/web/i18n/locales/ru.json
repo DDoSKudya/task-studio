@@ -100,5 +100,27 @@
       "olx": "OLX",
       "moodle": "Moodle"
     }
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "subtitle": "Прогресс обучения, пропуски study и история попыток.",
+    "loading": "Загрузка аналитики...",
+    "progressChart": "Прогресс по дням",
+    "skipsTitle": "Пропуски study",
+    "attemptsTitle": "Последние попытки",
+    "emptyProgress": "Активности пока нет.",
+    "emptySkips": "Пропусков study нет.",
+    "emptyAttempts": "Попыток пока нет.",
+    "topicLabel": "Тема: {topic}",
+    "passed": "Зачёт",
+    "failed": "Не зачёт",
+    "stats": {
+      "sessions": "Начато сессий",
+      "steps": "Завершено шагов",
+      "skips": "Пропусков study"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить аналитику"
+    }
   }
 }

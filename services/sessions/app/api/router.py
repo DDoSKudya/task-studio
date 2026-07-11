@@ -9,6 +9,12 @@ from app.api.mappers import (
     session_state,
     session_summary,
 )
+from app.domain.analytics_events import (
+    analytics_event,
+    step_completed_event,
+    submit_event,
+)
+from app.domain.messaging import publish_analytics_events
 from app.domain.sessions import (
     get_owned_session,
     list_attempts,
@@ -40,6 +46,14 @@ async def _build_session_state(session: DbSession, learning_session: Session) ->
     return session_state(learning_session, progress_rows)
 
 
+def _session_position(learning_session: Session) -> tuple[str, str, str]:
+    return (
+        learning_session.current_topic_id,
+        learning_session.current_phase,
+        learning_session.current_step_id,
+    )
+
+
 @router.get("", response_model=list[SessionSummary])
 async def list_user_sessions(user_id: InternalUserId, session: DbSession) -> list[SessionSummary]:
     rows = await list_sessions(session, user_id)
@@ -61,6 +75,7 @@ async def create_session(
         settings=settings,
         client=client,
     )
+    await publish_analytics_events(settings, [analytics_event(learning_session, "session_started")])
     return await _build_session_state(session, learning_session)
 
 
@@ -90,7 +105,10 @@ async def navigate(
     body: NavigateRequest,
     user_id: InternalUserId,
     session: DbSession,
+    settings: Settings,
 ) -> SessionState:
+    before = await get_owned_session(session, user_id, session_id)
+    previous = _session_position(before)
     learning_session = await navigate_session(
         session,
         user_id,
@@ -99,6 +117,11 @@ async def navigate(
         phase=body.phase,
         step_id=body.step,
     )
+    if _session_position(learning_session) != previous:
+        await publish_analytics_events(
+            settings,
+            [analytics_event(learning_session, "phase_entered")],
+        )
     return await _build_session_state(session, learning_session)
 
 
@@ -107,8 +130,13 @@ async def skip_study_endpoint(
     session_id: uuid.UUID,
     user_id: InternalUserId,
     session: DbSession,
+    settings: Settings,
 ) -> SessionState:
     learning_session = await skip_study(session, user_id, session_id)
+    await publish_analytics_events(
+        settings,
+        [analytics_event(learning_session, "study_skipped", phase="study")],
+    )
     return await _build_session_state(session, learning_session)
 
 
@@ -121,6 +149,7 @@ async def submit(
     settings: Settings,
     client: UpstreamClient,
 ) -> SubmitResult:
+    learning_session = await get_owned_session(session, user_id, session_id)
     outcome = await submit_step(
         session,
         user_id,
@@ -129,6 +158,10 @@ async def submit(
         settings=settings,
         client=client,
     )
+    events = [submit_event(learning_session, outcome.attempt, outcome.grading)]
+    if completed := step_completed_event(learning_session, outcome.attempt, outcome.grading):
+        events.append(completed)
+    await publish_analytics_events(settings, events)
     return SubmitResult(
         attempt_id=outcome.attempt.id,
         passed=outcome.grading.passed,

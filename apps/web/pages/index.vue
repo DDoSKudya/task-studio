@@ -41,6 +41,9 @@ onMounted(async () => {
         <UButton to="/search" variant="outline">
           {{ t('search.title') }}
         </UButton>
+        <UButton to="/analytics" variant="outline">
+          {{ t('analytics.title') }}
+        </UButton>
         <UButton to="/settings" variant="outline">
           {{ t('settings.title') }}
         </UButton>
