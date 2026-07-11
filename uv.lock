@@ -1527,13 +1527,19 @@ name = "studio-grading"
 version = "0.1.0"
 source = { editable = "services/grading" }
 dependencies = [
+    { name = "alembic" },
+    { name = "httpx" },
     { name = "studio-common" },
+    { name = "studio-contracts" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "studio-common", editable = "packages/python-common" },
+    { name = "studio-contracts", editable = "packages/contracts" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
@@ -1619,13 +1625,19 @@ name = "studio-sessions"
 version = "0.1.0"
 source = { editable = "services/sessions" }
 dependencies = [
+    { name = "alembic" },
+    { name = "httpx" },
     { name = "studio-common" },
+    { name = "studio-contracts" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "studio-common", editable = "packages/python-common" },
+    { name = "studio-contracts", editable = "packages/contracts" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 

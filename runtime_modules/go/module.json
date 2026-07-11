@@ -1,0 +1,7 @@
+{
+  "id": "go",
+  "versions": ["1.22"],
+  "default_version": "1.22",
+  "piston_runtime": "go",
+  "lsp": "gopls"
+}

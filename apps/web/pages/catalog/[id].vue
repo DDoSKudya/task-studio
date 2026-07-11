@@ -1,7 +1,9 @@
 <script setup lang="ts">
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const { getPack } = useCatalog()
+const { startSession } = useSessions()
 
 const packId = computed(() => String(route.params.id))
 const pack = ref<Awaited<ReturnType<typeof getPack>> | null>(null)
@@ -16,6 +18,7 @@ const topics = computed(() => {
   )
 })
 const pending = ref(true)
+const starting = ref(false)
 const errorMessage = ref('')
 
 onMounted(async () => {
@@ -27,6 +30,22 @@ onMounted(async () => {
     pending.value = false
   }
 })
+
+async function onStartSession() {
+  if (!pack.value) {
+    return
+  }
+  starting.value = true
+  errorMessage.value = ''
+  try {
+    const session = await startSession(pack.value.active_version.id)
+    await router.push(`/sessions/${session.id}`)
+  } catch {
+    errorMessage.value = t('catalog.errors.startFailed')
+  } finally {
+    starting.value = false
+  }
+}
 </script>
 
 <template>
@@ -51,6 +70,12 @@ onMounted(async () => {
         <p class="text-sm text-muted">
           {{ pack.slug }} · v{{ pack.active_version.version }}
         </p>
+        <UButton
+          :loading="starting"
+          @click="onStartSession"
+        >
+          {{ t('catalog.startSession') }}
+        </UButton>
       </div>
 
       <UCard>

@@ -1,0 +1,7 @@
+{
+  "id": "javascript",
+  "versions": ["20"],
+  "default_version": "20",
+  "piston_runtime": "javascript",
+  "lsp": "typescript"
+}

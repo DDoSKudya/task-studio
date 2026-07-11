@@ -23,6 +23,14 @@ class PackVersionInfo(BaseModel):
     active: bool
 
 
+class PackVersionContext(BaseModel):
+    id: uuid.UUID
+    pack_id: uuid.UUID
+    pack_title: str
+    version: str
+    manifest: dict[str, object]
+
+
 class PackDetail(BaseModel):
     id: uuid.UUID
     slug: str

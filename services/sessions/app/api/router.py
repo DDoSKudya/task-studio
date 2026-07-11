@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import uuid
+
+from app.api.deps import DbSession, Settings, UpstreamClient, load_progress
+from app.api.mappers import (
+    attempt_info,
+    build_step_view,
+    session_state,
+    session_summary,
+)
+from app.domain.sessions import (
+    get_owned_session,
+    list_attempts,
+    list_sessions,
+    navigate_session,
+    skip_study,
+    start_session,
+    submit_step,
+)
+from app.infra.models import Session
+from fastapi import APIRouter, status
+from studio_common.internal import InternalUserId
+from studio_contracts.session_schemas import (
+    AttemptInfo,
+    NavigateRequest,
+    SessionState,
+    SessionSummary,
+    StartSessionRequest,
+    StepContent,
+    SubmitRequest,
+    SubmitResult,
+)
+
+router = APIRouter(prefix="/internal/v1/sessions", tags=["sessions"])
+
+
+async def _build_session_state(session: DbSession, learning_session: Session) -> SessionState:
+    progress_rows = await load_progress(session, learning_session.id)
+    return session_state(learning_session, progress_rows)
+
+
+@router.get("", response_model=list[SessionSummary])
+async def list_user_sessions(user_id: InternalUserId, session: DbSession) -> list[SessionSummary]:
+    rows = await list_sessions(session, user_id)
+    return [session_summary(row) for row in rows]
+
+
+@router.post("", response_model=SessionState, status_code=status.HTTP_201_CREATED)
+async def create_session(
+    body: StartSessionRequest,
+    user_id: InternalUserId,
+    session: DbSession,
+    settings: Settings,
+    client: UpstreamClient,
+) -> SessionState:
+    learning_session = await start_session(
+        session,
+        user_id,
+        body.pack_version_id,
+        settings=settings,
+        client=client,
+    )
+    return await _build_session_state(session, learning_session)
+
+
+@router.get("/{session_id}", response_model=SessionState)
+async def get_session(
+    session_id: uuid.UUID,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> SessionState:
+    learning_session = await get_owned_session(session, user_id, session_id)
+    return await _build_session_state(session, learning_session)
+
+
+@router.get("/{session_id}/step", response_model=StepContent)
+async def get_current_step(
+    session_id: uuid.UUID,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> StepContent:
+    learning_session = await get_owned_session(session, user_id, session_id)
+    return build_step_view(learning_session)
+
+
+@router.post("/{session_id}/navigate", response_model=SessionState)
+async def navigate(
+    session_id: uuid.UUID,
+    body: NavigateRequest,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> SessionState:
+    learning_session = await navigate_session(
+        session,
+        user_id,
+        session_id,
+        topic_id=body.topic,
+        phase=body.phase,
+        step_id=body.step,
+    )
+    return await _build_session_state(session, learning_session)
+
+
+@router.post("/{session_id}/skip-study", response_model=SessionState)
+async def skip_study_endpoint(
+    session_id: uuid.UUID,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> SessionState:
+    learning_session = await skip_study(session, user_id, session_id)
+    return await _build_session_state(session, learning_session)
+
+
+@router.post("/{session_id}/submit", response_model=SubmitResult)
+async def submit(
+    session_id: uuid.UUID,
+    body: SubmitRequest,
+    user_id: InternalUserId,
+    session: DbSession,
+    settings: Settings,
+    client: UpstreamClient,
+) -> SubmitResult:
+    outcome = await submit_step(
+        session,
+        user_id,
+        session_id,
+        body.submission,
+        settings=settings,
+        client=client,
+    )
+    return SubmitResult(
+        attempt_id=outcome.attempt.id,
+        passed=outcome.grading.passed,
+        score=outcome.grading.score,
+        feedback=outcome.grading.feedback,
+        phase_completed=outcome.phase_completed,
+    )
+
+
+@router.get("/{session_id}/attempts", response_model=list[AttemptInfo])
+async def get_attempts(
+    session_id: uuid.UUID,
+    user_id: InternalUserId,
+    session: DbSession,
+) -> list[AttemptInfo]:
+    rows = await list_attempts(session, user_id, session_id)
+    return [attempt_info(row) for row in rows]

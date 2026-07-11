@@ -1,0 +1,7 @@
+{
+  "id": "sql",
+  "versions": ["default"],
+  "default_version": "default",
+  "piston_runtime": "sqlite3",
+  "lsp": "sqls"
+}
