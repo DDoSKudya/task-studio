@@ -1,0 +1,38 @@
+{
+  "title": "JavaScript Algorithms",
+  "version": "1.0.0",
+  "locale": "en",
+  "topics": [
+    {
+      "id": "intro",
+      "title": "Intro",
+      "study": ["theory-js"],
+      "practice": ["code-hello"],
+      "assess": []
+    }
+  ],
+  "steps": {
+    "theory-js": {
+      "id": "theory-js",
+      "kind": "theory",
+      "title": "What is JavaScript",
+      "phase": "study",
+      "fidelity": "full",
+      "payload": { "content": "JavaScript runs in browsers and on servers." }
+    },
+    "code-hello": {
+      "id": "code-hello",
+      "kind": "code",
+      "title": "Console log",
+      "phase": "practice",
+      "fidelity": "full",
+      "payload": {
+        "runtime": "javascript",
+        "runtime_version": "22",
+        "template": "function hello() { return 'hello'; }\n",
+        "tests": [{ "input": [], "output": "hello" }]
+      }
+    }
+  },
+  "course_assess": []
+}

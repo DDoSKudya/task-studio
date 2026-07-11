@@ -1,0 +1,63 @@
+{
+  "title": "Intro Python",
+  "version": "1.0.0",
+  "locale": "en",
+  "topics": [
+    {
+      "id": "basics",
+      "title": "Python basics",
+      "study": ["theory-hello", "video-intro"],
+      "practice": ["code-sum"],
+      "assess": ["quiz-types"]
+    }
+  ],
+  "steps": {
+    "theory-hello": {
+      "id": "theory-hello",
+      "kind": "theory",
+      "title": "Hello Python",
+      "phase": "study",
+      "fidelity": "full",
+      "payload": {
+        "content": "Python uses indentation to define code blocks."
+      }
+    },
+    "video-intro": {
+      "id": "video-intro",
+      "kind": "video",
+      "title": "Python overview",
+      "phase": "study",
+      "fidelity": "partial",
+      "payload": {
+        "asset_id": "videos/intro.mp4",
+        "note": "video URL not available in fixture import"
+      }
+    },
+    "code-sum": {
+      "id": "code-sum",
+      "kind": "code",
+      "title": "Sum two numbers",
+      "phase": "practice",
+      "fidelity": "full",
+      "payload": {
+        "runtime": "python",
+        "runtime_version": "3.12",
+        "template": "def solve(a: int, b: int) -> int:\n    return a + b\n",
+        "tests": [{ "input": [2, 3], "output": 5 }]
+      }
+    },
+    "quiz-types": {
+      "id": "quiz-types",
+      "kind": "quiz",
+      "title": "Python types",
+      "phase": "assess",
+      "fidelity": "full",
+      "payload": {
+        "question": "Which type is immutable?",
+        "choices": ["list", "dict", "tuple", "set"],
+        "answer": 2
+      }
+    }
+  },
+  "course_assess": []
+}

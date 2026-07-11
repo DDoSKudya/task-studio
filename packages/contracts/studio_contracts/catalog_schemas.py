@@ -54,3 +54,13 @@ class ActivatePackRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     version: str = Field(min_length=1, max_length=64)
+
+
+class RegisterImportedPackRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    manifest: dict[str, object]
+    disk_path: str = Field(min_length=1)
+    external_id: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    import_report: dict[str, object] | None = None

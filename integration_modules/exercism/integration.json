@@ -1,0 +1,17 @@
+{
+  "id": "exercism",
+  "version": "1.0.0",
+  "display_name": "Exercism",
+  "capabilities": {
+    "import_course": true,
+    "search_catalog": true,
+    "requires_auth": false,
+    "content_types": ["code"]
+  },
+  "entrypoints": {
+    "health": "importer:health",
+    "import": "importer:import_course",
+    "search": "importer:search_remote",
+    "list_catalog": "importer:list_catalog"
+  }
+}

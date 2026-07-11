@@ -1,0 +1,33 @@
+{
+  "title": "OLX Course Bundle",
+  "version": "1.0.0",
+  "locale": "en",
+  "topics": [
+    {
+      "id": "module-1",
+      "title": "Module 1",
+      "study": ["theory-intro", "video-lesson"],
+      "practice": [],
+      "assess": []
+    }
+  ],
+  "steps": {
+    "theory-intro": {
+      "id": "theory-intro",
+      "kind": "theory",
+      "title": "Course intro",
+      "phase": "study",
+      "fidelity": "full",
+      "payload": { "content": "Welcome to the OLX course bundle." }
+    },
+    "video-lesson": {
+      "id": "video-lesson",
+      "kind": "video",
+      "title": "Lesson video",
+      "phase": "study",
+      "fidelity": "partial",
+      "payload": { "asset_id": "videos/lesson.mp4" }
+    }
+  },
+  "course_assess": []
+}

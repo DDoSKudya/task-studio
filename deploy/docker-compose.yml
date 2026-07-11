@@ -112,6 +112,8 @@ services:
       MEDIA_SERVICE_URL: http://media:8009
       SESSIONS_SERVICE_URL: http://sessions:8003
       TUTOR_SERVICE_URL: http://tutor:8006
+      INTEGRATIONS_SERVICE_URL: http://integrations:8005
+      SEARCH_SERVICE_URL: http://search:8007
       ORCHESTRATOR_SERVICE_URL: http://orchestrator:8011
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
       LSP_PYRIGHT_HOST: lsp-pyright
@@ -242,11 +244,33 @@ services:
     environment:
       <<: *backend-env
       PORT: "8005"
+      INTEGRATION_MODULES_ROOT: /app/integration_modules
+      PACKS_ROOT: /data/packs
+      CATALOG_SERVICE_URL: http://catalog:8002
+    volumes:
+      - ../integration_modules:/app/integration_modules:ro
+      - ../data/packs:/data/packs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - ../data/meilisearch:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   tutor:
     <<: *backend
@@ -301,6 +325,12 @@ services:
     environment:
       <<: *backend-env
       PORT: "8007"
+      MEILISEARCH_URL: http://meilisearch:7700
+      CATALOG_SERVICE_URL: http://catalog:8002
+      OLLAMA_URL: http://ollama:11434
+    depends_on:
+      meilisearch:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
       interval: 30s

@@ -17,6 +17,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock ./
 COPY packages/python-common packages/python-common
+COPY packages/contracts packages/contracts
 COPY services/search services/search
 
 RUN uv sync --package studio-search --no-dev --frozen || uv sync --package studio-search --no-dev

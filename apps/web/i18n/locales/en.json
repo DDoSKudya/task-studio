@@ -80,5 +80,25 @@
       "hintsFailed": "Could not load hints",
       "chatFailed": "Tutor is unavailable"
     }
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search courses and steps...",
+    "submit": "Search",
+    "loading": "Searching...",
+    "empty": "No results found.",
+    "import": "Import",
+    "errors": {
+      "failed": "Search failed",
+      "importFailed": "Import could not be started"
+    },
+    "sources": {
+      "local": "Local",
+      "stepik": "Stepik",
+      "exercism": "Exercism",
+      "freecodecamp": "freeCodeCamp",
+      "olx": "OLX",
+      "moodle": "Moodle"
+    }
   }
 }

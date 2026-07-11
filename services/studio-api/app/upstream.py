@@ -39,12 +39,13 @@ async def call_service(
     user_id: uuid.UUID | None = None,
     json: dict[str, object] | None = None,
     files: dict[str, tuple[str, bytes, str]] | None = None,
+    params: dict[str, str | int] | None = None,
 ) -> httpx.Response:
     url = f"{base_url}{path}"
     headers = {"X-User-Id": str(user_id)} if user_id is not None else None
     match method:
         case "get":
-            return await client.get(url, headers=headers)
+            return await client.get(url, headers=headers, params=params)
         case "post":
             return await client.post(url, headers=headers, json=json, files=files)
         case "patch":

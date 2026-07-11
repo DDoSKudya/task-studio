@@ -1,0 +1,18 @@
+{
+  "id": "stepik",
+  "version": "1.0.0",
+  "display_name": "Stepik",
+  "capabilities": {
+    "import_course": true,
+    "search_catalog": true,
+    "requires_auth": true,
+    "content_types": ["quiz", "code", "theory", "video"]
+  },
+  "auth": { "type": "oauth2", "settings_fields": ["client_id", "client_secret"] },
+  "entrypoints": {
+    "health": "importer:health",
+    "import": "importer:import_course",
+    "search": "importer:search_remote",
+    "list_catalog": "importer:list_catalog"
+  }
+}

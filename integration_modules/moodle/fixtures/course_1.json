@@ -1,0 +1,37 @@
+{
+  "title": "Moodle Intro Course",
+  "version": "1.0.0",
+  "locale": "en",
+  "topics": [
+    {
+      "id": "week-1",
+      "title": "Week 1",
+      "study": ["theory-notes"],
+      "practice": [],
+      "assess": ["quiz-check"]
+    }
+  ],
+  "steps": {
+    "theory-notes": {
+      "id": "theory-notes",
+      "kind": "theory",
+      "title": "Lecture notes",
+      "phase": "study",
+      "fidelity": "full",
+      "payload": { "content": "Moodle lecture notes content." }
+    },
+    "quiz-check": {
+      "id": "quiz-check",
+      "kind": "quiz",
+      "title": "Week quiz",
+      "phase": "assess",
+      "fidelity": "full",
+      "payload": {
+        "question": "2 + 2 = ?",
+        "choices": ["3", "4", "5"],
+        "answer": 1
+      }
+    }
+  },
+  "course_assess": []
+}

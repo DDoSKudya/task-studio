@@ -80,5 +80,25 @@
       "hintsFailed": "Не удалось загрузить подсказки",
       "chatFailed": "Наставник недоступен"
     }
+  },
+  "search": {
+    "title": "Поиск",
+    "placeholder": "Поиск курсов и шагов...",
+    "submit": "Искать",
+    "loading": "Поиск...",
+    "empty": "Ничего не найдено.",
+    "import": "Импортировать",
+    "errors": {
+      "failed": "Ошибка поиска",
+      "importFailed": "Не удалось запустить импорт"
+    },
+    "sources": {
+      "local": "Локальный",
+      "stepik": "Stepik",
+      "exercism": "Exercism",
+      "freecodecamp": "freeCodeCamp",
+      "olx": "OLX",
+      "moodle": "Moodle"
+    }
   }
 }
