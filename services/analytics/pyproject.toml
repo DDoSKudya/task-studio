@@ -8,6 +8,8 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "alembic>=1.14",
     "clickhouse-connect>=0.8",
+    "aio-pika>=9.5",
+    "redis>=5.2",
 ]
 
 [tool.uv.sources]

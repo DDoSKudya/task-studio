@@ -7,7 +7,7 @@ import pytest
 from studio_contracts.integration_schemas import ImportReport
 from studio_contracts.pack import validate_manifest
 from studio_integration_sdk.registry import discover_adapters
-from support import load_integrations_module
+from integrations_test_util import load_integrations_module
 
 
 @pytest.fixture

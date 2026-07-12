@@ -2,15 +2,23 @@ set dotenv-load := true
 
 compose := "docker compose -f deploy/docker-compose.yml --env-file .env"
 profile := "full"
+editor_profile := "editor"
 
 default:
     @just --list
 
-up:
-    {{compose}} --profile {{profile}} up -d --build
+up mode="":
+    #!/usr/bin/env bash
+    set -eo pipefail
+    if [ -n "{{mode}}" ]; then export ORCHESTRATOR_MODE="{{mode}}"; fi
+    profiles="--profile {{profile}}"
+    if [ "${ORCHESTRATOR_MODE:-balancing}" != "power_saving" ]; then
+      profiles="$profiles --profile {{editor_profile}}"
+    fi
+    {{compose}} $profiles up -d --build
 
 down:
-    {{compose}} --profile {{profile}} down
+    {{compose}} --profile {{profile}} --profile {{editor_profile}} down
 
 logs service:
     {{compose}} logs -f {{service}}

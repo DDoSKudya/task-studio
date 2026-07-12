@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from import_util import load_service_module
+from tutor_test_util import load_service_module
 
 
 def test_load_fallback_rules_has_code_hints() -> None:

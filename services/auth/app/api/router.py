@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
+from app.domain.tutor_llm import summarize_tutor_llm
 from app.domain.users import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
@@ -25,6 +27,7 @@ from studio_common.auth_schemas import (
     SettingsPatch,
     UserProfile,
 )
+from studio_contracts.orchestrator_schemas import TutorLlmSummaryResponse
 
 router = APIRouter(prefix="/internal/v1/auth", tags=["auth"])
 
@@ -68,6 +71,17 @@ type DbSession = Annotated[AsyncSession, Depends(get_db)]
 type UserId = Annotated[uuid.UUID, Depends(get_user_id)]
 
 
+def verify_system_token(
+    x_system_token: Annotated[str | None, Header(alias="X-System-Token")] = None,
+) -> None:
+    expected = os.getenv("ORCHESTRATOR_SYSTEM_TOKEN", "").strip()
+    if expected and x_system_token != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid system token")
+
+
+type SystemAuth = Annotated[None, Depends(verify_system_token)]
+
+
 async def _user_or_404(session: AsyncSession, user_id: uuid.UUID) -> User:
     try:
         return await get_user_by_id(session, user_id)
@@ -82,6 +96,11 @@ def _auth_success(user: User) -> AuthSuccess:
 async def _me_from_user(session: AsyncSession, user: User) -> MeResponse:
     settings = await list_user_settings(session, user.id)
     return MeResponse(user=UserProfile.model_validate(user), settings=settings)
+
+
+@router.get("/tutor-llm/summary", response_model=TutorLlmSummaryResponse)
+async def tutor_llm_summary(_auth: SystemAuth, session: DbSession) -> TutorLlmSummaryResponse:
+    return await summarize_tutor_llm(session)
 
 
 @router.post("/register", response_model=AuthSuccess, status_code=status.HTTP_201_CREATED)

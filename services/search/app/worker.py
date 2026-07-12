@@ -7,6 +7,11 @@ import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from meilisearch.client import Client
+from studio_common.orchestrator_flags import (
+    PAUSE_SEARCH_INDEX_KEY,
+    orchestrator_flag_enabled,
+    redis_url_from_env,
+)
 from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 
 from app.config import SearchSettings
@@ -32,6 +37,9 @@ def start_index_worker(
             dlq = await declare_dlq(channel, settings.search_index_queue)
 
             async def handle(payload: dict[str, object], _message: AbstractIncomingMessage) -> None:
+                redis_url = redis_url_from_env()
+                while await orchestrator_flag_enabled(redis_url, PAUSE_SEARCH_INDEX_KEY):
+                    await asyncio.sleep(5)
                 op = str(payload.get("op", "upsert"))
                 user_id = uuid.UUID(str(payload["user_id"]))
                 if op == "upsert_external":

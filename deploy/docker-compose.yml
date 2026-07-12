@@ -150,6 +150,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+      ORCHESTRATOR_SYSTEM_TOKEN: ${ORCHESTRATOR_SYSTEM_TOKEN:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -439,20 +440,73 @@ services:
       retries: 3
 
   orchestrator:
-    <<: *backend
     profiles: [full]
     build:
       context: ..
       dockerfile: services/orchestrator/Dockerfile
+    restart: unless-stopped
+    networks: [internal]
+    group_add:
+      - "${DOCKER_GID:-988}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./orchestrator/policies.yaml:/etc/task-studio/policies.yaml:ro
     environment:
-      <<: *backend-env
       PORT: "8011"
-      ORCHESTRATOR_MODE: ${ORCHESTRATOR_MODE}
+      ORCHESTRATOR_MODE: ${ORCHESTRATOR_MODE:-balancing}
+      ORCHESTRATOR_POLICIES_PATH: /etc/task-studio/policies.yaml
+      ORCHESTRATOR_SYSTEM_TOKEN: ${ORCHESTRATOR_SYSTEM_TOKEN:-}
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-task-studio}
+      PROMETHEUS_URL: http://prometheus:9090
+      NODE_EXPORTER_URL: http://node-exporter:9100
+      PYROSCOPE_URL: http://pyroscope:4040
+      AUTH_SERVICE_URL: http://auth:8001
+      REDIS_URL: ${REDIS_URL}
+      TUTOR_DEFAULT_PROVIDER_URL: ${TUTOR_DEFAULT_PROVIDER_URL:-}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+      auth:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+    pid: host
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  pyroscope:
+    image: grafana/pyroscope:1.12.0
+    profiles: [full]
+    restart: unless-stopped
+    networks: [internal]
+    ports:
+      - "4040:4040"
 
   lsp-pyright:
     build:

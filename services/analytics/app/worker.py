@@ -6,6 +6,11 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from clickhouse_connect.driver.client import Client
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from studio_common.orchestrator_flags import (
+    ANALYTICS_BATCH_SLEEP_KEY,
+    orchestrator_analytics_sleep_seconds,
+    redis_url_from_env,
+)
 from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 
 from app.config import AnalyticsSettings
@@ -31,6 +36,12 @@ def start_events_worker(
             dlq = await declare_dlq(channel, settings.analytics_events_queue)
 
             async def handle(payload: dict[str, object], _message: AbstractIncomingMessage) -> None:
+                sleep_seconds = await orchestrator_analytics_sleep_seconds(
+                    redis_url_from_env(),
+                    ANALYTICS_BATCH_SLEEP_KEY,
+                )
+                if sleep_seconds:
+                    await asyncio.sleep(sleep_seconds)
                 event = parse_event_message(payload)
                 async with session_factory() as session:
                     await process_event(

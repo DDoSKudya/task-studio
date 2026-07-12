@@ -8,6 +8,7 @@ dependencies = [
     "studio-integration-sdk",
     "httpx>=0.28",
     "aio-pika>=9.5",
+    "redis>=5.2",
     "uvicorn[standard]>=0.32",
     "alembic>=1.14",
 ]
