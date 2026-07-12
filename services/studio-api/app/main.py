@@ -14,9 +14,9 @@ from studio_common.middleware import register_request_id_middleware
 from studio_common.otel import configure_otel
 
 from app.api.analytics import router as analytics_router
-from app.api.integrations import router as integrations_router
 from app.api.auth import router as auth_router
 from app.api.catalog import router as catalog_router
+from app.api.integrations import router as integrations_router
 from app.api.media import router as media_router
 from app.api.sessions import router as sessions_router
 from app.api.studio import router as studio_router

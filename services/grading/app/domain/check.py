@@ -97,9 +97,7 @@ async def grade_code(
     duration_ms = int((time.perf_counter() - started) * 1000)
     stderr = piston_result.get("stderr")
     feedback = (
-        stderr
-        if isinstance(stderr, str) and stderr
-        else ("tests failed" if not passed else None)
+        stderr if isinstance(stderr, str) and stderr else ("tests failed" if not passed else None)
     )
     return CheckOutcome(
         passed=passed,

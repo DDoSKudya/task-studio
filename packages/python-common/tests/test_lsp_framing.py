@@ -13,6 +13,6 @@ async def test_read_lsp_message_parses_framed_body() -> None:
     import asyncio
 
     reader = asyncio.StreamReader()
-    reader.feed_data(b"Content-Length: 12\r\n\r\n{\"ok\": true}")
+    reader.feed_data(b'Content-Length: 12\r\n\r\n{"ok": true}')
     message = await read_lsp_message(reader)
     assert message == '{"ok": true}'

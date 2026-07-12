@@ -161,9 +161,10 @@ async def submit(
         client=client,
     )
     events = [submit_event(learning_session, outcome.attempt, outcome.grading)]
-    if outcome.status == "completed":
-        if completed := step_completed_event(learning_session, outcome.attempt, outcome.grading):
-            events.append(completed)
+    if outcome.status == "completed" and (
+        completed := step_completed_event(learning_session, outcome.attempt, outcome.grading)
+    ):
+        events.append(completed)
     await publish_analytics_events(settings, events)
     return SubmitResult(
         attempt_id=outcome.attempt.id,
@@ -191,7 +192,11 @@ async def complete_attempt_endpoint(
         details=body.details,
     )
     if outcome.learning_session is not None and (
-        completed := step_completed_event(outcome.learning_session, outcome.attempt, outcome.grading)
+        completed := step_completed_event(
+            outcome.learning_session,
+            outcome.attempt,
+            outcome.grading,
+        )
     ):
         await publish_analytics_events(settings, [completed])
 

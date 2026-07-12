@@ -126,9 +126,7 @@ def _require_active(learning_session: Session) -> None:
 
 async def list_sessions(session: AsyncSession, user_id: uuid.UUID) -> list[Session]:
     result = await session.execute(
-        select(Session)
-        .where(Session.user_id == user_id)
-        .order_by(Session.updated_at.desc())
+        select(Session).where(Session.user_id == user_id).order_by(Session.updated_at.desc())
     )
     return list(result.scalars())
 
