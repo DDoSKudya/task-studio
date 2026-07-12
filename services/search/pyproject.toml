@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.28",
     "meilisearch>=0.34",
     "aio-pika>=9.5",
+    "redis>=5.2",
     "uvicorn[standard]>=0.32",
 ]
 

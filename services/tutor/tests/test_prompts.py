@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from import_util import load_service_module
+from tutor_test_util import load_service_module
 
 
 def test_system_prompt_replaces_placeholders() -> None:

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from studio_contracts.analytics_schemas import AnalyticsEventMessage
-from support import load_analytics_module
+from analytics_test_util import load_analytics_module
 
 events = load_analytics_module("app.domain.events")
 parse_event_message = events.parse_event_message

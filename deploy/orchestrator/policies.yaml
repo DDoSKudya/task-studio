@@ -1,0 +1,27 @@
+balancing:
+  ollama:
+    idle_stop_minutes: 30
+    min_free_ram_mb: 1536
+  lsp:
+    idle_stop_minutes: 15
+  meilisearch:
+    pause_indexing_below_ram_mb: 1536
+  grading_cpu_defer_ollama: 0.5
+
+maximum:
+  min_free_ram_warning_mb: 1638
+
+power_saving:
+  allow_background_import: false
+  analytics_batch_sleep_seconds: 60
+
+loop_interval_seconds: 30
+
+managed_services:
+  ollama: ollama
+  lab_runner: lab-runner
+  lsp:
+    - lsp-pyright
+    - lsp-typescript
+    - lsp-gopls
+    - lsp-sqls

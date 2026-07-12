@@ -49,6 +49,7 @@ testpaths = [
     "services/integrations/tests",
     "services/analytics/tests",
     "services/lab-runner/tests",
+    "services/orchestrator/tests",
 ]
 pythonpath = [
     "packages/python-common/src",
@@ -58,6 +59,7 @@ pythonpath = [
     "services/sessions",
     "services/tutor",
     "services/analytics/tests",
+    "services/orchestrator",
 ]
 
 [tool.mypy]
@@ -164,6 +166,29 @@ extraPaths = [
     "../../../packages/contracts",
     "..",
     ".",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/orchestrator"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/orchestrator/tests"
+extraPaths = [
+    "../../../packages/python-common/src",
+    "../../../packages/contracts",
+    "..",
+    ".",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "services/lab-runner"
+extraPaths = [
+    "../../packages/python-common/src",
+    "../../packages/contracts",
 ]
 
 [[tool.pyright.executionEnvironments]]
