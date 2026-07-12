@@ -66,10 +66,7 @@ async def grading_cpu_hot(
 ) -> bool:
     if await _pyroscope_grading_hot(client, pyroscope_url):
         return True
-    query = (
-        'sum(rate(container_cpu_usage_seconds_total{name=~".*grading.*"}[2m])) '
-        f"> {threshold}"
-    )
+    query = f'sum(rate(container_cpu_usage_seconds_total{{name=~".*grading.*"}}[2m])) > {threshold}'
     return await _prometheus_query_matches(client, prometheus_url, query)
 
 

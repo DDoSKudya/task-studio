@@ -1,0 +1,71 @@
+name: Publish images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag
+        required: true
+        default: latest
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Resolve image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve registry settings
+        id: registry
+        run: |
+          if [ -n "${DOCKER_REGISTRY}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "host=${DOCKER_REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require registry for tag releases
+        if: github.event_name == 'push' && steps.registry.outputs.configured != 'true'
+        run: |
+          echo "::error::DOCKER_REGISTRY secret is required for tag releases"
+          exit 1
+
+      - name: Log in to registry
+        if: steps.registry.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.registry.outputs.host }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/bake-action@v6
+        with:
+          files: deploy/docker-bake.hcl
+          push: ${{ steps.registry.outputs.configured == 'true' }}
+          set: |
+            REGISTRY=${{ env.DOCKER_REGISTRY }}
+            TAG=${{ steps.meta.outputs.tag }}

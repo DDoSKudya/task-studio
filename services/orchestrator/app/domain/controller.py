@@ -61,9 +61,7 @@ class OrchestratorController:
         if self._state.mode == "balancing":
             await self._refresh_balancing_signals()
 
-        self._state.managed_running = await self._docker.managed_status(
-            self._managed.all_names()
-        )
+        self._state.managed_running = await self._docker.managed_status(self._managed.all_names())
 
         match self._state.mode:
             case "maximum":

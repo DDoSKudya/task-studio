@@ -1,6 +1,6 @@
 target-version = "py312"
 line-length = 100
-src = ["packages", "services"]
+src = ["packages", "services", "scripts"]
 
 [lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]

@@ -9,8 +9,8 @@ from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from studio_common.orchestrator_flags import (
     PAUSE_IMPORT_KEY,
-    orchestrator_flag_enabled,
     redis_url_from_env,
+    wait_while_orchestrator_paused,
 )
 from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 from studio_integration_sdk.registry import AdapterModule
@@ -42,8 +42,7 @@ def start_import_worker(
 
             async def handle(payload: dict[str, object], _message: AbstractIncomingMessage) -> None:
                 redis_url = redis_url_from_env()
-                while await orchestrator_flag_enabled(redis_url, PAUSE_IMPORT_KEY):
-                    await asyncio.sleep(5)
+                await wait_while_orchestrator_paused(redis_url, PAUSE_IMPORT_KEY)
                 job_id = uuid.UUID(str(payload["job_id"]))
                 user_id = uuid.UUID(str(payload["user_id"]))
                 platform_id = str(payload["platform_id"])

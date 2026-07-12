@@ -1,0 +1,6 @@
+apiVersion: v2
+name: task-studio
+description: Task Studio self-hosted stack (skeleton chart)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

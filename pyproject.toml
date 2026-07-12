@@ -26,6 +26,7 @@ dev = [
     "redis>=5.2",
     "clickhouse-connect>=0.8",
     "alembic>=1.14",
+    "pre-commit>=4.0",
 ]
 
 [tool.uv.sources]
@@ -58,6 +59,8 @@ pythonpath = [
     "services/grading",
     "services/sessions",
     "services/tutor",
+    "services/tutor/tests",
+    "services/integrations/tests",
     "services/analytics/tests",
     "services/orchestrator",
 ]
@@ -121,51 +124,51 @@ extraPaths = [
 [[tool.pyright.executionEnvironments]]
 root = "services/tutor/tests"
 extraPaths = [
-    "../../../packages/python-common/src",
-    "../../../packages/contracts",
-    "..",
-    ".",
+    "packages/python-common/src",
+    "packages/contracts",
+    "services/tutor",
+    "services/tutor/tests",
 ]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/integrations"
 extraPaths = [
-    "../../packages/python-common/src",
-    "../../packages/contracts",
-    "../../packages/integration-sdk",
+    "packages/python-common/src",
+    "packages/contracts",
+    "packages/integration-sdk",
 ]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/integrations/tests"
 extraPaths = [
-    "../../../packages/python-common/src",
-    "../../../packages/contracts",
-    "../../../packages/integration-sdk",
-    "..",
-    ".",
+    "packages/python-common/src",
+    "packages/contracts",
+    "packages/integration-sdk",
+    "services/integrations",
+    "services/integrations/tests",
 ]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/search"
 extraPaths = [
-    "../../packages/python-common/src",
-    "../../packages/contracts",
+    "packages/python-common/src",
+    "packages/contracts",
 ]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/analytics"
 extraPaths = [
-    "../../packages/python-common/src",
-    "../../packages/contracts",
+    "packages/python-common/src",
+    "packages/contracts",
 ]
 
 [[tool.pyright.executionEnvironments]]
 root = "services/analytics/tests"
 extraPaths = [
-    "../../../packages/python-common/src",
-    "../../../packages/contracts",
-    "..",
-    ".",
+    "packages/python-common/src",
+    "packages/contracts",
+    "services/analytics",
+    "services/analytics/tests",
 ]
 
 [[tool.pyright.executionEnvironments]]

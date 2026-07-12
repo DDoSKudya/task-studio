@@ -18,9 +18,7 @@ log = structlog.get_logger("grading.lab")
 
 
 async def get_lab_result(session: AsyncSession, attempt_id: uuid.UUID) -> GradingResult | None:
-    row = await session.execute(
-        select(GradingResult).where(GradingResult.attempt_id == attempt_id)
-    )
+    row = await session.execute(select(GradingResult).where(GradingResult.attempt_id == attempt_id))
     return row.scalar_one_or_none()
 
 

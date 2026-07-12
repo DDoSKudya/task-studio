@@ -44,7 +44,9 @@ def load_settings() -> StudioApiSettings:
             "http://integrations:8005",
         ).rstrip("/"),
         search_service_url=os.getenv("SEARCH_SERVICE_URL", "http://search:8007").rstrip("/"),
-        analytics_service_url=os.getenv("ANALYTICS_SERVICE_URL", "http://analytics:8008").rstrip("/"),
+        analytics_service_url=os.getenv("ANALYTICS_SERVICE_URL", "http://analytics:8008").rstrip(
+            "/"
+        ),
         orchestrator_service_url=os.getenv(
             "ORCHESTRATOR_SERVICE_URL",
             "http://orchestrator:8011",

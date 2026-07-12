@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "task-studio.fullname" . }}-studio-api
+  labels:
+    {{- include "task-studio.labels" . | nindent 4 }}
+    app.kubernetes.io/component: studio-api
+spec:
+  replicas: {{ .Values.studioApi.replicas }}
+  selector:
+    matchLabels:
+      {{- include "task-studio.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: studio-api
+  template:
+    metadata:
+      labels:
+        {{- include "task-studio.labels" . | nindent 8 }}
+        app.kubernetes.io/component: studio-api
+    spec:
+      containers:
+        - name: studio-api
+          image: {{ include "task-studio.image" (dict "Values" .Values "image" "studio-api") }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.studioApi.port }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

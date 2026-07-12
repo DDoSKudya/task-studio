@@ -8,11 +8,12 @@ from datetime import UTC, datetime
 import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
+
 from app.config import LabRunnerSettings
 from app.domain.runner import LabRunOutcome, run_lab
 from app.infra.models import LabRun
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 
 log = structlog.get_logger("lab_runner.worker")
 
@@ -67,7 +68,12 @@ async def _process_job(
         timeout=30,
     )
     response.raise_for_status()
-    log.info("lab_run_completed", lab_run_id=str(lab_run_id), attempt_id=str(attempt_id), passed=outcome.passed)
+    log.info(
+        "lab_run_completed",
+        lab_run_id=str(lab_run_id),
+        attempt_id=str(attempt_id),
+        passed=outcome.passed,
+    )
 
 
 async def _mark_running(

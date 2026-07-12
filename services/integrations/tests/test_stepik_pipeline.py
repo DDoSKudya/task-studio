@@ -4,10 +4,10 @@ import uuid
 from pathlib import Path
 
 import pytest
+from integrations_helpers.loaders import load_integrations_module
 from studio_contracts.integration_schemas import ImportReport
 from studio_contracts.pack import validate_manifest
 from studio_integration_sdk.registry import discover_adapters
-from integrations_test_util import load_integrations_module
 
 
 @pytest.fixture

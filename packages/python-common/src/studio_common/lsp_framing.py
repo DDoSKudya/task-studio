@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 
 def encode_lsp_message(content: str) -> bytes:
     body = content.encode("utf-8")
@@ -7,7 +9,7 @@ def encode_lsp_message(content: str) -> bytes:
     return header + body
 
 
-async def read_lsp_message(reader) -> str | None:
+async def read_lsp_message(reader: asyncio.StreamReader) -> str | None:
     headers: dict[str, str] = {}
     while True:
         line = await reader.readline()

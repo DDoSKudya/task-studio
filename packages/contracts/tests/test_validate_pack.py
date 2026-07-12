@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import jsonschema
 import pytest
 from studio_contracts.fixtures import build_sample_pack_bytes
 from studio_contracts.pack import (
@@ -33,7 +32,7 @@ def test_validate_pack_accepts_valid_manifest(tmp_path: Path) -> None:
 def test_validate_pack_rejects_invalid_schema(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps({"title": "missing required fields"}), encoding="utf-8")
-    with pytest.raises(jsonschema.ValidationError):
+    with pytest.raises(ValueError, match="schema_version"):
         validate_pack_file(manifest)
 
 
@@ -94,5 +93,5 @@ def test_main_returns_0_for_valid_manifest(
 def test_validate_manifest_rejects_missing_steps() -> None:
     broken = dict(VALID_MANIFEST)
     broken.pop("steps")
-    with pytest.raises(jsonschema.ValidationError):
+    with pytest.raises(ValueError, match="steps"):
         validate_manifest(broken)

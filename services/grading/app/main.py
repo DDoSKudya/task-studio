@@ -9,10 +9,6 @@ import httpx
 import structlog
 from alembic import command
 from alembic.config import Config
-from app.api.router import router as grading_router
-from app.config import load_settings
-from app.domain.check import GradingError
-from app.worker import start_grading_worker
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -21,6 +17,11 @@ from studio_common.db import create_engine, create_session_factory
 from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
 from studio_common.otel import configure_otel
+
+from app.api.router import router as grading_router
+from app.config import load_settings
+from app.domain.check import GradingError
+from app.worker import start_grading_worker
 
 
 def _run_migrations() -> None:

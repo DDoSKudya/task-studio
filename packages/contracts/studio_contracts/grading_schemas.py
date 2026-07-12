@@ -42,4 +42,3 @@ class GradingLabCompleteRequest(BaseModel):
     feedback: str | None = None
     details: dict[str, object] = Field(default_factory=dict)
     duration_ms: int = 0
-
