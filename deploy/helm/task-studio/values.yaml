@@ -1,0 +1,18 @@
+imageRegistry: ghcr.io/task-studio
+imageTag: latest
+imagePullPolicy: IfNotPresent
+
+studioApi:
+  replicas: 1
+  port: 8000
+
+auth:
+  replicas: 1
+  port: 8001
+
+ingress:
+  enabled: false
+  host: task-studio.local
+  className: nginx
+
+resources: {}

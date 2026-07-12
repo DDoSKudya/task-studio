@@ -6,8 +6,8 @@ from pathlib import Path
 from types import ModuleType
 
 
-def load_integrations_module(module_name: str) -> ModuleType:
-    service_root = Path(__file__).resolve().parents[1]
+def load_service_module(module_name: str) -> ModuleType:
+    service_root = Path(__file__).resolve().parents[2]
     root = str(service_root)
     if root in sys.path:
         sys.path.remove(root)

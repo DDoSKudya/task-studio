@@ -1,0 +1,10 @@
+Task Studio Helm skeleton.
+
+Install (after images are published):
+
+  helm upgrade --install task-studio deploy/helm/task-studio \
+    --set imageRegistry=ghcr.io/your-org \
+    --set imageTag=latest
+
+This chart is a starting point for K3s deployments. Extend with Postgres, Redis,
+RabbitMQ, and remaining service Deployments as needed.

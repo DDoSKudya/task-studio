@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-packages
+      - name: Ruff check
+        run: uv run ruff check packages/python-common packages/contracts services scripts
+      - name: Ruff format
+        run: uv run ruff format --check packages/python-common packages/contracts services scripts
+      - name: Mypy
+        run: uv run mypy packages/python-common/src
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-packages
+      - name: Validate pack schema
+        run: uv run python scripts/validate_pack_schema.py
+      - name: Validate integration fixtures
+        run: uv run python scripts/validate_integration_fixtures.py
+      - name: Pytest
+        run: uv run pytest -q
+
+  vitest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install and test
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run test
+
