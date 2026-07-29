@@ -49,7 +49,16 @@ class AdapterCapabilities(BaseModel):
     import_course: bool = False
     search_catalog: bool = False
     requires_auth: bool = False
+    import_without_auth: bool = False
     content_types: list[str] = Field(default_factory=list)
+
+
+class AdapterAuthInfo(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    type: str | None = None
+    settings_fields: list[str] = Field(default_factory=list)
+    optional_settings_fields: list[str] = Field(default_factory=list)
 
 
 class AdapterInfo(BaseModel):
@@ -59,6 +68,7 @@ class AdapterInfo(BaseModel):
     version: str
     display_name: str
     capabilities: AdapterCapabilities
+    auth: AdapterAuthInfo | None = None
 
 
 class ExternalCourseSummary(BaseModel):
@@ -68,17 +78,50 @@ class ExternalCourseSummary(BaseModel):
     external_id: str
     title: str
     description: str = ""
+    author: str = ""
+    language: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+
+PlatformCatalogStatus = Literal[
+    "ready",
+    "needs_auth",
+    "error",
+    "empty",
+    "upload_only",
+    "unavailable",
+]
+
+
+class PlatformCatalogBlock(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    platform_id: str
+    display_name: str
+    requires_auth: bool = False
+    supports_catalog: bool = False
+    status: PlatformCatalogStatus
+    message: str | None = None
+    course_count: int = Field(default=0, ge=0)
+    courses: list[ExternalCourseSummary] = Field(default_factory=list)
+
+
+class DiscoverResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    platforms: list[PlatformCatalogBlock] = Field(default_factory=list)
+    courses: list[ExternalCourseSummary] = Field(default_factory=list)
 
 
 class StartImportRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     course_id: str = Field(min_length=1)
+                                                                              
+    force: bool = False
 
 
 class ImportJobResponse(BaseModel):
-    model_config = ConfigDict(strict=True)
-
     id: uuid.UUID
     platform_id: str
     external_course_id: str

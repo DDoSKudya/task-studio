@@ -1,9 +1,9 @@
-"""initial analytics schema
-
-Revision ID: 001
-Revises:
-Create Date: 2026-07-12
-"""
+\
+\
+\
+\
+\
+   
 
 from __future__ import annotations
 

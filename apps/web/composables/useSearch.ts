@@ -1,49 +1,55 @@
-export type SearchHit = {
-  id: string
-  kind: 'installed' | 'uploaded' | 'external'
-  title: string
-  description: string
-  source: string
-  platform: string | null
-  external_id: string | null
-  pack_id: string | null
-  pack_version_id: string | null
-  score: number
-}
+import type {
+  AdapterInfo,
+  DiscoverResponse,
+  ExternalCourseSummary,
+  ImportJobResponse,
+  PlatformCatalogBlock,
+  SearchResponse,
+} from '~/utils/search'
 
-export type SearchResponse = {
-  query: string
-  hits: SearchHit[]
-  total: number
-}
+export type {
+  AdapterInfo,
+  DiscoverResponse,
+  ExternalCourseSummary,
+  ImportJobResponse,
+  PlatformCatalogBlock,
+  PlatformCatalogStatus,
+  SearchHit,
+  SearchResponse,
+} from '~/utils/search'
 
-export type AdapterInfo = {
-  id: string
-  version: string
-  display_name: string
-  capabilities: {
-    import_course: boolean
-    search_catalog: boolean
-    requires_auth: boolean
-    content_types: string[]
+function normalizeDiscoverResponse(
+  raw: DiscoverResponse | ExternalCourseSummary[] | null | undefined,
+): DiscoverResponse {
+  if (Array.isArray(raw)) {
+    const courses = raw.filter(
+      (item): item is ExternalCourseSummary =>
+        Boolean(item && typeof item === 'object' && 'platform' in item && 'external_id' in item),
+    )
+    const byPlatform = new Map<string, ExternalCourseSummary[]>()
+    for (const course of courses) {
+      const bucket = byPlatform.get(course.platform) ?? []
+      bucket.push(course)
+      byPlatform.set(course.platform, bucket)
+    }
+    const platforms: PlatformCatalogBlock[] = Array.from(byPlatform.entries()).map(
+      ([platformId, platformCourses]) => ({
+        platform_id: platformId,
+        display_name: platformId,
+        requires_auth: false,
+        supports_catalog: true,
+        status: platformCourses.length ? 'ready' : 'empty',
+        message: null,
+        course_count: platformCourses.length,
+        courses: platformCourses,
+      }),
+    )
+    return { platforms, courses }
   }
-}
-
-export type ExternalCourseSummary = {
-  platform: string
-  external_id: string
-  title: string
-  description: string
-}
-
-export type ImportJobResponse = {
-  id: string
-  platform_id: string
-  external_course_id: string
-  status: string
-  pack_version_id: string | null
-  error: string | null
-  created_at: string
+  if (raw && typeof raw === 'object' && Array.isArray(raw.platforms) && Array.isArray(raw.courses)) {
+    return raw
+  }
+  return { platforms: [], courses: [] }
 }
 
 export function useSearch() {
@@ -65,17 +71,37 @@ export function useSearch() {
     return request<ExternalCourseSummary[]>(`/v1/integrations/${platform}/catalog`)
   }
 
-  async function startImport(platform: string, courseId: string) {
+  async function discoverCourses(query?: string) {
+    const params = new URLSearchParams()
+    if (query?.trim()) {
+      params.set('q', query.trim())
+    }
+    const suffix = params.size ? `?${params.toString()}` : ''
+    const raw = await request<DiscoverResponse | ExternalCourseSummary[]>(
+      `/v1/integrations/discover${suffix}`,
+    )
+    return normalizeDiscoverResponse(raw)
+  }
+
+  async function startImport(platform: string, courseId: string, options: { force?: boolean } = {}) {
     return request<ImportJobResponse>(`/v1/integrations/${platform}/import`, {
       method: 'POST',
-      body: { course_id: courseId },
+      body: { course_id: courseId, force: Boolean(options.force) },
     })
   }
 
-  async function importFromSearch(platform: string, externalId: string) {
+  async function importFromSearch(
+    platform: string,
+    externalId: string,
+    options: { force?: boolean } = {},
+  ) {
     return request<ImportJobResponse>('/v1/search/import', {
       method: 'POST',
-      body: { platform, external_id: externalId },
+      body: {
+        platform,
+        external_id: externalId,
+        force: Boolean(options.force),
+      },
     })
   }
 
@@ -87,6 +113,7 @@ export function useSearch() {
     search,
     listIntegrations,
     listPlatformCatalog,
+    discoverCourses,
     startImport,
     importFromSearch,
     getImportJob,

@@ -7,24 +7,19 @@ from contextlib import asynccontextmanager
 
 import httpx
 import structlog
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from studio_common.app import register_ops_routes
 from studio_common.db import create_engine, create_session_factory
 from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
+from studio_common.migrations import ensure_schema, upgrade_head
 from studio_common.otel import configure_otel
 from studio_integration_sdk.registry import discover_adapters
 
 from app.api.router import router as integrations_router
 from app.config import load_settings
-from app.worker import start_import_worker
-
-
-def _run_migrations() -> None:
-    command.upgrade(Config("alembic.ini"), "head")
+from app.worker import start_import_sweeper, start_import_worker
 
 
 def build_app() -> FastAPI:
@@ -38,10 +33,13 @@ def build_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine()
         worker_task: asyncio.Task[None] | None = None
+        sweeper_task: asyncio.Task[None] | None = None
         if engine is not None:
-            _run_migrations()
+            await ensure_schema(engine, "integrations")
+            await upgrade_head()
             app.state.db_session_factory = create_session_factory(engine)
         async with httpx.AsyncClient(timeout=120.0) as client:
+            app.state.http_client = client
             if engine is not None:
                 worker_task = start_import_worker(
                     settings,
@@ -49,12 +47,14 @@ def build_app() -> FastAPI:
                     client,
                     adapters,
                 )
+                sweeper_task = start_import_sweeper(app.state.db_session_factory)
             log.info("service_started")
             yield
-            if worker_task is not None:
-                worker_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await worker_task
+            for task in (sweeper_task, worker_task):
+                if task is not None:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
             if engine is not None:
                 await engine.dispose()
             log.info("service_stopped")

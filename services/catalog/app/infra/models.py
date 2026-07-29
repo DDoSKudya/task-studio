@@ -57,6 +57,7 @@ class PackVersion(Base):
     version: Mapped[str] = mapped_column(String(64), nullable=False)
     manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     disk_path: Mapped[str] = mapped_column(Text, nullable=False)
+    object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     import_report: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

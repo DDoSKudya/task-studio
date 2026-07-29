@@ -8,7 +8,6 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "argon2-cffi>=23.1",
     "alembic>=1.14",
-    "email-validator>=2.2",
 ]
 
 [tool.uv.sources]

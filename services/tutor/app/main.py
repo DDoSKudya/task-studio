@@ -21,10 +21,10 @@ from app.domain.errors import TutorError
 
 
 def _redis_from_env() -> Redis | None:
-    url = os.getenv("REDIS_URL", "").strip()
-    if not url:
+    if url := os.getenv("REDIS_URL", "").strip():
+        return Redis.from_url(url, decode_responses=False)
+    else:
         return None
-    return Redis.from_url(url, decode_responses=False)
 
 
 def build_app() -> FastAPI:

@@ -1,32 +1,77 @@
 <script setup lang="ts">
-const props = defineProps<{
-  sessionId: string
-  stepId: string
-  mode: 'hint' | 'chat'
-}>()
+import { LightBulbIcon, PaperAirplaneIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
-const { t } = useI18n()
+import { tutorMessageHtml } from '~/utils/tutor'
+
+const props = withDefaults(
+  defineProps<{
+    sessionId: string
+    stepId: string
+    stepKind?: string
+    mode: 'hint' | 'chat'
+    docked?: boolean
+  }>(),
+  {
+    docked: false,
+    stepKind: 'theory',
+  },
+)
+
+const { t, te } = useI18n()
 const { getHints, streamChat } = useTutor()
+const toasts = useToasts()
+const {
+  messages,
+  draft,
+  clear: clearChat,
+  append,
+  updateLastAssistant,
+  popLast,
+  historyBeforeSend,
+} = useTutorSessionChat(() => props.sessionId)
 
-const open = ref(false)
 const pending = ref(false)
+const hintsVisible = ref(false)
 const hints = ref<string[]>([])
-const messages = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
-const draft = ref('')
-const errorMessage = ref('')
+const messagesEl = ref<HTMLElement | null>(null)
+
+function bubbleHtml(content: string) {
+  return tutorMessageHtml(content)
+}
+
+watch(
+  () => props.stepId,
+  () => {
+    hints.value = []
+    hintsVisible.value = false
+  },
+)
 
 async function onShowHints() {
   pending.value = true
-  errorMessage.value = ''
   try {
     const response = await getHints(props.sessionId, props.stepId)
-    hints.value = response.hints
-    open.value = true
+    hints.value = localizeHints(response.hints, response.source)
+    hintsVisible.value = true
   } catch {
-    errorMessage.value = t('tutor.errors.hintsFailed')
+    toasts.error(t('tutor.errors.hintsFailed'))
   } finally {
     pending.value = false
   }
+}
+
+function localizeHints(raw: string[], source: 'fallback' | 'llm') {
+  if (source !== 'fallback') {
+    return raw
+  }
+  const localized: string[] = []
+  for (let index = 0; index < 4; index += 1) {
+    const key = `tutor.fallback.${props.stepKind}.${index}`
+    if (te(key)) {
+      localized.push(t(key))
+    }
+  }
+  return localized.length ? localized : raw
 }
 
 async function onSend() {
@@ -35,112 +80,175 @@ async function onSend() {
     return
   }
   pending.value = true
-  errorMessage.value = ''
-  messages.value.push({ role: 'user', content: message })
+  const history = historyBeforeSend()
+  append({ role: 'user', content: message })
   draft.value = ''
-  open.value = true
-
-  let assistant = ''
-  messages.value.push({ role: 'assistant', content: '' })
+  append({ role: 'assistant', content: '' })
+  await nextTick()
+  scrollMessages()
 
   try {
-    await streamChat(props.sessionId, message, (event) => {
-      if (event.type === 'token' && event.content) {
-        assistant += event.content
-        const last = messages.value.at(-1)
-        if (last?.role === 'assistant') {
-          last.content = assistant
+    await streamChat(
+      props.sessionId,
+      message,
+      (event) => {
+        if (event.type === 'token' && event.content) {
+          const last = messages.value.at(-1)
+          const next = `${last?.role === 'assistant' ? last.content : ''}${event.content}`
+          updateLastAssistant(next)
+          scrollMessages()
         }
-      }
-      if (event.type === 'error' && event.content) {
-        errorMessage.value = event.content
-      }
-    })
+        if (event.type === 'error' && event.content) {
+          toasts.error(event.content)
+        }
+      },
+      { history },
+    )
   } catch {
-    errorMessage.value = t('tutor.errors.chatFailed')
-    messages.value.pop()
+    toasts.error(t('tutor.errors.chatFailed'))
+    popLast()
+    popLast()
   } finally {
     pending.value = false
   }
 }
+
+function onClearChat() {
+  if (pending.value) {
+    return
+  }
+  clearChat()
+}
+
+function scrollMessages() {
+  const el = messagesEl.value
+  if (!el) {
+    return
+  }
+  el.scrollTop = el.scrollHeight
+}
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="flex flex-wrap gap-2">
-      <UButton
-        variant="outline"
-        :loading="pending && mode === 'hint'"
+  <div class="session-tutor" :class="{ 'session-tutor-docked': docked }">
+    <header v-if="docked" class="session-tutor-head">
+      <div>
+        <p class="session-tutor-kicker">{{ t('tutor.dockKicker') }}</p>
+        <h3 class="session-tutor-title">{{ t('tutor.dockTitle') }}</h3>
+      </div>
+      <div class="session-tutor-head-actions">
+        <button
+          class="session-tutor-tool"
+          type="button"
+          :disabled="pending || !messages.length"
+          :aria-label="t('tutor.clearHistory')"
+          :title="t('tutor.clearHistory')"
+          @click="onClearChat"
+        >
+          <TrashIcon class="icon-sm" aria-hidden="true" />
+          <span class="session-tutor-tool-label">{{ t('tutor.clearHistory') }}</span>
+        </button>
+        <button
+          class="session-tutor-tool session-tutor-tool-hint"
+          type="button"
+          :disabled="pending"
+          :aria-label="t('tutor.showHints')"
+          :title="t('tutor.showHints')"
+          @click="onShowHints"
+        >
+          <LightBulbIcon class="icon-sm" aria-hidden="true" />
+          <span class="session-tutor-tool-label">{{ t('tutor.showHints') }}</span>
+        </button>
+      </div>
+    </header>
+
+    <div v-else class="session-tutor-actions">
+      <button
+        class="session-tutor-tool"
+        type="button"
+        :disabled="pending || !messages.length"
+        :aria-label="t('tutor.clearHistory')"
+        :title="t('tutor.clearHistory')"
+        @click="onClearChat"
+      >
+        <TrashIcon class="icon-sm" aria-hidden="true" />
+        <span class="session-tutor-tool-label">{{ t('tutor.clearHistory') }}</span>
+      </button>
+      <button
+        class="session-tutor-tool session-tutor-tool-hint"
+        type="button"
+        :disabled="pending"
+        :aria-label="t('tutor.showHints')"
+        :title="t('tutor.showHints')"
         @click="onShowHints"
       >
-        {{ t('tutor.showHints') }}
-      </UButton>
-      <UButton
-        v-if="mode === 'chat'"
-        variant="soft"
-        @click="open = !open"
-      >
-        {{ open ? t('tutor.hideChat') : t('tutor.openChat') }}
-      </UButton>
+        <LightBulbIcon class="icon-sm" aria-hidden="true" />
+        <span class="session-tutor-tool-label">{{ t('tutor.showHints') }}</span>
+      </button>
     </div>
 
-    <p
-      v-if="errorMessage"
-      class="text-sm text-red-600"
-    >
-      {{ errorMessage }}
-    </p>
-
-    <UCard v-if="open">
-      <div
-        v-if="hints.length"
-        class="mb-4 space-y-2"
-      >
-        <p class="text-sm font-medium">
-          {{ t('tutor.hintsTitle') }}
-        </p>
-        <ul class="list-disc space-y-1 pl-5 text-sm">
-          <li
-            v-for="hint in hints"
-            :key="hint"
-          >
-            {{ hint }}
-          </li>
+    <div class="session-tutor-panel">
+      <div v-if="hintsVisible && hints.length" class="session-tutor-hints">
+        <p class="session-tutor-label">{{ t('tutor.hintsTitle') }}</p>
+        <ul>
+          <li v-for="hint in hints" :key="hint">{{ hint }}</li>
         </ul>
       </div>
 
-      <div
-        v-if="mode === 'chat'"
-        class="space-y-3"
-      >
-        <div class="max-h-48 space-y-2 overflow-y-auto text-sm">
-          <p
+      <div class="session-tutor-chat">
+        <div ref="messagesEl" class="session-tutor-messages">
+          <div
             v-for="(message, index) in messages"
             :key="index"
-            :class="message.role === 'user' ? 'text-muted' : ''"
+            class="session-tutor-bubble"
+            :data-role="message.role"
+            :data-waiting="message.role === 'assistant' && !message.content && pending ? '' : undefined"
           >
-            <span class="font-medium">{{ message.role === 'user' ? t('tutor.you') : t('tutor.tutor') }}:</span>
-            {{ message.content }}
-          </p>
+            <span class="session-tutor-bubble-label">
+              {{ message.role === 'user' ? t('tutor.you') : t('tutor.tutor') }}
+            </span>
+            <p
+              v-if="message.role === 'user'"
+              class="session-tutor-bubble-text"
+            >{{ message.content || '…' }}</p>
+            
+            <div
+              v-else-if="message.content"
+              class="session-tutor-md"
+              v-html="bubbleHtml(message.content)"
+            />
+            
+            <div
+              v-else-if="pending"
+              class="session-tutor-wait"
+              role="status"
+              :aria-label="t('tutor.thinking')"
+            >
+              <span class="session-tutor-wait-bars" aria-hidden="true">
+                <i /><i /><i /><i />
+              </span>
+              <span class="session-tutor-wait-label">{{ t('tutor.thinking') }}</span>
+            </div>
+            <p v-else class="session-tutor-bubble-text">…</p>
+          </div>
         </div>
-        <form
-          class="flex gap-2"
-          @submit.prevent="onSend"
-        >
-          <UInput
+        <form class="session-tutor-form" @submit.prevent="onSend">
+          <input
             v-model="draft"
-            class="flex-1"
+            class="field session-tutor-input"
             :placeholder="t('tutor.messagePlaceholder')"
-          />
-          <UButton
-            type="submit"
-            :loading="pending"
-            :disabled="!draft.trim()"
+            :disabled="pending"
           >
-            {{ t('tutor.send') }}
-          </UButton>
+          <button
+            class="btn-primary session-tutor-send"
+            type="submit"
+            :disabled="pending || !draft.trim()"
+            :aria-label="t('tutor.send')"
+          >
+            <PaperAirplaneIcon class="icon-sm" />
+          </button>
         </form>
       </div>
-    </UCard>
+    </div>
   </div>
 </template>

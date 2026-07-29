@@ -11,10 +11,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { submit, listAttempts } = useSessions()
+const toasts = useToasts()
 
 const running = ref(false)
 const statusText = ref('')
-const feedback = ref('')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -41,17 +41,16 @@ async function pollAttempts(attemptId: string) {
   stopPolling()
   running.value = false
   if (result.passed) {
-    feedback.value = t('session.feedback.passed')
+    toasts.success(t('session.feedback.passed'))
     emit('completed')
   } else {
-    feedback.value = result.feedback ?? t('session.feedback.failed')
+    toasts.error(result.feedback ?? t('session.feedback.failed'))
   }
   statusText.value = ''
 }
 
 async function onRunLab() {
   running.value = true
-  feedback.value = ''
   statusText.value = t('session.lab.starting')
   try {
     const result = await submit(props.sessionId, {})
@@ -63,43 +62,28 @@ async function onRunLab() {
       await pollAttempts(result.attempt_id)
     } else {
       running.value = false
-      feedback.value = result.passed
-        ? t('session.feedback.passed')
-        : result.feedback ?? t('session.feedback.failed')
       if (result.passed) {
+        toasts.success(t('session.feedback.passed'))
         emit('completed')
+      } else {
+        toasts.error(result.feedback ?? t('session.feedback.failed'))
       }
     }
   } catch {
     stopPolling()
     running.value = false
     statusText.value = ''
-    feedback.value = t('session.errors.actionFailed')
+    toasts.error(t('session.errors.actionFailed'))
   }
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <p class="text-sm whitespace-pre-wrap">
-      {{ instructions }}
-    </p>
-    <UButton
-      :loading="running"
-      :disabled="disabled || running"
-      @click="onRunLab"
-    >
-      {{ t('session.lab.run') }}
-    </UButton>
-    <p v-if="statusText" class="text-sm text-muted">
-      {{ statusText }}
-    </p>
-    <p
-      v-if="feedback"
-      class="text-sm"
-      :class="feedback === t('session.feedback.passed') ? 'text-green-600' : 'text-red-600'"
-    >
-      {{ feedback }}
-    </p>
+  <div style="display: flex; flex-direction: column; gap: 1rem">
+    <p style="white-space: pre-wrap; font-size: 0.875rem; line-height: 1.55">{{ instructions }}</p>
+    <button class="btn-primary" type="button" :disabled="disabled || running" @click="onRunLab">
+      {{ running ? t('session.lab.running') : t('session.lab.run') }}
+    </button>
+    <p v-if="statusText" class="data-list-meta">{{ statusText }}</p>
   </div>
 </template>

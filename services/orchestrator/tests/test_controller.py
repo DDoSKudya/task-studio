@@ -85,9 +85,10 @@ async def test_balancing_stops_ollama_when_all_users_external(
     monkeypatch,
 ) -> None:
     controller, _state, docker, controller_mod, host = _controller(orchestrator_modules)
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
     monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=host))
     monkeypatch.setattr(
-        controller_mod,
+        metrics_mod,
         "fetch_tutor_llm_summary",
         AsyncMock(
             return_value=TutorLlmSummaryResponse(
@@ -97,7 +98,7 @@ async def test_balancing_stops_ollama_when_all_users_external(
             )
         ),
     )
-    monkeypatch.setattr(controller_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
 
     await controller.tick()
 
@@ -110,9 +111,10 @@ async def test_power_saving_stops_lab_and_lsp(orchestrator_modules, monkeypatch)
         orchestrator_modules,
         mode="power_saving",
     )
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
     monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=host))
-    monkeypatch.setattr(controller_mod, "fetch_tutor_llm_summary", AsyncMock(return_value=None))
-    monkeypatch.setattr(controller_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+    monkeypatch.setattr(metrics_mod, "fetch_tutor_llm_summary", AsyncMock(return_value=None))
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
 
     await controller.tick()
 
@@ -138,9 +140,10 @@ async def test_maximum_keeps_services_running(orchestrator_modules, monkeypatch)
         mode="maximum",
         docker=docker,
     )
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
     monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=host))
-    monkeypatch.setattr(controller_mod, "fetch_tutor_llm_summary", AsyncMock(return_value=None))
-    monkeypatch.setattr(controller_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+    monkeypatch.setattr(metrics_mod, "fetch_tutor_llm_summary", AsyncMock(return_value=None))
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
 
     await controller.tick()
 
@@ -151,11 +154,12 @@ async def test_maximum_keeps_services_running(orchestrator_modules, monkeypatch)
 @pytest.mark.asyncio
 async def test_balancing_stops_idle_lsp(orchestrator_modules, monkeypatch) -> None:
     controller, state, docker, controller_mod, host = _controller(orchestrator_modules)
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
     state.editor_open = False
     state.editor_last_activity = datetime.now(UTC) - timedelta(minutes=20)
     monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=host))
     monkeypatch.setattr(
-        controller_mod,
+        metrics_mod,
         "fetch_tutor_llm_summary",
         AsyncMock(
             return_value=TutorLlmSummaryResponse(
@@ -165,7 +169,7 @@ async def test_balancing_stops_idle_lsp(orchestrator_modules, monkeypatch) -> No
             )
         ),
     )
-    monkeypatch.setattr(controller_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
 
     await controller.tick()
 

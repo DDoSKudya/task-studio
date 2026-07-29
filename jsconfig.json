@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "**/dist",
+    "**/.nuxt",
+    "**/.output",
+    "data",
+    "services",
+    "packages/contracts",
+    "packages/python-common",
+    "packages/integration-sdk"
+  ]
+}

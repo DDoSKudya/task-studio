@@ -1,19 +1,43 @@
 {
   "app": {
     "title": "Task Studio",
-    "welcome": "Self-hosted learning platform scaffold."
+    "subtitle": "Learning platform"
+  },
+  "dialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close"
+  },
+  "error": {
+    "notFound": "Page not found{path}",
+    "generic": "Something went wrong",
+    "goLogin": "Sign in",
+    "goHome": "Go home"
+  },
+  "nav": {
+    "catalog": "Catalog",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "main": "Main navigation"
   },
   "auth": {
     "login": "Log in",
     "register": "Register",
     "logout": "Log out",
+    "logoutConfirmTitle": "Log out?",
+    "logoutConfirmMessage": "Your session will end. You can sign in again anytime.",
+    "signedIn": "Signed in",
     "email": "Email",
     "password": "Password",
     "submitLogin": "Sign in",
     "submitRegister": "Create account",
+    "submitting": "Signing in...",
+    "registering": "Creating account...",
+    "loginSubtitle": "Sign in to access your courses and sessions.",
+    "registerSubtitle": "Create an account to start learning.",
     "haveAccount": "Already have an account?",
     "noAccount": "Need an account?",
-    "signedInAs": "Signed in as {email}",
     "errors": {
       "invalidCredentials": "Invalid email or password",
       "emailTaken": "Email is already registered",
@@ -22,25 +46,108 @@
   },
   "catalog": {
     "title": "Catalog",
-    "upload": "Upload pack",
+    "subtitle": "Your courses",
+    "modeLabel": "Catalog mode",
+    "searchPlaceholder": "SQL, Docker, FastAPI…",
+    "searchLibraryPlaceholder": "Filter library…",
+    "platformsTitle": "Sources",
+    "allPlatforms": "All sources",
+    "allPlatformsMeta": "Combined list",
+    "railFootnote": "Click a source to filter. Yellow/red dots mean open Settings.",
+    "openSettings": "Integration settings",
+    "tabDiscover": "Find courses",
+    "tabLibrary": "My library",
+    "externalTitle": "Find courses",
+    "externalMeta": "Download to your library — then open offline anytime.",
+    "externalEmptyTitle": "No courses available yet",
+    "externalEmptyMeta": "Exercism and freeCodeCamp work immediately. Stepik needs credentials in Settings.",
+    "emptyLibraryMeta": "Courses land here after you create from articles or download from platforms. Open Find courses.",
+    "goDiscover": "Find on platforms",
+    "openCourse": "Open",
+    "continueCourse": "Continue",
+    "downloadCourse": "Download",
+    "downloadingCourse": "Downloading",
+    "redownloadCourse": "Re-download",
+    "integrityBroken": "Broken",
+    "integrityBrokenMeta": "Course files on disk are missing or incomplete. Re-download the course.",
+    "redownloadConfirm": "Re-download “{title}”? The broken copy will be replaced.",
+    "redownloadStarted": "Re-downloading “{title}”…",
+    "libraryCount": "{count} courses",
+    "progressLabel": "{value}%",
+    "noProgressYet": "Not started",
+    "librarySearchEmpty": "No matches in your library",
+    "librarySearchEmptyMeta": "Try another query, or switch to Find courses.",
+    "clearFilter": "Clear filter",
+    "groupCount": "{count} courses",
+    "platformStatus": {
+      "ready": "Ready",
+      "needs_auth": "Needs login",
+      "error": "Error",
+      "empty": "Empty",
+      "upload_only": "File upload",
+      "unavailable": "Unavailable"
+    },
+    "platformHints": {
+      "stepik": "Requires email, password, and OAuth Client ID. Shows only your enrolled courses.",
+      "exercism": "Public track catalog. Download builds a local pack with exercises.",
+      "freecodecamp": "Public freeCodeCamp certification paths. Download builds a local scaffold pack."
+    },
+    "libraryTitle": "My library",
+    "deleted": "Pack removed.",
     "loading": "Loading packs...",
-    "empty": "No packs installed yet.",
+    "empty": "No courses yet",
     "back": "Back to catalog",
-    "topics": "Topics",
+    "courseTitle": "Course",
+    "courseEyebrow": "Course outline",
+    "courseLede": "Work through topics in order: study, practice, and assess. Sessions remember where you stopped.",
+    "curriculumMeta": "Course modules and lessons — the same syllabus shape as Stepik.",
+    "topicCount": "{count} topics",
+    "stepCount": "{count} steps",
+    "lessonProgress": "{done} / {total}",
+    "emptyTopicsTitle": "No topics found",
+    "emptyTopicsMeta": "This pack has no topics in its manifest. Reinstall the course or upload another pack.",
+    "topics": "Course program",
     "startSession": "Start session",
+    "delete": "Remove",
+    "deleting": "Removing...",
+    "deleteConfirm": "Remove «{title}» from Task Studio? This cannot be undone.",
     "errors": {
       "loadFailed": "Could not load catalog",
-      "uploadFailed": "Could not upload pack",
-      "startFailed": "Could not start session"
+      "startFailed": "Could not start session",
+      "noSteps": "This course has no steps for a session. Reinstall the pack.",
+      "deleteFailed": "Could not remove pack"
     }
   },
   "session": {
     "back": "Back to catalog",
     "loading": "Loading session...",
-    "continuePractice": "Continue to practice",
+    "program": "Course program",
     "skipStudy": "Skip study",
+    "nextStep": "Next",
+    "prevStep": "Back",
     "runCode": "Run and check",
+    "resetCode": "Reset",
     "submitAnswer": "Submit answer",
+    "taskAnswer": "Your answer",
+    "taskPlaceholder": "Write your answer here…",
+    "passToContinue": "Complete the task first",
+    "videoUnavailable": "Video is not available for this step.",
+    "videoPlay": "Play video",
+    "videoOpenExternal": "Open video in a new tab",
+    "quizOptionsUnavailable": "Answer options were not imported. Reinstall the course from the catalog.",
+    "kind": {
+      "theory": "Theory",
+      "video": "Video",
+      "quiz": "Quiz",
+      "code": "Code",
+      "lab": "Lab",
+      "task": "Task"
+    },
+    "phase": {
+      "study": "Study",
+      "practice": "Practice",
+      "assess": "Assessment"
+    },
     "lab": {
       "run": "Run lab",
       "starting": "Starting lab environment...",
@@ -49,7 +156,9 @@
     "completed": "Session completed",
     "feedback": {
       "passed": "Correct",
-      "failed": "Try again"
+      "failed": "Incorrect — try again",
+      "ungradable": "This question cannot be checked yet. Reinstall the course or connect Stepik in Settings.",
+      "stepikFailed": "Could not verify the answer via Stepik. Check your Stepik credentials in Settings."
     },
     "errors": {
       "loadFailed": "Could not load session",
@@ -58,74 +167,376 @@
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Integrations, editor, and AI agent settings.",
+    "language": "Language",
+    "languageSwitch": "Switch language: {from} → {to}",
     "loading": "Loading settings...",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "configEyebrow": "Workspace",
+    "configTitle": "Preferences",
+    "sourcesGroupTitle": "Course sources",
+    "sourcesGroupMeta": "External platforms for browsing and downloading courses.",
+    "toolsGroupTitle": "Tools",
     "editorTitle": "Editor",
+    "editorMeta": "Code editor behavior during practice and assess phases.",
     "autocomplete": "Enable autocomplete",
+    "autocompleteMeta": "Inline suggestions while typing in the code editor.",
     "modeFull": "Full editor with LSP",
+    "modeFullMeta": "Language server, diagnostics, and autocomplete.",
     "modeSyntaxOnly": "Syntax highlighting only",
+    "modeSyntaxOnlyMeta": "Lightweight editor without language server.",
     "languages": "Per-language autocomplete",
-    "save": "Save",
-    "tutorTitle": "Tutor",
-    "tutorEnabled": "Enable AI tutor",
-    "tutorProviderUrl": "Provider URL (OpenAI-compatible)",
-    "tutorApiKey": "API key (leave blank to keep current)",
+    "tutorTitle": "AI agent",
+    "tutorMeta": "Model for course generation, hints, and practice chat.",
+    "tutorProviderUrl": "Provider URL",
+    "tutorProviderUrlHint": "OpenAI-compatible API URL, for example https://api.openai.com/v1",
+    "tutorApiKey": "API key",
+    "tutorApiKeyHint": "Leave blank to keep the current key.",
     "tutorDailyLimit": "Daily request limit (0 = unlimited)",
-    "tutorModel": "Model name"
+    "tutorModel": "Model",
+    "tutorModelHint": "Refresh the model list with the icon next to the field.",
+    "tutorModelHintOllama": "For Russian, qwen2.5 or phi4-mini work well.",
+    "tutorModelAuto": "Auto ({model})",
+    "tutorApiKeyStored": "A key is already stored. Enter a new value to replace it.",
+    "tutor": {
+      "providerLabel": "Provider",
+      "activeProvider": "Connection",
+      "loadModels": "Load available models",
+      "modelsLoaded": "Loaded {count} model(s)",
+      "modelsNeedUrl": "Set the provider URL, then load models",
+      "modelsPreferredHint": "Showing models that fit courses and tutoring.",
+      "modelPlaceholder": "Select a model",
+      "modelRequired": "Pick a model from the list after the connection check",
+      "modelRequiredHint": "Refresh to load models — this field is required.",
+      "statusUnavailable": "Could not check status",
+      "modelCatalog": {
+        "qwenCoder": "Code and error analysis in practice.",
+        "qwen25": "Solid balance for Russian: courses, hints, chat.",
+        "phi4Mini": "Light model for fast hints.",
+        "phi4": "Stronger on reasoning and theory.",
+        "gemma2": "General local model.",
+        "mistralLocal": "Chat and short explanations.",
+        "llama32": "Default model; prefer qwen2.5 for Russian.",
+        "codeLlama": "Code-focused.",
+        "gpt4oMini": "Fast and affordable: courses and chat.",
+        "gpt41Mini": "Better long course context.",
+        "gpt4o": "Strong general model for complex courses.",
+        "gpt41": "Top quality for generation and tutoring.",
+        "o4Mini": "Hard problems and step-by-step breakdowns.",
+        "mistralSmall": "Fast chat and light generation.",
+        "codestral": "Code, practice, and solution review.",
+        "mistralMedium": "Price/quality balance.",
+        "mistralLarge": "Long explanations and courses.",
+        "cursorAuto": "Cursor picks a suitable model automatically.",
+        "composer": "Strong on code and edits.",
+        "claudeSonnet": "Courses, theory, and careful chat.",
+        "claudeHaiku": "Short hints and fast chat.",
+        "claudeOpus": "Top Claude quality.",
+        "geminiFlash": "Fast replies and course drafts.",
+        "geminiPro": "Long article and course context."
+      },
+      "providers": {
+        "ollama": "Local Ollama",
+        "ollamaMeta": "Models on your machine. Prefer qwen2.5 for Russian.",
+        "ollamaEndpoint": "Local Ollama",
+        "external": "External API",
+        "externalMeta": "OpenAI, Mistral, Groq, or your compatible API.",
+        "cursor": "Cursor",
+        "cursorMeta": "Cloud Agents via cursor-proxy (needs on-demand usage).",
+        "cursorEndpoint": "Cursor",
+        "cursorKeyHint": "API key from cursor.com/dashboard → API Keys. Chat/course builds need Cloud Agent usage.",
+        "notSet": "Not configured"
+      }
+    },
+    "editorRuntimes": {
+      "python": "Python",
+      "javascript": "JavaScript",
+      "go": "Go",
+      "sql": "SQL"
+    },
+    "saved": "Settings saved.",
+    "errors": {
+      "loadFailed": "Could not load settings",
+      "saveFailed": "Could not save settings"
+    },
+    "integrations": {
+      "eyebrow": "Platforms",
+      "title": "Course integrations",
+      "summaryLabel": "Account connections",
+      "summaryValue": "{connected} of {total} linked · {public} public",
+      "empty": "Integration service is unavailable. Check that the integrations container is running.",
+      "connected": "Credentials saved",
+      "notConnected": "Credentials needed",
+      "importReady": "Catalog available",
+      "unsaved": "Save to connect",
+      "noAuthShort": "Ready",
+      "capImport": "Import",
+      "capSearch": "Search",
+      "credentialsMeta": "Enter account access for this platform. Private courses stay unavailable without it.",
+      "optionalBadge": "optional",
+      "optionalField": "Can be left blank.",
+      "secretStored": "Secret already stored. Enter a new value to replace it.",
+      "stepik": {
+        "help": "Get the Client ID and secret at stepik.org/oauth2/applications after creating an app.",
+        "clientIdPlaceholder": "Paste Client ID from Stepik"
+      },
+      "publicAccess": "Public catalog",
+      "publicMeta": "No credentials required. The catalog is available immediately.",
+      "browseCatalog": "Browse",
+      "authTypes": {
+        "none": "No auth",
+        "oauth2": "OAuth 2.0",
+        "password": "Login and password",
+        "token": "API token",
+        "api_key": "API key"
+      },
+      "fields": {
+        "client_id": "Client ID",
+        "client_secret": "Client secret",
+        "username": "Email or username",
+        "password": "Password",
+        "base_url": "Site URL",
+        "token": "API token",
+        "api_key": "API key"
+      }
+    }
   },
   "tutor": {
-    "showHints": "Show hints",
-    "openChat": "Ask tutor",
-    "hideChat": "Hide tutor",
-    "hintsTitle": "Hints",
+    "showHints": "Hints",
+    "hintsTitle": "Step hints",
+    "dockKicker": "Assistant",
+    "dockTitle": "AI chat",
+    "clearHistory": "Clear chat",
+    "thinking": "Thinking…",
     "you": "You",
     "tutor": "Tutor",
-    "messagePlaceholder": "Ask a question...",
+    "messagePlaceholder": "e.g. why do I need a JOIN here?",
     "send": "Send",
+    "fallback": {
+      "theory": {
+        "0": "Read the section again and underline key terms.",
+        "1": "Try explaining the idea in one sentence without looking at the text."
+      },
+      "video": {
+        "0": "Watch the clip once for the main idea, then replay for details.",
+        "1": "Pause after each section and note one takeaway."
+      },
+      "code": {
+        "0": "Start from the expected result and which tables or inputs you need.",
+        "1": "Solve the simplest case first, then refine the conditions."
+      },
+      "quiz": {
+        "0": "Eliminate answers that contradict the study material.",
+        "1": "Recall definitions before guessing between similar options."
+      },
+      "lab": {
+        "0": "Match the instructions with the expected outcome of the step.",
+        "1": "If stuck, revisit the previous theory lesson in the outline."
+      }
+    },
     "errors": {
       "hintsFailed": "Could not load hints",
       "chatFailed": "Tutor is unavailable"
     }
   },
   "search": {
-    "title": "Search",
-    "placeholder": "Search courses and steps...",
     "submit": "Search",
     "loading": "Searching...",
     "empty": "No results found.",
-    "import": "Import",
+    "allTags": "All topics",
+    "installed": "Available",
+    "downloadDone": "Downloaded «{title}».",
     "errors": {
-      "failed": "Search failed",
-      "importFailed": "Import could not be started"
+      "importFailed": "Download could not be completed",
+      "importTimeout": "Download is taking too long. Try again later.",
+      "importInProgress": "Download is already in progress — please wait.",
+      "catalogFailed": "Could not load platform catalogs"
     },
     "sources": {
       "local": "Local",
       "stepik": "Stepik",
       "exercism": "Exercism",
-      "freecodecamp": "freeCodeCamp",
-      "olx": "OLX",
-      "moodle": "Moodle"
+      "freecodecamp": "freeCodeCamp"
     }
   },
   "analytics": {
     "title": "Analytics",
-    "subtitle": "Learning progress, study skips, and attempt history.",
+    "subtitle": "Where you are strong, where you stall, and how steady you learn.",
     "loading": "Loading analytics...",
-    "progressChart": "Progress over time",
-    "skipsTitle": "Study skips",
+    "progressChart": "30-day rhythm",
+    "skipsTitle": "Skipped theory",
     "attemptsTitle": "Recent attempts",
-    "emptyProgress": "No activity recorded yet.",
-    "emptySkips": "No study skips recorded.",
+    "emptyProgress": "No daily activity yet.",
+    "emptyProgressMeta": "Open a course and complete a few steps — the chart will appear here.",
     "emptyAttempts": "No attempts recorded yet.",
     "topicLabel": "Topic: {topic}",
     "passed": "Passed",
     "failed": "Failed",
     "stats": {
-      "sessions": "Sessions started",
       "steps": "Steps completed",
-      "skips": "Study skips"
+      "passRate": "Pass rate",
+      "streak": "Day streak",
+      "noAttempts": "No graded attempts yet",
+      "passRateFoot": "{passed} pass · {failed} miss",
+      "stepsFoot": "~{perDay} steps/day · {days} active",
+      "streakFoot": "Sessions in window: {sessions}"
+    },
+    "series": {
+      "sessions": "Sessions",
+      "steps": "Steps"
+    },
+    "rhythm": {
+      "kicker": "Rhythm",
+      "meta": "Sessions and steps by day"
+    },
+    "ring": {
+      "kicker": "Quality",
+      "title": "Passes vs misses"
+    },
+    "weak": {
+      "kicker": "Weak spots",
+      "title": "Where you fail most",
+      "meta": "From failed attempts",
+      "empty": "No weak spots yet",
+      "emptyMeta": "Either attempts are still few, or you pass almost everything first try.",
+      "fails": "{count} fails"
+    },
+    "skips": {
+      "kicker": "Theory",
+      "meta": "{count} skips"
+    },
+    "feed": {
+      "kicker": "History"
     },
     "errors": {
       "loadFailed": "Could not load analytics"
+    }
+  },
+  "libraryCreate": {
+    "open": "Create from articles",
+    "close": "Close",
+    "done": "Done",
+    "cancel": "Cancel",
+    "cancelConfirm": "Stop building the course? Progress will be lost.",
+    "buildCancelled": "Build cancelled",
+    "eyebrow": "AI course author",
+    "title": "Articles → local course",
+    "courseTitle": "Course title",
+    "courseTitleHint": "e.g. pathlib in practice",
+    "audience": "Audience",
+    "audienceHint": "e.g. mid-level Python",
+    "locale": "Locale",
+    "pickMd": "Choose .md",
+    "urlLabel": "Article URL",
+    "urlPlaceholder": "https://habr.com/ru/articles/…",
+    "urlAdd": "Add",
+    "urlFetching": "Reading…",
+    "urlStageDownload": "Downloading the page",
+    "urlStageExtract": "Extracting article text from HTML",
+    "urlStageAi": "AI is converting text to markdown",
+    "urlCancelled": "Article reading stopped",
+    "urlLoaded": "Article added from URL",
+    "ingestTitle": "Sources",
+    "dropHint": "Or drop .md files here",
+    "filesLoaded": "Loaded files: {count}",
+    "articleN": "Source {n}",
+    "articleTitle": "Source title",
+    "articlePlaceholder": "Markdown…",
+    "showMarkdown": "Show markdown",
+    "hideMarkdown": "Hide markdown",
+    "sourceEmptyTitle": "Source is empty",
+    "sourceEmptyMeta": "Paste a URL above or choose a .md file — content will appear here.",
+    "sourceReadyMeta": "Text is ready. Open markdown if you need to edit it.",
+    "charCount": "{count} characters",
+    "sourceCount": "Ready sources: {count} of {max}",
+    "untitled": "Article {n}",
+    "addArticle": "Add source",
+    "removeArticle": "Remove source",
+    "maxArticles": "At most 6 sources",
+    "build": "Build and install",
+    "building": "Building…",
+    "working": "AI is building the course…",
+    "stagesLabel": "Include in the course",
+    "includeTheory": "Theory",
+    "includeQuizzes": "Quizzes",
+    "includeCode": "Code tasks",
+    "installing": "Installing course into your library…",
+    "installed": "Course “{title}” installed in the library.",
+    "installedToast": "Course installed in the library",
+    "gateTitle": "Differences between articles",
+    "gateToast": "Articles differ — confirm to continue or cancel.",
+    "gateRelated": "Same topic (similarity ~{similarity}%), but there are differences. Continue?",
+    "gateUnrelated": "Articles look weakly related. Cancel or continue anyway.",
+    "gateCancel": "Cancel",
+    "gateContinue": "Continue",
+    "gateFooterHint": "Confirm to continue the build",
+    "gateCancelled": "Build cancelled",
+    "errors": {
+      "tooShort": "Need at least one source with ≥ 40 characters of markdown",
+      "needContent": "Enable at least one block: theory, quizzes, or code tasks",
+      "failed": "Could not build a course from the articles",
+      "urlInvalid": "Enter a valid http(s) URL",
+      "urlFailed": "Could not fetch the article from the URL",
+      "urlBusy": "Wait until the URL fetch finishes"
+    }
+  },
+  "courseBuild": {
+    "progressTitle": "Building course",
+    "progressDone": "Course ready",
+    "progressFailed": "Build failed",
+    "progressOutcomes": "Learning outcomes",
+    "progressChapters": "Theory chapters",
+    "progressQuizzes": "Quizzes",
+    "progressTasks": "Code tasks",
+    "progressTests": "{count} tests",
+    "warnings": "Warnings",
+    "stages": {
+      "consistency": "Consistency",
+      "analyze": "Analyze",
+      "theory": "Theory",
+      "polish": "Polish",
+      "quizzes": "Quizzes",
+      "code": "Code",
+      "assemble": "Assemble"
+    },
+    "messages": {
+      "consistencyChecking": "Checking topic fit and contradictions across articles",
+      "consistencyDone": "Consistency check finished",
+      "consistencyGate": "Articles differ — confirm to continue or cancel",
+      "analyzeRunning": "Synthesizing one progressive syllabus from all sources",
+      "analyzeOutlineReady": "Syllabus outline ready — enriching chapters",
+      "analyzeEnriching": "Enriching chapter: {title}",
+      "analyzeDone": "Outline ready",
+      "theoryExpanding": "Expanding chapter: {title}",
+      "theoryReady": "Theory ready: {title}",
+      "polishRunning": "Polishing theory into one book voice",
+      "polishDone": "Book polish applied to {count} chapter(s)",
+      "quizzesDesigning": "Designing {count} knowledge-check quizzes",
+      "quizzesPrepared": "Prepared {count} quizzes",
+      "codeBuilding": "Building {count}-step code ladder (easy→hard)",
+      "codePrepared": "Prepared {count} code tasks",
+      "assembleRunning": "Assembling and validating pack manifest",
+      "assembleDone": "Course pack ready",
+      "generationComplete": "Course generation complete"
+    },
+    "warningsMap": {
+      "continuedDespiteDeviations": "Continued despite article deviations",
+      "trimmedChapters": "Trimmed chapters to {count}",
+      "bookPolishSkipped": "Book polish skipped: {reason}"
+    },
+    "errors": {
+      "noProvider": "No AI assistant provider is configured",
+      "noManifest": "Course generation returned no package",
+      "noResult": "Course generation produced no result",
+      "noChapters": "Analysis returned no chapters",
+      "quizzesTooFew": "Too few quizzes were generated",
+      "codeTooFew": "Too few code tasks were generated",
+      "noArticles": "No usable articles",
+      "articleTooShort": "Article is too short",
+      "generationFailed": "Course generation failed",
+      "noContentSteps": "Course generation produced no content",
+      "invalidManifest": "Invalid course package"
     }
   }
 }

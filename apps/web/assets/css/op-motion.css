@@ -1,0 +1,388 @@
+
+
+
+@keyframes op-rise {
+  from{
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to{
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes op-fade {
+  from{
+    opacity: 0;
+  }
+  to{
+    opacity: 1;
+  }
+}
+
+
+@keyframes op-form-boot {
+  from{
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to{
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+@keyframes op-idle-tremor {
+  0%,
+  52%,
+  100%{
+    translate: 0 0;
+  }
+  54%{
+    translate: 0.4px -0.28px;
+  }
+  56%{
+    translate: -0.45px 0.32px;
+  }
+  58%{
+    translate: 0.35px 0.35px;
+  }
+  60%{
+    translate: -0.3px -0.22px;
+  }
+  62%{
+    translate: 0.22px 0.16px;
+  }
+  64%{
+    translate: -0.12px 0.08px;
+  }
+}
+
+
+.board-shell,
+.request-card,
+.page-nav-card,
+.session-main,
+.session-syllabus,
+.session-assistant,
+.ax-panel,
+.ax-stat{
+  animation: op-rise 280ms var(--ease-emphasis) both;
+}
+
+.session-syllabus{ animation-delay: 40ms; }
+.session-main{ animation-delay: 70ms; }
+.session-assistant{ animation-delay: 110ms; }
+.ax-stat:nth-child(1){ animation-delay: 40ms; }
+.ax-stat:nth-child(2){ animation-delay: 80ms; }
+.ax-stat:nth-child(3){ animation-delay: 120ms; }
+.ax-panel{ animation-delay: 100ms; }
+
+
+.form-panel,
+.login-panel,
+.modal-panel,
+.auth-card,
+.settings-form-shell,
+.error-panel{
+  animation: op-form-boot 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+
+.lc-modal,
+.op-dialog,
+.lc-gate-card{
+  animation: op-idle-tremor 2.2s ease-in-out 0.35s infinite;
+}
+
+
+.session-tutor-panel,
+.course-progress-card,
+.catalog-search-form{
+  animation: op-rise 300ms var(--ease-emphasis) both;
+}
+
+
+.settings-panel{
+  animation: op-rise 300ms var(--ease-emphasis) both;
+}
+
+.settings-status-panel{ animation-delay: 40ms; }
+.settings-config-panel{ animation-delay: 90ms; }
+
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger,
+.btn-icon,
+.catalog-segment-btn,
+.catalog-tag,
+.catalog-search-submit,
+.catalog-toolbar-cta,
+.lib-card-cta,
+.lib-card-delete,
+.session-nav-btn,
+.session-tutor-send,
+.lc-tab,
+.lc-drop-btn,
+.op-dialog-cancel,
+.op-dialog-confirm,
+.nav-link,
+.catalog-source-item,
+.stepik-lesson-button,
+.link-back,
+.quiz-option{
+  transition:
+    background 200ms var(--ease-soft),
+    border-color 200ms var(--ease-soft),
+    color 200ms var(--ease-soft),
+    box-shadow 220ms var(--ease-soft),
+    transform 200ms var(--ease-emphasis),
+    opacity 180ms var(--ease-soft),
+    filter 200ms var(--ease-soft);
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled),
+.catalog-segment-btn:hover,
+.catalog-toolbar-cta:hover,
+.lib-card-cta:hover:not(:disabled),
+.session-nav-btn:hover:not(:disabled),
+.lc-tab:hover:not(:disabled){
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.catalog-segment-btn:active,
+.catalog-tag:active,
+.lib-card-cta:active:not(:disabled),
+.session-nav-btn:active:not(:disabled),
+.lc-tab:active:not(:disabled),
+.op-dialog-confirm:active,
+.op-dialog-cancel:active,
+.nav-link:active,
+.catalog-source-item:active,
+.stepik-lesson-button:active,
+.quiz-option:active{
+  transform: scale(0.97);
+}
+
+
+.field,
+.field-input,
+.field-textarea,
+.field-select,
+.catalog-searchbar,
+.session-tutor-input,
+.lc-url-row,
+.lc-editor-area{
+  transition:
+    border-color 180ms var(--ease-soft),
+    background 180ms var(--ease-soft),
+    box-shadow 200ms var(--ease-soft);
+}
+
+.lib-card,
+.catalog-rail-panel,
+.board-shell,
+.form-panel,
+.ax-panel,
+.ax-stat,
+.ax-feed-item,
+.ax-weak-item,
+.session-tutor-bubble{
+  transition:
+    border-color 200ms var(--ease-soft),
+    background 200ms var(--ease-soft),
+    box-shadow 240ms var(--ease-soft),
+    transform 220ms var(--ease-emphasis);
+}
+
+
+.lib-card{
+  transition:
+    border-color 200ms var(--ease-soft),
+    background 200ms var(--ease-soft),
+    box-shadow 240ms var(--ease-soft);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+
+.lib-card:hover{
+  animation: op-idle-tremor 2.2s ease-in-out infinite;
+}
+
+.ax-stat:hover,
+.ax-panel:hover{
+  border-color: rgb(255 255 255 / 0.22);
+}
+
+.ax-feed-item,
+.ax-weak-item{
+  transition:
+    background 200ms var(--ease-soft),
+    border-color 200ms var(--ease-soft),
+    transform 200ms var(--ease-emphasis);
+}
+
+.ax-feed-item:hover,
+.ax-weak-item:hover{
+  background: rgb(255 255 255 / 0.03);
+}
+
+.ax-weak-bar-fill,
+.lib-card-fill,
+.course-progress-bar-fill{
+  transition: width 520ms var(--ease-emphasis);
+}
+
+.catalog-source-item:hover,
+.stepik-lesson-button:hover{
+  transform: translateX(2px);
+}
+
+.nav-link:hover{
+  transform: translateX(1px);
+}
+
+.op-dialog-backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.op-dialog{
+  width: min(26rem, 100%);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  background: rgb(12 12 22 / 0.96);
+  box-shadow: 0 24px 48px rgb(0 0 0 / 0.45);
+  padding: 1.15rem 1.2rem 1.1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.op-dialog::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid var(--op-violet);
+  border-left: 2px solid var(--op-violet);
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: none;
+}
+
+.op-dialog::after{
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--op-gold);
+  border-bottom: 2px solid var(--op-gold);
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: none;
+}
+
+.op-dialog-title{
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.op-dialog-message{
+  margin: 0.65rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.op-dialog-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+}
+
+.op-dialog-confirm{
+  border: 1px solid #ffffff !important;
+  background: #ffffff !important;
+  color: #0a0a0f !important;
+}
+
+.op-dialog-confirm.is-danger{
+  border-color: var(--op-signal) !important;
+  background: var(--op-signal) !important;
+  color: #ffffff !important;
+}
+
+.op-dialog-cancel{
+  border: 1px solid rgb(255 255 255 / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-toolbar,
+  .catalog-rail-panel,
+  .catalog-tags,
+  .lib-card,
+  .board-shell,
+  .form-panel,
+  .request-card,
+  .page-nav-card,
+  .session-main,
+  .session-syllabus,
+  .session-assistant,
+  .lc-modal,
+  .op-dialog,
+  .settings-panel,
+  .settings-form-shell,
+  .auth-card,
+  .login-panel,
+  .modal-panel,
+  .lc-gate-card,
+  .error-panel,
+  .session-tutor-panel,
+  .course-progress-card,
+  .catalog-search-form,
+  .catalog-tag,
+  .ax-panel,
+  .ax-stat,
+  .board-shell::before,
+  .board-shell::after{
+    animation: none !important;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .lib-card,
+  .nav-link,
+  .catalog-source-item,
+  .stepik-lesson-button,
+  .quiz-option,
+  .ax-feed-item,
+  .ax-weak-item{
+    transition: none !important;
+    transform: none !important;
+  }
+}

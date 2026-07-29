@@ -36,3 +36,4 @@ class SearchImportRequest(BaseModel):
 
     platform: str = Field(min_length=1)
     external_id: str = Field(min_length=1)
+    force: bool = False

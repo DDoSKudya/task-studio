@@ -17,7 +17,7 @@ def ensure_index(client: Client, index_name: str, *, ollama_url: str) -> None:
     client.create_index(index_name, {"primaryKey": "id"})
     index = client.index(index_name)
     index.update_filterable_attributes(
-        ["user_id", "kind", "source", "platform", "rank_tier", "pack_id"]
+        ["user_id", "kind", "source", "platform", "rank_tier", "pack_id", "pack_version_id"]
     )
     index.update_sortable_attributes(["rank_tier"])
     index.update_searchable_attributes(["title", "description", "content"])

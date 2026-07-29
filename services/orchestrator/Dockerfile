@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Build from repository root: docker build -f services/orchestrator/Dockerfile .
 FROM python:3.12-slim-bookworm
 
@@ -7,19 +8,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 10001 appuser
+RUN useradd -m -u 10001 appuser
 
 COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock ./
 COPY packages/python-common packages/python-common
+COPY packages/contracts packages/contracts
 COPY services/orchestrator services/orchestrator
 
-RUN uv sync --package studio-orchestrator --no-dev --frozen || uv sync --package studio-orchestrator --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --package studio-orchestrator --no-dev --frozen
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV HOST=0.0.0.0
@@ -29,6 +28,6 @@ USER appuser
 EXPOSE 8011
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f "http://localhost:${PORT}/health" || exit 1
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"
 
 CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]

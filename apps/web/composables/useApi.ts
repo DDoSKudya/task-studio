@@ -9,10 +9,20 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
 export function useApi() {
   const config = useRuntimeConfig()
 
+  function apiBase() {
+    return import.meta.server ? config.apiBaseInternal : config.public.apiBase
+  }
+
   async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
-    const { body, ...rest } = init
-    const headers = new Headers(rest.headers)
-    const payload: RequestInit = { ...rest, headers, credentials: 'include' }
+    const { body, headers: initHeaders, ...rest } = init
+    const headers = new Headers(initHeaders)
+    const url = `${apiBase()}${path}`
+
+    const payload: Record<string, unknown> = {
+      ...rest,
+      headers,
+      credentials: 'include',
+    }
 
     if (body !== undefined) {
       if (body instanceof FormData) {
@@ -25,21 +35,33 @@ export function useApi() {
       }
     }
 
-    const response = await fetch(`${config.public.apiBase}${path}`, payload)
+    const method = String(rest.method ?? 'GET').toUpperCase()
 
-    if (!response.ok) {
-      const error = (await response.json().catch(() => ({}))) as ApiErrorBody
-      throw createError({
-        statusCode: response.status,
-        data: error,
+    try {
+
+      type JsonFetcher = (request: string, opts?: object) => Promise<T>
+      let fetchJson: JsonFetcher
+      if (import.meta.server) {
+
+        // @ts-expect-error TS2321 excessive stack depth on Nuxt typed fetch
+        fetchJson = useRequestFetch()
+      } else {
+        fetchJson = $fetch as unknown as JsonFetcher
+      }
+      const result = await fetchJson(url, {
+        ...payload,
+        ...(method === 'DELETE' ? { responseType: 'text' as const } : {}),
       })
+      return (result ?? undefined) as T
+    } catch (error) {
+      const statusCode = typeof error === 'object' && error !== null && 'statusCode' in error
+        ? Number((error as { statusCode: number }).statusCode)
+        : 500
+      const data = typeof error === 'object' && error !== null && 'data' in error
+        ? (error as { data: ApiErrorBody }).data
+        : undefined
+      throw createError({ statusCode, data })
     }
-
-    if (response.status === 204) {
-      return undefined as T
-    }
-
-    return (await response.json()) as T
   }
 
   return { request }

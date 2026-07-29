@@ -13,7 +13,8 @@ SessionStatus = Literal["active", "completed", "abandoned"]
 
 
 class StartSessionRequest(BaseModel):
-    model_config = ConfigDict(strict=True)
+                                                                                            
+    model_config = ConfigDict(strict=False)
 
     pack_version_id: uuid.UUID
 
@@ -24,12 +25,22 @@ class NavigateRequest(BaseModel):
     topic: str = Field(min_length=1)
     phase: PhaseName
     step: str = Field(min_length=1)
+                                                                                     
+    complete_current: bool = False
 
 
 class SubmitRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     submission: dict[str, object]
+
+
+class AbandonSessionsRequest(BaseModel):
+                                                                                            
+    model_config = ConfigDict(strict=False)
+
+    pack_version_ids: list[uuid.UUID] = Field(default_factory=list)
+    pack_titles: list[str] = Field(default_factory=list)
 
 
 class SessionSummary(BaseModel):
@@ -53,6 +64,22 @@ class PhaseProgressInfo(BaseModel):
     assess_best_score: float | None
 
 
+class OutlineStep(BaseModel):
+    topic_id: str
+    phase: PhaseName
+    step_id: str
+    title: str
+    kind: str
+    index_label: str
+
+
+class OutlineTopic(BaseModel):
+    topic_id: str
+    title: str
+    index: int
+    steps: list[OutlineStep] = Field(default_factory=list)
+
+
 class SessionState(BaseModel):
     id: uuid.UUID
     pack_version_id: uuid.UUID
@@ -63,8 +90,34 @@ class SessionState(BaseModel):
     current_step_id: str
     policies: PackPolicies
     phase_progress: list[PhaseProgressInfo]
+    outline: list[OutlineTopic] = Field(default_factory=list)
+    passed_step_ids: list[str] = Field(default_factory=list)
+    completed_step_ids: list[str] = Field(default_factory=list)
     started_at: datetime
     updated_at: datetime
+
+
+class CourseDigestStep(BaseModel):
+    step_id: str
+    topic_id: str
+    phase: PhaseName
+    kind: str
+    title: str
+    index_label: str
+    text: str
+    has_video: bool = False
+
+
+class CourseDigest(BaseModel):
+    pack_version_id: uuid.UUID
+    pack_title: str
+    steps: list[CourseDigestStep] = Field(default_factory=list)
+
+
+class StepNavTarget(BaseModel):
+    topic: str
+    phase: PhaseName
+    step: str
 
 
 class StepContent(BaseModel):
@@ -77,6 +130,8 @@ class StepContent(BaseModel):
     editor: dict[str, object] | None = None
     tutor: StepTutorInfo | None = None
     transitions: dict[str, str] = Field(default_factory=dict)
+    prev_step: StepNavTarget | None = None
+    next_step: StepNavTarget | None = None
 
 
 class AttemptInfo(BaseModel):
@@ -96,6 +151,7 @@ class SubmitResult(BaseModel):
     passed: bool = False
     score: float = 0.0
     feedback: str | None = None
+    details: dict[str, object] = Field(default_factory=dict)
     phase_completed: bool = False
 
 

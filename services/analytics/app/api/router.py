@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from app.api.deps import DbSession
+from app.api.deps import ClickHouseClient, DbSession, Settings
 from app.domain.queries import get_attempts_timeline, get_progress, get_skips
 from fastapi import APIRouter, Query
 from studio_common.internal import InternalUserId
@@ -19,9 +19,17 @@ router = APIRouter(prefix="/internal/v1/analytics", tags=["analytics"])
 async def progress(
     user_id: InternalUserId,
     session: DbSession,
+    clickhouse: ClickHouseClient,
+    settings: Settings,
     days: Annotated[int, Query(ge=1, le=365)] = 30,
 ) -> ProgressResponse:
-    return await get_progress(session, user_id, days=days)
+    return await get_progress(
+        session,
+        user_id,
+        days=days,
+        clickhouse=clickhouse,
+        clickhouse_database=settings.clickhouse_database,
+    )
 
 
 @router.get("/skips", response_model=SkipsResponse)

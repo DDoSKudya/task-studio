@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import uuid
-from typing import Literal, assert_never
+from typing import Literal, TypedDict, assert_never
 
 import httpx
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 type ServiceMethod = Literal["get", "post", "patch", "delete"]
+
+
+class _TimeoutKwargs(TypedDict, total=False):
+    timeout: httpx.Timeout | float
 
 
 def upstream_detail(response: httpx.Response) -> str | list[dict[str, object]]:
@@ -40,18 +44,22 @@ async def call_service(
     json: dict[str, object] | None = None,
     files: dict[str, tuple[str, bytes, str]] | None = None,
     params: dict[str, str | int] | None = None,
+    request_timeout: httpx.Timeout | float | None = None,
 ) -> httpx.Response:
     url = f"{base_url}{path}"
     headers = {"X-User-Id": str(user_id)} if user_id is not None else None
+    kwargs: _TimeoutKwargs = {}
+    if request_timeout is not None:
+        kwargs["timeout"] = request_timeout
     match method:
         case "get":
-            return await client.get(url, headers=headers, params=params)
+            return await client.get(url, headers=headers, params=params, **kwargs)
         case "post":
-            return await client.post(url, headers=headers, json=json, files=files)
+            return await client.post(url, headers=headers, json=json, files=files, **kwargs)
         case "patch":
-            return await client.patch(url, headers=headers, json=json)
+            return await client.patch(url, headers=headers, json=json, **kwargs)
         case "delete":
-            return await client.delete(url, headers=headers)
+            return await client.delete(url, headers=headers, **kwargs)
         case unreachable:
             assert_never(unreachable)
 

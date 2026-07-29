@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+PackIntegrityStatus = Literal["ok", "broken"]
 
 
 class PackSummary(BaseModel):
@@ -11,9 +14,12 @@ class PackSummary(BaseModel):
     slug: str
     title: str
     source: str
+    external_id: str | None = None
     version: str
     version_id: uuid.UUID
     installed_at: datetime
+    integrity: PackIntegrityStatus = "ok"
+    integrity_issues: list[str] = Field(default_factory=list)
 
 
 class PackVersionInfo(BaseModel):
@@ -30,6 +36,7 @@ class PackVersionContext(BaseModel):
     version: str
     manifest: dict[str, object]
     disk_path: str
+    object_key: str | None = None
 
 
 class PackDetail(BaseModel):
@@ -37,10 +44,13 @@ class PackDetail(BaseModel):
     slug: str
     title: str
     source: str
+    external_id: str | None = None
     schema_version: int
     active_version: PackVersionInfo
     versions: list[PackVersionInfo]
     manifest: dict[str, object]
+    integrity: PackIntegrityStatus = "ok"
+    integrity_issues: list[str] = Field(default_factory=list)
 
 
 class PackUploadResponse(BaseModel):
@@ -65,3 +75,4 @@ class RegisterImportedPackRequest(BaseModel):
     external_id: str = Field(min_length=1)
     source: str = Field(min_length=1)
     import_report: dict[str, object] | None = None
+    object_key: str | None = None

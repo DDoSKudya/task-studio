@@ -1,38 +1,12 @@
-export type PackSummary = {
-  id: string
-  slug: string
-  title: string
-  source: string
-  version: string
-  version_id: string
-  installed_at: string
-}
+import type { PackDetail, PackSummary, PackUploadResponse } from '~/utils/catalog'
 
-export type PackVersionInfo = {
-  id: string
-  version: string
-  created_at: string
-  active: boolean
-}
-
-export type PackDetail = {
-  id: string
-  slug: string
-  title: string
-  source: string
-  schema_version: number
-  active_version: PackVersionInfo
-  versions: PackVersionInfo[]
-  manifest: Record<string, unknown>
-}
-
-export type PackUploadResponse = {
-  pack_id: string
-  version_id: string
-  slug: string
-  title: string
-  version: string
-}
+export type {
+  PackDetail,
+  PackIntegrityStatus,
+  PackSummary,
+  PackUploadResponse,
+  PackVersionInfo,
+} from '~/utils/catalog'
 
 export function useCatalog() {
   const { request } = useApi()
@@ -54,9 +28,16 @@ export function useCatalog() {
     })
   }
 
+  async function deletePack(packId: string) {
+    await request(`/v1/catalog/packs/${packId}`, {
+      method: 'DELETE',
+    })
+  }
+
   return {
     listPacks,
     getPack,
     uploadPack,
+    deletePack,
   }
 }

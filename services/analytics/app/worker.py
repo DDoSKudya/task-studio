@@ -22,7 +22,7 @@ log = structlog.get_logger("analytics.worker")
 def start_events_worker(
     settings: AnalyticsSettings,
     session_factory: async_sessionmaker[AsyncSession],
-    client: Client,
+    client: Client | None,
 ) -> asyncio.Task[None] | None:
     if not settings.rabbitmq_url:
         log.warning("rabbitmq_disabled")

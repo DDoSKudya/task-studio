@@ -1,0 +1,34 @@
+# Frontend hot-reload overlay.
+# Usage: just web-dev
+#
+# Replaces the production Nuxt image with `nuxt dev` and bind-mounts sources
+# so edits under apps/web apply without rebuilding the image.
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile.dev
+    volumes:
+      - ../apps/web:/app/apps/web
+      - ../packages/editor-core:/app/packages/editor-core
+      - web_node_modules:/app/apps/web/node_modules
+    environment:
+      API_BASE_INTERNAL: http://studio-api:8000
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_TYPE_CHECK: "false"
+      NUXT_DEVTOOLS: "true"
+      NUXT_SKIP_ESLINT: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      HOST: "0.0.0.0"
+      PORT: "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+volumes:
+  web_node_modules:

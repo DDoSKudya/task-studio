@@ -34,7 +34,7 @@
         "required": ["kind"],
         "properties": {
           "kind": {
-            "enum": ["theory", "video", "quiz", "code", "lab"]
+            "enum": ["theory", "video", "quiz", "code", "lab", "task"]
           },
           "title": { "type": "string" },
           "compose_file": { "type": "string", "minLength": 1 },

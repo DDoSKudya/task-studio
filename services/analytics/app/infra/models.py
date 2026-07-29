@@ -51,23 +51,6 @@ class StudySkipCount(Base):
     )
 
 
-class TopicAssessScore(Base):
-    __tablename__ = "topic_assess_scores"
-    __table_args__ = {"schema": "analytics"}
-
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    pack_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    topic_id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    best_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
-    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_event_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False,
-    )
-
-
 class AttemptTimelineRow(Base):
     __tablename__ = "attempt_timeline"
     __table_args__ = {"schema": "analytics"}

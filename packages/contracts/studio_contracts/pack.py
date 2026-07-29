@@ -34,8 +34,7 @@ class ValidationIssue:
 
 
 def validate_manifest(manifest: dict[str, object]) -> None:
-    issues = collect_manifest_errors(manifest)
-    if issues:
+    if issues := collect_manifest_errors(manifest):
         raise ValueError(issues[0].message)
 
 
@@ -80,8 +79,7 @@ def build_pack_archive(
     manifest: dict[str, object],
     assets: dict[str, bytes] | None = None,
 ) -> bytes:
-    issues = collect_manifest_errors(manifest)
-    if issues:
+    if issues := collect_manifest_errors(manifest):
         msg = "; ".join(f"{issue.path}: {issue.message}" for issue in issues)
         raise ValueError(msg)
 

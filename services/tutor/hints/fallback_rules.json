@@ -1,18 +1,22 @@
 {
   "theory": [
-    "Read the section again and underline key terms.",
-    "Try explaining the idea in one sentence without looking at the text."
+    "Reread the passage and mark the key terms.",
+    "Try explaining the idea in one sentence without looking back at the text."
   ],
   "video": [
-    "Watch the clip once for the main idea, then replay for details.",
-    "Pause after each section and note one takeaway."
+    "Watch the clip all the way through first, then rewatch the important parts.",
+    "After each meaningful block, write down one takeaway."
   ],
   "code": [
-    "Start from the function signature and expected return type.",
-    "Solve the simplest test case before handling edge cases."
+    "Start from the expected output and which tables or data you need.",
+    "Solve the simplest case first, then refine the conditions."
   ],
   "quiz": [
-    "Eliminate answers that contradict the study material.",
-    "Recall definitions before guessing between similar options."
+    "Eliminate options that contradict the step material.",
+    "Recall the definition or rule before choosing between similar answers."
+  ],
+  "lab": [
+    "Match the instructions against the expected result for this step.",
+    "If you are stuck, return to the previous theory step in the course."
   ]
 }

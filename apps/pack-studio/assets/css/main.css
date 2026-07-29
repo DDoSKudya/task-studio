@@ -1,0 +1,35 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./layout.css";
+@import "./chrome.css";
+@import "./forms.css";
+@import "./auth.css";
+@import "./studio.css";
+@import "./transitions.css";
+
+.editor-textarea {
+  width: 100%;
+  min-height: 24rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.editor-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-ring);
+}
+
+.pack-studio-shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  padding: 0.75rem 0.875rem;
+}

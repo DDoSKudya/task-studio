@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { ArrowRightEndOnRectangleIcon } from '@heroicons/vue/24/outline'
+
+definePageMeta({ layout: 'auth' })
+
 const { t } = useI18n()
 const { login } = useAuth()
 const router = useRouter()
@@ -28,28 +32,39 @@ async function onSubmit() {
 </script>
 
 <template>
-  <UContainer class="py-8 max-w-md">
-    <UCard>
-      <template #header>
-        <h1 class="text-xl font-semibold">
-          {{ t('auth.login') }}
-        </h1>
-      </template>
+  <main class="login-shell">
+    <form class="login-panel" @submit.prevent="onSubmit">
+      <div class="auth-panel-header">
+        <div class="auth-brand">
+          <span class="sidebar-mark">
+            <AppIcon icon-class="sidebar-mark-icon" />
+          </span>
+          <div>
+            <div class="sidebar-title">{{ t('app.title') }}</div>
+            <div class="sidebar-subtitle">{{ t('app.subtitle') }}</div>
+          </div>
+        </div>
+        <h1 class="auth-title">{{ t('auth.login') }}</h1>
+      </div>
 
-      <form class="space-y-4" @submit.prevent="onSubmit">
-        <UFormField :label="t('auth.email')">
-          <UInput v-model="email" type="email" autocomplete="email" required />
-        </UFormField>
-        <UFormField :label="t('auth.password')">
-          <UInput v-model="password" type="password" autocomplete="current-password" required />
-        </UFormField>
-        <p v-if="errorMessage" class="text-sm text-red-600">
-          {{ errorMessage }}
-        </p>
-        <UButton type="submit" block :loading="pending">
-          {{ t('auth.submitLogin') }}
-        </UButton>
-      </form>
-    </UCard>
-  </UContainer>
+      <label class="form-field">
+        <span class="form-label">{{ t('auth.email') }}</span>
+        <input v-model="email" class="field" type="email" autocomplete="email" required>
+      </label>
+
+      <label class="form-field" style="margin-top: 0.875rem">
+        <span class="form-label">{{ t('auth.password') }}</span>
+        <input v-model="password" class="field" type="password" autocomplete="current-password" required>
+      </label>
+
+      <p v-if="errorMessage" class="alert-error" style="margin-top: 1rem">
+        {{ errorMessage }}
+      </p>
+
+      <button class="btn-primary btn-block" style="margin-top: 1.25rem" type="submit" :disabled="pending">
+        <ArrowRightEndOnRectangleIcon class="icon-sm" />
+        {{ pending ? t('auth.submitting') : t('auth.submitLogin') }}
+      </button>
+    </form>
+  </main>
 </template>

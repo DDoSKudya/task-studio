@@ -8,6 +8,7 @@
     "email": "Email",
     "password": "Password",
     "submitLogin": "Sign in",
+    "submitting": "Signing in...",
     "signedInAs": "Signed in as {email}",
     "logout": "Log out",
     "errors": {
@@ -22,6 +23,56 @@
     "upload": "Upload to catalog",
     "suggestPrompt": "Describe the step you want",
     "suggest": "AI suggest",
+    "fromArticle": "Article → course",
+    "fromArticleMeta": "Expand an article into theory + quizzes + 3 code tasks (easy→hard).",
+    "articleTitle": "Course title",
+    "articleAudience": "Audience",
+    "articleAudienceHint": "e.g. mid-level Python backend",
+    "articleLocale": "Locale",
+    "articleFile": ".md file",
+    "articleBody": "Article text (markdown)",
+    "articlePlaceholder": "Paste an article or upload a .md file…",
+    "buildCourse": "Build course with AI",
+    "buildCourseRunning": "Building…",
+    "courseWorking": "Building course (analyze → theory → quizzes → tasks). This can take several minutes…",
+    "courseReady": "Course ready. Chapters: {chapters}. Review JSON and upload to catalog.",
+    "courseWarnings": "Warnings",
+    "progressTitle": "Building course",
+    "progressDone": "Course ready",
+    "progressFailed": "Build failed",
+    "progressOutcomes": "Learning outcomes",
+    "progressChapters": "Theory chapters",
+    "progressQuizzes": "Quizzes",
+    "progressTasks": "Code tasks",
+    "progressTests": "{count} tests",
+    "progressLog": "Stage log",
+    "stages": {
+      "analyze": "Analyze",
+      "theory": "Theory",
+      "quizzes": "Quizzes",
+      "code": "Code",
+      "assemble": "Assemble"
+    },
+    "messages": {
+      "consistencyChecking": "Checking topic fit and contradictions across articles",
+      "consistencyDone": "Consistency check finished",
+      "consistencyGate": "Articles differ — confirm to continue or cancel",
+      "analyzeRunning": "Synthesizing one progressive syllabus from all sources",
+      "analyzeDone": "Outline ready",
+      "theoryExpanding": "Expanding chapter: {title}",
+      "theoryReady": "Theory ready: {title}",
+      "quizzesDesigning": "Designing {count} knowledge-check quizzes",
+      "quizzesPrepared": "Prepared {count} quizzes",
+      "codeBuilding": "Building {count}-step code ladder (easy→hard)",
+      "codePrepared": "Prepared {count} code tasks",
+      "assembleRunning": "Assembling and validating pack manifest",
+      "assembleDone": "Course pack ready",
+      "generationComplete": "Course generation complete"
+    },
+    "warningsMap": {
+      "continuedDespiteDeviations": "Continued despite article deviations",
+      "trimmedChapters": "Trimmed chapters to {count}"
+    },
     "valid": "Manifest is valid",
     "invalid": "Validation failed",
     "uploaded": "Pack uploaded: {title} v{version}",
@@ -29,7 +80,9 @@
     "errors": {
       "loadFailed": "Could not load editor",
       "invalidJson": "Manifest is not valid JSON",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "articleTooShort": "Article is too short (need ≥ 80 characters)",
+      "courseFailed": "Could not build a course from the article"
     }
   }
 }

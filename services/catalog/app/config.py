@@ -9,6 +9,7 @@ from pathlib import Path
 class CatalogSettings:
     packs_root: Path
     max_upload_bytes: int
+    media_service_url: str
 
 
 def load_settings() -> CatalogSettings:
@@ -17,4 +18,5 @@ def load_settings() -> CatalogSettings:
     return CatalogSettings(
         packs_root=packs_root,
         max_upload_bytes=max_upload_mb * 1024 * 1024,
+        media_service_url=os.getenv("MEDIA_SERVICE_URL", "").rstrip("/"),
     )

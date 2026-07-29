@@ -15,6 +15,7 @@ group "default" {
     "grading",
     "integrations",
     "tutor",
+    "cursor-proxy",
     "search",
     "analytics",
     "media",
@@ -28,6 +29,8 @@ group "default" {
 target "_common" {
   context = ".."
   platforms = ["linux/amd64", "linux/arm64"]
+  cache-from = ["type=local,src=/tmp/task-studio-buildx-cache"]
+  cache-to = ["type=local,dest=/tmp/task-studio-buildx-cache,mode=max"]
 }
 
 target "auth" {
@@ -72,6 +75,12 @@ target "tutor" {
   tags = ["${REGISTRY}/task-studio-tutor:${TAG}"]
 }
 
+target "cursor-proxy" {
+  inherits = ["_common"]
+  dockerfile = "services/cursor-proxy/Dockerfile"
+  tags = ["${REGISTRY}/task-studio-cursor-proxy:${TAG}"]
+}
+
 target "search" {
   inherits = ["_common"]
   dockerfile = "services/search/Dockerfile"
@@ -103,9 +112,8 @@ target "orchestrator" {
 }
 
 target "web" {
-  context = "../apps/web"
-  dockerfile = "Dockerfile"
-  platforms = ["linux/amd64", "linux/arm64"]
+  inherits = ["_common"]
+  dockerfile = "apps/web/Dockerfile"
   tags = ["${REGISTRY}/task-studio-web:${TAG}"]
 }
 
@@ -113,5 +121,7 @@ target "pack-studio" {
   context = "../apps/pack-studio"
   dockerfile = "Dockerfile"
   platforms = ["linux/amd64", "linux/arm64"]
+  cache-from = ["type=local,src=/tmp/task-studio-buildx-cache"]
+  cache-to = ["type=local,dest=/tmp/task-studio-buildx-cache,mode=max"]
   tags = ["${REGISTRY}/task-studio-pack-studio:${TAG}"]
 }

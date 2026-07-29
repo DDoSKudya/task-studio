@@ -1,9 +1,9 @@
-"""initial auth schema
-
-Revision ID: 001
-Revises:
-Create Date: 2026-07-11
-"""
+\
+\
+\
+\
+\
+   
 
 from __future__ import annotations
 

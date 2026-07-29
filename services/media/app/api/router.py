@@ -1,23 +1,62 @@
 from __future__ import annotations
 
+from app.api.asset_ids import require_safe_asset_id
 from app.api.deps import MinioClient, Settings
-from app.config import object_exists, presign_get_url, user_object_key
-from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import RedirectResponse
+from app.api.media_upload import MediaUploadResponse, upload_media_asset
+from app.storage import (
+    get_object_stream,
+    object_exists,
+    remove_object,
+    user_object_key,
+)
+from fastapi import APIRouter, HTTPException, Response, status
+from fastapi.responses import StreamingResponse
 from studio_common.internal import InternalUserId
 
 router = APIRouter(prefix="/internal/v1/media", tags=["media"])
 
+__all__ = ["router", "MediaUploadResponse", "upload_media_asset"]
 
-@router.get("/{asset_id:path}")
+
+@router.get("/{asset_id:path}", response_model=None)
 async def get_media_asset(
     asset_id: str,
     user_id: InternalUserId,
     settings: Settings,
     client: MinioClient,
-) -> RedirectResponse:
+) -> StreamingResponse:
+                                                                                       
+    require_safe_asset_id(asset_id)
     object_key = user_object_key(user_id, asset_id)
     if not object_exists(client, settings, object_key):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
-    url = presign_get_url(client, settings, object_key)
-    return RedirectResponse(url=url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    stream, content_type, length = get_object_stream(client, settings, object_key)
+    headers: dict[str, str] = {}
+    if length is not None:
+        headers["content-length"] = str(length)
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers=headers,
+    )
+
+
+@router.delete("/{asset_id:path}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_media_asset(
+    asset_id: str,
+    user_id: InternalUserId,
+    settings: Settings,
+    client: MinioClient,
+) -> Response:
+    require_safe_asset_id(asset_id)
+    object_key = user_object_key(user_id, asset_id)
+    remove_object(client, settings, object_key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+router.add_api_route(
+    "/upload",
+    upload_media_asset,
+    methods=["POST"],
+    response_model=MediaUploadResponse,
+)

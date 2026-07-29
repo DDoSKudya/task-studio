@@ -44,6 +44,8 @@ def submit_event(
             event_type = "quiz_answered"
         case "lab":
             event_type = "lab_submitted"
+        case "task":
+            event_type = "task_submitted"
         case _:
             event_type = "code_submitted"
     return analytics_event(

@@ -40,7 +40,24 @@ jobs:
       - name: Validate integration fixtures
         run: uv run python scripts/validate_integration_fixtures.py
       - name: Pytest
-        run: uv run pytest -q
+        run: |
+          set -eo pipefail
+          shared_path="packages/python-common/src:packages/contracts:packages/integration-sdk"
+          PYTHONPATH="$shared_path" uv run pytest -q \
+            packages/python-common/tests \
+            packages/contracts/tests
+          services=(
+            auth catalog media studio-api grading sessions tutor cursor-proxy
+            integrations analytics lab-runner orchestrator
+          )
+          for svc in "${services[@]}"; do
+            root="services/${svc}"
+            if [ ! -d "${root}/tests" ]; then
+              continue
+            fi
+            echo "==> pytest ${root}/tests"
+            PYTHONPATH="${root}:${root}/tests:${shared_path}" uv run pytest -q "${root}/tests"
+          done
 
   vitest:
     runs-on: ubuntu-latest
@@ -56,4 +73,3 @@ jobs:
         run: |
           npm ci
           npm run test
-
