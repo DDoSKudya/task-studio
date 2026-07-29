@@ -1,0 +1,349 @@
+
+
+
+.page-cyber-enter-active {
+  transition:
+    opacity 320ms var(--ease-soft),
+    transform 380ms var(--ease-emphasis);
+}
+
+.page-cyber-leave-active {
+  transition:
+    opacity 220ms var(--ease-soft),
+    transform 240ms var(--ease-soft);
+}
+
+.page-cyber-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.page-cyber-enter-to,
+.page-cyber-leave-from {
+  opacity: 1;
+  transform: none;
+}
+
+.page-cyber-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+
+.op-modal-enter-active,
+.op-modal-leave-active,
+.op-overlay-enter-active,
+.op-overlay-leave-active,
+.op-dialog-enter-active,
+.op-dialog-leave-active {
+  transition: opacity 200ms var(--ease-soft);
+}
+
+.op-modal-enter-active .op-dialog,
+.op-modal-leave-active .op-dialog,
+.op-modal-enter-active .lc-modal,
+.op-modal-leave-active .lc-modal,
+.op-modal-enter-active .lc-gate-card,
+.op-modal-leave-active .lc-gate-card,
+.op-modal-enter-active .op-overlay-panel,
+.op-modal-leave-active .op-overlay-panel,
+.op-overlay-enter-active .op-dialog,
+.op-overlay-leave-active .op-dialog,
+.op-overlay-enter-active .lc-modal,
+.op-overlay-leave-active .lc-modal,
+.op-overlay-enter-active .lc-gate-card,
+.op-overlay-leave-active .lc-gate-card,
+.op-overlay-enter-active .op-overlay-panel,
+.op-overlay-leave-active .op-overlay-panel,
+.op-dialog-enter-active .op-dialog,
+.op-dialog-leave-active .op-dialog {
+  transition:
+    opacity 220ms var(--ease-soft),
+    transform 240ms var(--ease-emphasis);
+}
+
+.op-modal-enter-from,
+.op-overlay-enter-from,
+.op-dialog-enter-from {
+  opacity: 0;
+}
+
+.op-modal-leave-to,
+.op-overlay-leave-to,
+.op-dialog-leave-to {
+  opacity: 0;
+}
+
+.op-modal-enter-from .op-dialog,
+.op-modal-enter-from .lc-modal,
+.op-modal-enter-from .lc-gate-card,
+.op-modal-enter-from .op-overlay-panel,
+.op-overlay-enter-from .op-dialog,
+.op-overlay-enter-from .lc-modal,
+.op-overlay-enter-from .lc-gate-card,
+.op-overlay-enter-from .op-overlay-panel,
+.op-dialog-enter-from .op-dialog {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.op-modal-enter-to .op-dialog,
+.op-modal-leave-from .op-dialog,
+.op-modal-enter-to .lc-modal,
+.op-modal-leave-from .lc-modal,
+.op-modal-enter-to .lc-gate-card,
+.op-modal-leave-from .lc-gate-card,
+.op-modal-enter-to .op-overlay-panel,
+.op-modal-leave-from .op-overlay-panel,
+.op-overlay-enter-to .op-dialog,
+.op-overlay-leave-from .op-dialog,
+.op-overlay-enter-to .lc-modal,
+.op-overlay-leave-from .lc-modal,
+.op-overlay-enter-to .lc-gate-card,
+.op-overlay-leave-from .lc-gate-card,
+.op-overlay-enter-to .op-overlay-panel,
+.op-overlay-leave-from .op-overlay-panel,
+.op-dialog-enter-to .op-dialog,
+.op-dialog-leave-from .op-dialog {
+  opacity: 1;
+  transform: none;
+}
+
+.op-modal-leave-to .op-dialog,
+.op-modal-leave-to .lc-modal,
+.op-modal-leave-to .lc-gate-card,
+.op-modal-leave-to .op-overlay-panel,
+.op-overlay-leave-to .op-dialog,
+.op-overlay-leave-to .lc-modal,
+.op-overlay-leave-to .lc-gate-card,
+.op-overlay-leave-to .op-overlay-panel,
+.op-dialog-leave-to .op-dialog {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+
+.op-panel-enter-active,
+.op-panel-leave-active,
+.toolbar-actions-enter-active,
+.toolbar-actions-leave-active {
+  transition:
+    opacity 260ms var(--ease-soft),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.op-panel-enter-from,
+.op-panel-leave-to,
+.toolbar-actions-enter-from,
+.toolbar-actions-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.op-panel-move {
+  transition: transform 280ms var(--ease-emphasis);
+}
+
+
+.op-toast-enter-active {
+  transition:
+    opacity 280ms var(--ease-soft),
+    transform 320ms var(--ease-emphasis);
+}
+
+.op-toast-leave-active {
+  position: absolute;
+  right: 0;
+  left: 0;
+  width: 100%;
+  transition:
+    opacity 220ms var(--ease-soft),
+    transform 240ms var(--ease-soft);
+}
+
+.op-toast-enter-from {
+  opacity: 0;
+  transform: translate3d(12px, -10px, 0);
+}
+
+.op-toast-enter-to,
+.op-toast-leave-from {
+  opacity: 1;
+  transform: none;
+}
+
+.op-toast-leave-to {
+  opacity: 0;
+  transform: translate3d(10px, -8px, 0);
+}
+
+.op-toast-move {
+  transition: transform 280ms var(--ease-emphasis);
+}
+
+
+.auth-mode-enter-active,
+.auth-mode-leave-active {
+  transition:
+    opacity 220ms var(--ease-soft),
+    transform 260ms var(--ease-emphasis);
+}
+
+.auth-mode-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.auth-mode-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+
+.shell-swap-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  z-index: 3;
+  transition: opacity 380ms var(--ease-soft);
+}
+
+.shell-swap-enter-active {
+  transition: opacity 420ms var(--ease-soft);
+  transition-delay: 1000ms;
+}
+
+.shell-swap-enter-from,
+.shell-swap-leave-to {
+  opacity: 0;
+}
+
+.shell-swap-enter-to,
+.shell-swap-leave-from {
+  opacity: 1;
+}
+
+.shell-swap-leave-active .login-panel {
+  animation: none !important;
+  transition:
+    opacity 300ms var(--ease-soft),
+    transform 320ms var(--ease-emphasis);
+}
+
+.shell-swap-leave-to .login-panel {
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  pointer-events: none;
+}
+
+.shell-swap-enter-active .login-panel {
+  animation: none !important;
+  transition:
+    opacity 360ms var(--ease-soft) 1000ms,
+    transform 400ms var(--ease-emphasis) 1000ms;
+}
+
+.shell-swap-enter-from .login-panel {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+}
+
+.shell-swap-enter-to .login-panel {
+  opacity: 1;
+  transform: none;
+}
+
+
+.auth-page-enter-active,
+.auth-page-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.auth-page-leave-active {
+  z-index: 2;
+  transition: opacity 280ms var(--ease-soft);
+}
+
+.auth-page-enter-active {
+  z-index: 1;
+  transition: opacity 300ms var(--ease-soft);
+}
+
+.auth-page-enter-from,
+.auth-page-leave-to {
+  opacity: 0;
+}
+
+.auth-page-enter-to,
+.auth-page-leave-from {
+  opacity: 1;
+}
+
+
+.auth-page-enter-active .login-panel,
+.auth-page-leave-active .login-panel,
+.auth-page-enter-from .login-panel,
+.auth-page-leave-to .login-panel {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-cyber-enter-active,
+  .page-cyber-leave-active,
+  .op-modal-enter-active,
+  .op-modal-leave-active,
+  .op-overlay-enter-active,
+  .op-overlay-leave-active,
+  .op-dialog-enter-active,
+  .op-dialog-leave-active,
+  .op-modal-enter-active .op-dialog,
+  .op-modal-leave-active .op-dialog,
+  .op-modal-enter-active .lc-modal,
+  .op-modal-leave-active .lc-modal,
+  .op-modal-enter-active .lc-gate-card,
+  .op-modal-leave-active .lc-gate-card,
+  .op-overlay-enter-active .op-dialog,
+  .op-overlay-leave-active .op-dialog,
+  .op-overlay-enter-active .lc-modal,
+  .op-overlay-leave-active .lc-modal,
+  .op-dialog-enter-active .op-dialog,
+  .op-dialog-leave-active .op-dialog,
+  .op-panel-enter-active,
+  .op-panel-leave-active,
+  .toolbar-actions-enter-active,
+  .toolbar-actions-leave-active,
+  .op-toast-enter-active,
+  .op-toast-leave-active,
+  .op-toast-move,
+  .auth-mode-enter-active,
+  .auth-mode-leave-active,
+  .shell-swap-enter-active,
+  .shell-swap-leave-active,
+  .shell-swap-leave-active .login-panel,
+  .shell-swap-enter-active .login-panel,
+  .auth-page-enter-active,
+  .auth-page-leave-active {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .auth-mode-enter-from,
+  .auth-mode-leave-to {
+    transform: none;
+  }
+
+  .op-modal-enter-from .op-dialog,
+  .op-modal-enter-from .lc-modal,
+  .op-modal-enter-from .lc-gate-card,
+  .op-modal-leave-to .op-dialog,
+  .op-modal-leave-to .lc-modal,
+  .op-modal-leave-to .lc-gate-card,
+  .shell-swap-enter-from .login-panel,
+  .shell-swap-leave-to .login-panel {
+    transform: none;
+  }
+}

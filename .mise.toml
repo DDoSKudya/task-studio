@@ -3,6 +3,7 @@ python = "3.12"
 node = "22"
 uv = "latest"
 ruff = "latest"
+just = "1.40.0"
 
 [env]
 _.python.venv = { path = ".venv", create = true }

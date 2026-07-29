@@ -57,3 +57,35 @@ async def test_process_event_is_idempotent() -> None:
     await process_event(session, client, "analytics", event)
 
     assert session.commit.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_process_event_survives_clickhouse_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    event = AnalyticsEventMessage(
+        event_id=uuid.uuid4(),
+        event_type="session_started",
+        user_id=uuid.uuid4(),
+        session_id=uuid.uuid4(),
+        pack_version_id=uuid.uuid4(),
+        pack_title="Demo",
+        topic_id="t1",
+        phase="study",
+        step_id="s1",
+        event_time=datetime.now(UTC),
+    )
+
+    async def mock_get(model, _key):  # noqa: ANN001
+        return None
+
+    session = AsyncMock()
+    session.get = AsyncMock(side_effect=mock_get)
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("clickhouse down")
+
+    monkeypatch.setattr(events.asyncio, "to_thread", boom)
+    await process_event(session, MagicMock(), "analytics", event)
+
+    assert session.commit.await_count == 1

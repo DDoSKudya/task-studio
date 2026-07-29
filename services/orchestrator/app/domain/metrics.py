@@ -5,12 +5,16 @@ from dataclasses import dataclass
 
 import httpx
 import structlog
+from app.domain.metrics_hot import prometheus_query_matches, pyroscope_grading_hot
 from studio_contracts.orchestrator_schemas import TutorLlmSummaryResponse
 
 log = structlog.get_logger("orchestrator.metrics")
 
 _MEM_AVAILABLE = re.compile(r"^node_memory_MemAvailable_bytes\s+(\d+)\s*$", re.MULTILINE)
 _LOAD_AVERAGE = re.compile(r"^node_load1\s+([\d.]+)\s*$", re.MULTILINE)
+
+_prometheus_query_matches = prometheus_query_matches
+_pyroscope_grading_hot = pyroscope_grading_hot
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,53 +68,7 @@ async def grading_cpu_hot(
     threshold: float,
     pyroscope_url: str,
 ) -> bool:
-    if await _pyroscope_grading_hot(client, pyroscope_url):
+    if await pyroscope_grading_hot(client, pyroscope_url):
         return True
     query = f'sum(rate(container_cpu_usage_seconds_total{{name=~".*grading.*"}}[2m])) > {threshold}'
-    return await _prometheus_query_matches(client, prometheus_url, query)
-
-
-async def _prometheus_query_matches(
-    client: httpx.AsyncClient,
-    prometheus_url: str,
-    query: str,
-) -> bool:
-    try:
-        response = await client.get(
-            f"{prometheus_url}/api/v1/query",
-            params={"query": query},
-            timeout=10.0,
-        )
-        response.raise_for_status()
-    except httpx.HTTPError:
-        return False
-    body = response.json()
-    if not isinstance(body, dict):
-        return False
-    data = body.get("data")
-    if not isinstance(data, dict):
-        return False
-    result = data.get("result")
-    return isinstance(result, list) and bool(result)
-
-
-async def _pyroscope_grading_hot(client: httpx.AsyncClient, pyroscope_url: str) -> bool:
-    try:
-        response = await client.get(
-            f"{pyroscope_url}/api/render",
-            params={"query": "grading.cpu", "from": "now-5m", "until": "now"},
-            timeout=10.0,
-        )
-        if response.status_code in {404, 503}:
-            return False
-        response.raise_for_status()
-    except httpx.HTTPError:
-        return False
-    body = response.json()
-    if not isinstance(body, dict):
-        return False
-    flamebearer = body.get("flamebearer")
-    if not isinstance(flamebearer, dict):
-        return False
-    levels = flamebearer.get("levels")
-    return isinstance(levels, list) and bool(levels)
+    return await prometheus_query_matches(client, prometheus_url, query)

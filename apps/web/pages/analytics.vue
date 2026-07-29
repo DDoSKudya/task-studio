@@ -4,30 +4,36 @@ import type {
   ProgressResponse,
   StudySkipEntry,
 } from '~/composables/useAnalytics'
+import {
+  attemptPassStats,
+  countActiveDays,
+  stepsPerActiveDay as stepsPerDay,
+  streakFromPoints,
+  weakSpotsFromAttempts,
+} from '~/utils/analytics'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { fetchProgress, fetchSkips, fetchAttempts } = useAnalytics()
+const toasts = useToasts()
 
 const progress = ref<ProgressResponse | null>(null)
 const skips = ref<StudySkipEntry[]>([])
 const attempts = ref<AttemptTimelineEntry[]>([])
 const pending = ref(false)
-const errorMessage = ref('')
 
 async function loadAnalytics() {
   pending.value = true
-  errorMessage.value = ''
   try {
     const [progressResponse, skipsResponse, attemptsResponse] = await Promise.all([
       fetchProgress(30),
       fetchSkips(),
-      fetchAttempts(30),
+      fetchAttempts(50),
     ])
     progress.value = progressResponse
     skips.value = skipsResponse.items
     attempts.value = attemptsResponse.items
   } catch {
-    errorMessage.value = t('analytics.errors.loadFailed')
+    toasts.error(t('analytics.errors.loadFailed'))
   } finally {
     pending.value = false
   }
@@ -35,132 +41,213 @@ async function loadAnalytics() {
 
 onMounted(loadAnalytics)
 
+const passStats = computed(() => attemptPassStats(attempts.value))
+const passedCount = computed(() => passStats.value.passed)
+const failedCount = computed(() => passStats.value.failed)
+const attemptTotal = computed(() => passStats.value.total)
+const passRate = computed(() => passStats.value.passRate)
+
+const activeDays = computed(() => countActiveDays(progress.value?.points ?? []))
+
+const stepsPerActiveDay = computed(() =>
+  stepsPerDay(progress.value?.total_steps_completed ?? 0, activeDays.value),
+)
+
+const streakDays = computed(() => streakFromPoints(progress.value?.points ?? []))
+
+const weakSpots = computed(() => weakSpotsFromAttempts(attempts.value))
+
 function formatDate(value: string) {
-  return new Date(value).toLocaleString()
+  return new Date(value).toLocaleString(locale.value === 'ru' ? 'ru-RU' : 'en-US', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 </script>
 
 <template>
-  <UContainer class="space-y-6 py-8">
-    <div>
-      <h1 class="text-2xl font-semibold">
-        {{ t('analytics.title') }}
-      </h1>
-      <p class="mt-1 text-sm text-muted">
-        {{ t('analytics.subtitle') }}
-      </p>
+  <PageShell :title="t('analytics.title')" :meta="t('analytics.subtitle')">
+    <div v-if="pending" class="loading-state">
+      <span class="loading-spinner" aria-hidden="true" />
+      <span>{{ t('analytics.loading') }}</span>
     </div>
 
-    <p v-if="errorMessage" class="text-sm text-red-600">
-      {{ errorMessage }}
-    </p>
-
-    <div v-if="pending" class="text-sm text-muted">
-      {{ t('analytics.loading') }}
-    </div>
-
-    <template v-else-if="progress">
-      <div class="grid gap-4 md:grid-cols-3">
-        <UCard>
-          <p class="text-sm text-muted">
-            {{ t('analytics.stats.sessions') }}
+    <div v-else-if="progress" class="ax-root">
+      <div class="ax-stats ax-stats-3">
+        <article class="ax-stat">
+          <p class="ax-stat-label">{{ t('analytics.stats.passRate') }}</p>
+          <p class="ax-stat-value">{{ passRate == null ? '—' : `${passRate}%` }}</p>
+          <p class="ax-stat-foot">
+            {{
+              attemptTotal
+                ? t('analytics.stats.passRateFoot', { passed: passedCount, failed: failedCount })
+                : t('analytics.stats.noAttempts')
+            }}
           </p>
-          <p class="mt-1 text-2xl font-semibold">
-            {{ progress.total_sessions }}
+        </article>
+        <article class="ax-stat">
+          <p class="ax-stat-label">{{ t('analytics.stats.steps') }}</p>
+          <p class="ax-stat-value">{{ progress.total_steps_completed }}</p>
+          <p class="ax-stat-foot">
+            {{ t('analytics.stats.stepsFoot', { perDay: stepsPerActiveDay, days: activeDays }) }}
           </p>
-        </UCard>
-        <UCard>
-          <p class="text-sm text-muted">
-            {{ t('analytics.stats.steps') }}
+        </article>
+        <article class="ax-stat">
+          <p class="ax-stat-label">{{ t('analytics.stats.streak') }}</p>
+          <p class="ax-stat-value">{{ streakDays }}</p>
+          <p class="ax-stat-foot">
+            {{ t('analytics.stats.streakFoot', { sessions: progress.total_sessions }) }}
           </p>
-          <p class="mt-1 text-2xl font-semibold">
-            {{ progress.total_steps_completed }}
-          </p>
-        </UCard>
-        <UCard>
-          <p class="text-sm text-muted">
-            {{ t('analytics.stats.skips') }}
-          </p>
-          <p class="mt-1 text-2xl font-semibold">
-            {{ skips.length }}
-          </p>
-        </UCard>
+        </article>
       </div>
 
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold">
-            {{ t('analytics.progressChart') }}
-          </h2>
-        </template>
-        <AnalyticsProgressChart v-if="progress.points.length" :points="progress.points" />
-        <p v-else class="text-sm text-muted">
-          {{ t('analytics.emptyProgress') }}
-        </p>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold">
-            {{ t('analytics.skipsTitle') }}
-          </h2>
-        </template>
-        <div v-if="skips.length === 0" class="text-sm text-muted">
-          {{ t('analytics.emptySkips') }}
-        </div>
-        <ul v-else class="divide-y divide-default">
-          <li
-            v-for="skip in skips"
-            :key="`${skip.session_id}-${skip.topic_id}`"
-            class="flex flex-wrap items-start justify-between gap-3 py-3"
-          >
+      <div class="ax-hero">
+        <section class="ax-panel">
+          <header class="ax-panel-head">
             <div>
-              <p class="font-medium">
-                {{ skip.pack_title || skip.topic_id }}
-              </p>
-              <p class="text-sm text-muted">
-                {{ t('analytics.topicLabel', { topic: skip.topic_id }) }}
-              </p>
+              <p class="ax-panel-kicker">{{ t('analytics.rhythm.kicker') }}</p>
+              <h2 class="ax-panel-title">{{ t('analytics.progressChart') }}</h2>
             </div>
-            <time class="text-xs text-muted">{{ formatDate(skip.skipped_at) }}</time>
-          </li>
-        </ul>
-      </UCard>
+            <p class="ax-panel-meta">{{ t('analytics.rhythm.meta') }}</p>
+          </header>
+          <div class="ax-panel-body">
+            <AnalyticsProgressChart
+              v-if="progress.points.length"
+              :points="progress.points"
+              :sessions-label="t('analytics.series.sessions')"
+              :steps-label="t('analytics.series.steps')"
+            />
+            <div v-else class="ax-empty">
+              <p class="empty-state-title">{{ t('analytics.emptyProgress') }}</p>
+              <p class="ax-empty-meta">{{ t('analytics.emptyProgressMeta') }}</p>
+            </div>
+          </div>
+        </section>
 
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold">
-            {{ t('analytics.attemptsTitle') }}
-          </h2>
-        </template>
-        <div v-if="attempts.length === 0" class="text-sm text-muted">
-          {{ t('analytics.emptyAttempts') }}
-        </div>
-        <ul v-else class="divide-y divide-default">
-          <li
-            v-for="attempt in attempts"
-            :key="attempt.attempt_id"
-            class="flex flex-wrap items-start justify-between gap-3 py-3"
-          >
+        <section class="ax-panel">
+          <header class="ax-panel-head">
             <div>
-              <p class="font-medium">
-                {{ attempt.pack_title || attempt.topic_id }}
-              </p>
-              <p class="text-sm text-muted">
-                {{ attempt.phase }} · {{ attempt.topic_id }} · {{ attempt.step_id }}
-              </p>
+              <p class="ax-panel-kicker">{{ t('analytics.ring.kicker') }}</p>
+              <h2 class="ax-panel-title">{{ t('analytics.ring.title') }}</h2>
             </div>
-            <div class="text-right text-sm">
-              <UBadge :color="attempt.passed ? 'success' : 'warning'" variant="subtle">
-                {{ attempt.passed ? t('analytics.passed') : t('analytics.failed') }}
-              </UBadge>
-              <p class="mt-1 text-xs text-muted">
-                {{ formatDate(attempt.created_at) }}
-              </p>
+          </header>
+          <div class="ax-panel-body">
+            <AnalyticsPassRing
+              :passed="passedCount"
+              :failed="failedCount"
+              :pass-label="t('analytics.passed')"
+              :fail-label="t('analytics.failed')"
+              :empty-label="t('analytics.emptyAttempts')"
+            />
+          </div>
+        </section>
+      </div>
+
+      <div class="ax-grid-wide">
+        <section class="ax-panel">
+          <header class="ax-panel-head">
+            <div>
+              <p class="ax-panel-kicker">{{ t('analytics.weak.kicker') }}</p>
+              <h2 class="ax-panel-title">{{ t('analytics.weak.title') }}</h2>
             </div>
-          </li>
-        </ul>
-      </UCard>
-    </template>
-  </UContainer>
+            <p class="ax-panel-meta">{{ t('analytics.weak.meta') }}</p>
+          </header>
+          <div class="ax-panel-body">
+            <div v-if="!weakSpots.length" class="ax-empty">
+              <p class="empty-state-title">{{ t('analytics.weak.empty') }}</p>
+              <p class="ax-empty-meta">{{ t('analytics.weak.emptyMeta') }}</p>
+            </div>
+            <div v-else class="ax-weak">
+              <article
+                v-for="spot in weakSpots"
+                :key="spot.key"
+                class="ax-weak-item"
+              >
+                <div class="ax-weak-copy">
+                  <p class="ax-weak-title">{{ spot.title }}</p>
+                  <p class="ax-weak-meta">
+                    {{ t('analytics.topicLabel', { topic: spot.topicId }) }}
+                  </p>
+                </div>
+                <div class="ax-weak-metrics">
+                  <span class="ax-weak-fails">
+                    {{ t('analytics.weak.fails', { count: spot.failed }) }}
+                  </span>
+                  <span class="ax-weak-rate">{{ spot.failRate }}%</span>
+                </div>
+                <div class="ax-weak-bar" aria-hidden="true">
+                  <span class="ax-weak-bar-fill" :style="{ width: `${spot.failRate}%` }" />
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="ax-panel">
+          <header class="ax-panel-head">
+            <div>
+              <p class="ax-panel-kicker">{{ t('analytics.feed.kicker') }}</p>
+              <h2 class="ax-panel-title">{{ t('analytics.attemptsTitle') }}</h2>
+            </div>
+          </header>
+          <div class="ax-panel-body">
+            <div v-if="!attempts.length" class="ax-empty">
+              <p class="empty-state-title">{{ t('analytics.emptyAttempts') }}</p>
+            </div>
+            <div v-else class="ax-feed">
+              <article
+                v-for="attempt in attempts.slice(0, 10)"
+                :key="attempt.attempt_id"
+                class="ax-feed-item"
+                :class="attempt.passed ? 'is-pass' : 'is-fail'"
+              >
+                <div>
+                  <p class="ax-feed-title">{{ attempt.pack_title || attempt.topic_id }}</p>
+                  <p class="ax-feed-meta">
+                    {{ attempt.phase }} · {{ attempt.step_id }}
+                  </p>
+                  <p class="ax-feed-time">{{ formatDate(attempt.created_at) }}</p>
+                </div>
+                <span
+                  class="ax-feed-badge"
+                  :class="attempt.passed ? 'is-pass' : 'is-fail'"
+                >
+                  {{ attempt.passed ? t('analytics.passed') : t('analytics.failed') }}
+                </span>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section v-if="skips.length" class="ax-panel">
+        <header class="ax-panel-head">
+          <div>
+            <p class="ax-panel-kicker">{{ t('analytics.skips.kicker') }}</p>
+            <h2 class="ax-panel-title">{{ t('analytics.skipsTitle') }}</h2>
+          </div>
+          <p class="ax-panel-meta">{{ t('analytics.skips.meta', { count: skips.length }) }}</p>
+        </header>
+        <div class="ax-panel-body">
+          <div class="ax-feed ax-feed-flat">
+            <article
+              v-for="skip in skips.slice(0, 6)"
+              :key="`${skip.session_id}-${skip.topic_id}`"
+              class="ax-feed-item is-skip"
+            >
+              <div>
+                <p class="ax-feed-title">{{ skip.pack_title || skip.topic_id }}</p>
+                <p class="ax-feed-meta">
+                  {{ t('analytics.topicLabel', { topic: skip.topic_id }) }}
+                </p>
+              </div>
+              <time class="ax-feed-time">{{ formatDate(skip.skipped_at) }}</time>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+  </PageShell>
 </template>

@@ -1,51 +1,204 @@
+# Product plan (local operating docs; not published with the app)
 .plan/
 
-# Environment
+# ---------------------------------------------------------------------------
+# Environment & secrets — never commit credentials or private keys
+# ---------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
+!.env.*.example
+!**/*.example.env
 
+# Key material / cert dumps (not source modules named *secret*)
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.ppk
+
+# Credential dumps (filenames), not code like credentialAutofill.ts
+*credentials.json
+*credentials.yml
+*credentials.yaml
+*credentials.toml
+*.credentials
+.credentials/
+credentials/
+secrets/
+.secrets/
+*.secret
+*.secrets
+*secret*.json
+*secret*.yml
+*secret*.yaml
+*secret*.toml
+*secret*.env
+!*secret*.example*
+!*credentials*.example*
+
+# Cloud / SaaS CLI local auth (never repo)
+.aws/
+.gcloud/
+.azure/
+.kube/config
+*.kubeconfig
+
+# ---------------------------------------------------------------------------
+# Local IDE / tooling (not product code)
+# ---------------------------------------------------------------------------
+.cursor/
+.serena/
+.claude/
+.codex/
+.continue/
+.windsurf/
+.aider*
+.gemini/
+.agent/
+.agents/
+.lean-ctx/
+.mcp/
+.roo/
+.specs/
+.memory/
+.memories/
+CLAUDE.md
+AGENTS.md
+.cursorrules
+.cursorignore
+
+# Editor / OS junk
+.idea/
+.vscode/
+.fleet/
+.history/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Tooling local overrides (keep shared configs tracked)
+mise.local.toml
+.mise.local.toml
+.pre-commit-config.local.yaml
+.sourcery.yaml
+.direnv/
+.envrc
+!.envrc.example
+
+# ---------------------------------------------------------------------------
 # Python
+# ---------------------------------------------------------------------------
 .venv/
 venv/
+env/
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 .mypy_cache/
+.basedpyright/
 .pyright/
 .ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.dmypy.json
+dmypy.json
 htmlcov/
 .coverage
 .coverage.*
+coverage.xml
+coverage.json
+*.cover
 dist/
 build/
 *.egg-info/
 .eggs/
+pip-wheel-metadata/
+uv-cache/
+.uv/
 
-# Node
+# ---------------------------------------------------------------------------
+# Node / Nuxt / Vite
+# ---------------------------------------------------------------------------
 node_modules/
 .nuxt/
 .output/
+.nitro/
 .data/
+.cache/
+.vite/
+.turbo/
+.parcel-cache/
 dist/
 *.tsbuildinfo
+.eslintcache
+.stylelintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Runtime data
+# ---------------------------------------------------------------------------
+# Runtime data volumes (Postgres, MinIO, packs, CH, Redis, Ollama, …)
+# ---------------------------------------------------------------------------
 data/
+cache/
 
-# IDE & OS
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
+# Local course / media dumps outside data/ (safety net)
+packs/
+**/user-uploads/
+**/*.studio-pack
+!fixtures/**/*.studio-pack
+!testdata/**/*.studio-pack
 
+# Local DBs / broker leftovers
+*.sqlite
+*.sqlite3
+*.db
+!fixtures/**/*.db
+!testdata/**/*.db
+dump.rdb
+celerybeat-schedule
+celerybeat-schedule.*
+
+# ---------------------------------------------------------------------------
 # Logs & temp
+# ---------------------------------------------------------------------------
 *.log
+logs/
 tmp/
 temp/
+.tmp/
+*.tmp
 
+# ---------------------------------------------------------------------------
+# Playwright / e2e artifacts
+# ---------------------------------------------------------------------------
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+storage.state
+**/storage.state
+
+# ---------------------------------------------------------------------------
 # Docker local overrides (keep examples in repo)
+# ---------------------------------------------------------------------------
 compose.override.yml
+docker-compose.override.yml
+**/compose.override.yml
+**/docker-compose.override.yml

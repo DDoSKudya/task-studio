@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
 
 import httpx
 import structlog
@@ -16,10 +15,15 @@ from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rab
 from studio_integration_sdk.registry import AdapterModule
 
 from app.config import IntegrationsSettings
-from app.domain.jobs import get_import_job, run_import_job
-from app.domain.messaging import publish_pack_index
+from app.domain.worker_handle import handle_import_payload
+from app.worker_sweep import start_import_sweeper
 
 log = structlog.get_logger("integrations.worker")
+
+__all__ = [
+    "start_import_sweeper",
+    "start_import_worker",
+]
 
 
 def start_import_worker(
@@ -35,7 +39,7 @@ def start_import_worker(
     async def _runner() -> None:
         async with rabbit_connection(settings.rabbitmq_url) as connection:
             channel = await connection.channel()
-            await channel.set_qos(prefetch_count=1)
+            await channel.set_qos(prefetch_count=3)
             queue = await declare_queue(channel, settings.import_queue)
             dlq = await declare_dlq(channel, settings.import_queue)
             await declare_queue(channel, settings.search_index_queue)
@@ -43,30 +47,14 @@ def start_import_worker(
             async def handle(payload: dict[str, object], _message: AbstractIncomingMessage) -> None:
                 redis_url = redis_url_from_env()
                 await wait_while_orchestrator_paused(redis_url, PAUSE_IMPORT_KEY)
-                job_id = uuid.UUID(str(payload["job_id"]))
-                user_id = uuid.UUID(str(payload["user_id"]))
-                platform_id = str(payload["platform_id"])
-                adapter = adapters.get(platform_id)
-                if adapter is None:
-                    msg = f"unknown platform {platform_id}"
-                    raise ValueError(msg)
-
-                async with session_factory() as session:
-                    job = await get_import_job(session, user_id=user_id, job_id=job_id)
-                    updated = await run_import_job(
-                        session,
-                        http_client,
-                        settings,
-                        adapter,
-                        job,
-                    )
-                    if updated.pack_version_id is not None:
-                        await publish_pack_index(
-                            channel,
-                            settings,
-                            user_id=user_id,
-                            pack_version_id=updated.pack_version_id,
-                        )
+                await handle_import_payload(
+                    payload,
+                    channel=channel,
+                    session_factory=session_factory,
+                    http_client=http_client,
+                    settings=settings,
+                    adapters=adapters,
+                )
 
             await consume_json(queue, handle, dlq=dlq)
 

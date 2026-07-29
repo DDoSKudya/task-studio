@@ -1,0 +1,231 @@
+.login-shell {
+  display: grid;
+  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  place-items: center;
+  padding: 1.5rem;
+  background: transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 26rem;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 0;
+  background: rgb(12 12 22 / 0.96);
+  padding: 1.75rem 1.6rem 1.5rem;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.45),
+    0 28px 64px rgb(0 0 0 / 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+
+.login-panel::before,
+.login-panel::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.login-panel::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid var(--op-violet);
+  border-left: 2px solid var(--op-violet);
+}
+
+.login-panel::after {
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid var(--op-gold);
+  border-bottom: 2px solid var(--op-gold);
+}
+
+.auth-panel-header {
+  margin-bottom: 1.35rem;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.auth-mode-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
+.auth-brand .sidebar-mark,
+.auth-brand .sidebar-mark-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.auth-brand .sidebar-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.1em;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  font-family: var(--font-display);
+}
+
+.auth-subtitle {
+  margin: 0.45rem 0 0;
+  font-size: 0.65rem;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.auth-submit {
+  margin-top: 1.35rem;
+}
+
+.auth-footer-link {
+  margin: 1.35rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.auth-footer-link a,
+.auth-mode-switch {
+  color: rgb(255 255 255 / 0.72);
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  transition: color var(--motion-fast) var(--ease-soft);
+}
+
+.auth-mode-switch {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.auth-mode-switch:hover:not(:disabled),
+.auth-footer-link a:hover {
+  color: var(--op-violet);
+  text-decoration: none;
+}
+
+.auth-mode-switch:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.72);
+  backdrop-filter: none;
+}
+
+.modal-panel {
+  width: 100%;
+  max-width: 24rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+}
+
+.modal-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: 0 1rem 1rem;
+}
+
+.confirm-dialog-panel {
+  max-width: 28rem;
+}
+
+.confirm-dialog-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid var(--color-text);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-invert-text);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

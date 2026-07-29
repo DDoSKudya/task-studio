@@ -11,6 +11,8 @@ export { loadGrammar, registerGrammar, type GrammarDefinition } from './grammar-
 export {
   connectLanguageClient,
   disconnectLanguageClient,
+  documentUriForSession,
+  type ConnectLanguageClientOptions,
   type LspClientHandle,
 } from './lsp-client'
 export { configureMonacoEnvironment } from './monaco-env'

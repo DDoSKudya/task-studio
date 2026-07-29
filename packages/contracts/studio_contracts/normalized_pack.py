@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-StepKind = Literal["theory", "video", "quiz", "code", "lab"]
+StepKind = Literal["theory", "video", "quiz", "code", "lab", "task"]
 StepPhase = Literal["study", "practice", "assess"]
 StepFidelity = Literal["full", "partial"]
 

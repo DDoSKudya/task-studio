@@ -1,24 +1,32 @@
-FROM node:22.23-alpine3.22 AS build
+# syntax=docker/dockerfile:1.7
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat \
-    && apk upgrade --no-cache
+RUN apk add --no-cache libc6-compat
 
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 
 COPY . .
 ARG NUXT_APP_BASE_URL=/pack-studio/
 ENV NUXT_APP_BASE_URL=$NUXT_APP_BASE_URL
-RUN npm run build
+RUN npm run postinstall
+ENV NUXT_TYPE_CHECK=false
+ENV NUXT_DEVTOOLS=false
+ENV NUXT_TELEMETRY_DISABLED=1
+ENV NUXT_SOURCEMAP=false
+ENV NODE_OPTIONS=--max-old-space-size=3072
+RUN --mount=type=cache,target=/app/node_modules/.vite \
+    --mount=type=cache,target=/app/node_modules/.cache \
+    npm run build
 
-FROM node:22.23-alpine3.22
+FROM node:22-alpine
 
 WORKDIR /app
 
 RUN apk add --no-cache wget \
-    && apk upgrade --no-cache \
     && adduser -D -u 10001 appuser
 
 COPY --from=build --chown=appuser:appuser /app/.output ./.output

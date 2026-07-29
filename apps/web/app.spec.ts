@@ -7,7 +7,7 @@ const localesDir = resolve(import.meta.dirname, 'i18n/locales')
 type LocalePayload = {
   app: {
     title: string
-    welcome: string
+    subtitle: string
   }
   auth: {
     login: string
@@ -28,14 +28,14 @@ describe('web scaffold', () => {
   it.each(['en', 'ru'] as const)('locale %s defines app and auth strings', (code) => {
     const locale = loadLocale(code)
     expect(locale.app.title).toBeTruthy()
-    expect(locale.app.welcome).toBeTruthy()
+    expect(locale.app.subtitle).toBeTruthy()
     expect(locale.auth.login).toBeTruthy()
     expect(locale.auth.register).toBeTruthy()
   })
 
-  it('locales differ for welcome message', () => {
+  it('locales differ for subtitle', () => {
     const en = loadLocale('en')
     const ru = loadLocale('ru')
-    expect(en.app.welcome).not.toBe(ru.app.welcome)
+    expect(en.app.subtitle).not.toBe(ru.app.subtitle)
   })
 })

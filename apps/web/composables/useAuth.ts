@@ -39,9 +39,16 @@ export function useAuth() {
   }
 
   async function logout() {
-    await request('/v1/auth/logout', { method: 'POST' })
+    try {
+      await request('/v1/auth/logout', { method: 'POST' })
+    } catch {
+
+    }
     user.value = null
     settings.value = {}
+    if (import.meta.client) {
+      await navigateTo('/login')
+    }
   }
 
   async function patchSettings(body: {

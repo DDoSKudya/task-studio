@@ -1,19 +1,43 @@
 {
   "app": {
     "title": "Task Studio",
-    "welcome": "Каркас self-hosted платформы для обучения."
+    "subtitle": "Платформа для обучения"
+  },
+  "dialog": {
+    "confirm": "Подтвердить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "close": "Закрыть"
+  },
+  "error": {
+    "notFound": "Страница не найдена{path}",
+    "generic": "Что-то пошло не так",
+    "goLogin": "Войти",
+    "goHome": "На главную"
+  },
+  "nav": {
+    "catalog": "Каталог",
+    "analytics": "Аналитика",
+    "settings": "Настройки",
+    "main": "Основная навигация"
   },
   "auth": {
     "login": "Войти",
     "register": "Регистрация",
     "logout": "Выйти",
+    "logoutConfirmTitle": "Выйти из аккаунта?",
+    "logoutConfirmMessage": "Сессия будет завершена. Вы сможете войти снова в любой момент.",
+    "signedIn": "Вы вошли",
     "email": "Email",
     "password": "Пароль",
     "submitLogin": "Войти",
     "submitRegister": "Создать аккаунт",
+    "submitting": "Вход...",
+    "registering": "Создание аккаунта...",
+    "loginSubtitle": "Войдите, чтобы открыть курсы и сессии.",
+    "registerSubtitle": "Создайте аккаунт, чтобы начать обучение.",
     "haveAccount": "Уже есть аккаунт?",
     "noAccount": "Нет аккаунта?",
-    "signedInAs": "Вы вошли как {email}",
     "errors": {
       "invalidCredentials": "Неверный email или пароль",
       "emailTaken": "Email уже зарегистрирован",
@@ -22,25 +46,108 @@
   },
   "catalog": {
     "title": "Каталог",
-    "upload": "Загрузить пак",
+    "subtitle": "Ваши курсы",
+    "modeLabel": "Режим каталога",
+    "searchPlaceholder": "SQL, Docker, FastAPI…",
+    "searchLibraryPlaceholder": "Фильтр библиотеки…",
+    "platformsTitle": "Источники",
+    "allPlatforms": "Все источники",
+    "allPlatformsMeta": "Сводный список",
+    "railFootnote": "Клик по источнику фильтрует список. Красная/жёлтая точка — откройте Настройки.",
+    "openSettings": "Настройки интеграций",
+    "tabDiscover": "Найти курсы",
+    "tabLibrary": "Моя библиотека",
+    "externalTitle": "Найти курсы",
+    "externalMeta": "Скачайте в библиотеку — дальше курс доступен офлайн.",
+    "externalEmptyTitle": "Пока нет доступных курсов",
+    "externalEmptyMeta": "Exercism и freeCodeCamp доступны сразу. Для Stepik нужны ключи в Настройках.",
+    "emptyLibraryMeta": "Курсы появятся здесь после создания из статей или скачивания с платформ. Откройте «Найти курсы».",
+    "goDiscover": "Найти на платформах",
+    "openCourse": "Открыть",
+    "continueCourse": "Продолжить",
+    "downloadCourse": "Скачать",
+    "downloadingCourse": "Скачивание",
+    "redownloadCourse": "Перекачать",
+    "integrityBroken": "Повреждён",
+    "integrityBrokenMeta": "Файлы курса на диске неполные или отсутствуют. Перекачайте курс.",
+    "redownloadConfirm": "Перекачать «{title}»? Повреждённая копия будет заменена.",
+    "redownloadStarted": "Перекачивание «{title}»…",
+    "libraryCount": "{count} курсов",
+    "progressLabel": "{value}%",
+    "noProgressYet": "Ещё не начат",
+    "librarySearchEmpty": "В библиотеке ничего не найдено",
+    "librarySearchEmptyMeta": "Измените запрос или перейдите в «Найти курсы».",
+    "clearFilter": "Сбросить фильтр",
+    "groupCount": "{count} курсов",
+    "platformStatus": {
+      "ready": "Готово",
+      "needs_auth": "Нужен вход",
+      "error": "Ошибка",
+      "empty": "Пусто",
+      "upload_only": "Загрузка файла",
+      "unavailable": "Недоступно"
+    },
+    "platformHints": {
+      "stepik": "Нужны email, пароль и OAuth Client ID. Показываются только курсы вашего аккаунта.",
+      "exercism": "Публичный каталог треков. Скачивание создаёт локальный пак с упражнениями.",
+      "freecodecamp": "Публичные certification-пути freeCodeCamp. Скачивание создаёт локальный пак-scaffold."
+    },
+    "libraryTitle": "Моя библиотека",
+    "deleted": "Пак удалён.",
     "loading": "Загрузка паков...",
-    "empty": "Паки ещё не установлены.",
+    "empty": "Пока нет курсов",
     "back": "Назад в каталог",
-    "topics": "Темы",
+    "courseTitle": "Курс",
+    "courseEyebrow": "Программа курса",
+    "courseLede": "Пройдите темы по порядку: теория, практика и проверка. Сессия запоминает место остановки.",
+    "curriculumMeta": "Модули и уроки курса — как в программе на Stepik.",
+    "topicCount": "{count} тем",
+    "stepCount": "{count} шагов",
+    "lessonProgress": "{done} / {total}",
+    "emptyTopicsTitle": "Темы не найдены",
+    "emptyTopicsMeta": "В манифесте пака нет тем. Переустановите курс или загрузите другой пак.",
+    "topics": "Программа курса",
     "startSession": "Начать сессию",
+    "delete": "Удалить",
+    "deleting": "Удаление...",
+    "deleteConfirm": "Удалить «{title}» из Task Studio? Это действие нельзя отменить.",
     "errors": {
       "loadFailed": "Не удалось загрузить каталог",
-      "uploadFailed": "Не удалось загрузить пак",
-      "startFailed": "Не удалось начать сессию"
+      "startFailed": "Не удалось начать сессию",
+      "noSteps": "В этом курсе нет шагов для сессии. Переустановите пак.",
+      "deleteFailed": "Не удалось удалить пак"
     }
   },
   "session": {
     "back": "Назад в каталог",
     "loading": "Загрузка сессии...",
-    "continuePractice": "Перейти к практике",
+    "program": "Программа курса",
     "skipStudy": "Пропустить теорию",
+    "nextStep": "Далее",
+    "prevStep": "Назад",
     "runCode": "Запустить и проверить",
+    "resetCode": "Сбросить",
     "submitAnswer": "Отправить ответ",
+    "taskAnswer": "Ваш ответ",
+    "taskPlaceholder": "Напишите ответ здесь…",
+    "passToContinue": "Сначала выполните задание",
+    "videoUnavailable": "Видео недоступно для этого шага.",
+    "videoPlay": "Смотреть видео",
+    "videoOpenExternal": "Открыть видео в новой вкладке",
+    "quizOptionsUnavailable": "Варианты ответа не были импортированы. Переустановите курс из каталога.",
+    "kind": {
+      "theory": "Теория",
+      "video": "Видео",
+      "quiz": "Тест",
+      "code": "Код",
+      "lab": "Лабораторная",
+      "task": "Задание"
+    },
+    "phase": {
+      "study": "Теория",
+      "practice": "Практика",
+      "assess": "Проверка"
+    },
     "lab": {
       "run": "Запустить lab",
       "starting": "Запуск lab-окружения...",
@@ -49,7 +156,9 @@
     "completed": "Сессия завершена",
     "feedback": {
       "passed": "Верно",
-      "failed": "Попробуйте снова"
+      "failed": "Неверно — попробуйте снова",
+      "ungradable": "Этот вопрос пока нельзя проверить. Переустановите курс или подключите Stepik в настройках.",
+      "stepikFailed": "Не удалось проверить ответ через Stepik. Проверьте данные Stepik в настройках."
     },
     "errors": {
       "loadFailed": "Не удалось загрузить сессию",
@@ -58,74 +167,376 @@
   },
   "settings": {
     "title": "Настройки",
+    "subtitle": "Интеграции, редактор и настройки ИИ-агента.",
+    "language": "Язык",
+    "languageSwitch": "Сменить язык: {from} → {to}",
     "loading": "Загрузка настроек...",
+    "save": "Сохранить изменения",
+    "cancel": "Отмена",
+    "configEyebrow": "Рабочая область",
+    "configTitle": "Параметры",
+    "sourcesGroupTitle": "Источники курсов",
+    "sourcesGroupMeta": "Внешние платформы для просмотра и скачивания курсов.",
+    "toolsGroupTitle": "Инструменты",
     "editorTitle": "Редактор",
+    "editorMeta": "Поведение редактора кода в practice и assess.",
     "autocomplete": "Включить автодополнение",
+    "autocompleteMeta": "Подсказки при наборе кода в редакторе.",
     "modeFull": "Полный редактор с LSP",
+    "modeFullMeta": "Language server, диагностика и автодополнение.",
     "modeSyntaxOnly": "Только подсветка синтаксиса",
+    "modeSyntaxOnlyMeta": "Облегчённый редактор без language server.",
     "languages": "Автодополнение по языкам",
-    "save": "Сохранить",
-    "tutorTitle": "Наставник",
-    "tutorEnabled": "Включить ИИ-наставника",
-    "tutorProviderUrl": "URL провайдера (OpenAI-compatible)",
-    "tutorApiKey": "API-ключ (оставьте пустым, чтобы не менять)",
+    "tutorTitle": "ИИ-агент",
+    "tutorMeta": "Модель для генерации курсов, подсказок и чата в practice.",
+    "tutorProviderUrl": "URL провайдера",
+    "tutorProviderUrlHint": "Адрес API в формате OpenAI-compatible, например https://api.openai.com/v1",
+    "tutorApiKey": "API-ключ",
+    "tutorApiKeyHint": "Оставьте пустым, чтобы не менять текущий ключ.",
     "tutorDailyLimit": "Дневной лимит запросов (0 = без лимита)",
-    "tutorModel": "Название модели"
+    "tutorModel": "Модель",
+    "tutorModelHint": "Обновите список моделей иконкой рядом с полем.",
+    "tutorModelHintOllama": "Для русского удобнее qwen2.5 или phi4-mini.",
+    "tutorModelAuto": "Авто ({model})",
+    "tutorApiKeyStored": "Ключ уже сохранён. Введите новый, чтобы заменить.",
+    "tutor": {
+      "providerLabel": "Провайдер",
+      "activeProvider": "Подключение",
+      "loadModels": "Загрузить доступные модели",
+      "modelsLoaded": "Загружено моделей: {count}",
+      "modelsNeedUrl": "Укажите URL провайдера, затем загрузите модели",
+      "modelsPreferredHint": "Показаны модели, подходящие для курсов и тьюторинга.",
+      "modelPlaceholder": "Выберите модель",
+      "modelRequired": "Выберите модель из списка после проверки подключения",
+      "modelRequiredHint": "Нажмите обновление, чтобы загрузить модели — поле обязательное.",
+      "statusUnavailable": "Не удалось проверить статус",
+      "modelCatalog": {
+        "qwenCoder": "Код и разбор ошибок в practice.",
+        "qwen25": "Хороший баланс для русского: курсы, подсказки, чат.",
+        "phi4Mini": "Лёгкая модель для быстрых подсказок.",
+        "phi4": "Сильнее на рассуждениях и теории.",
+        "gemma2": "Универсальная локальная модель.",
+        "mistralLocal": "Чат и краткие объяснения.",
+        "llama32": "Модель по умолчанию; для русского лучше qwen2.5.",
+        "codeLlama": "Фокус на коде.",
+        "gpt4oMini": "Быстрая и недорогая: курсы и чат.",
+        "gpt41Mini": "Лучше держит длинный контекст курса.",
+        "gpt4o": "Сильная общая модель для сложных курсов.",
+        "gpt41": "Максимум качества генерации и тьюторинга.",
+        "o4Mini": "Сложные задачи и пошаговые разборы.",
+        "mistralSmall": "Быстрый чат и лёгкая генерация.",
+        "codestral": "Код, practice и ревью решений.",
+        "mistralMedium": "Баланс цена/качество.",
+        "mistralLarge": "Длинные объяснения и курсы.",
+        "cursorAuto": "Cursor выбирает подходящую модель автоматически.",
+        "composer": "Сильна на коде и правках.",
+        "claudeSonnet": "Курсы, теория и аккуратный чат.",
+        "claudeHaiku": "Короткие подсказки и быстрый чат.",
+        "claudeOpus": "Максимум качества Claude.",
+        "geminiFlash": "Быстрые ответы и черновики курсов.",
+        "geminiPro": "Длинный контекст статей и курсов."
+      },
+      "providers": {
+        "ollama": "Локальный Ollama",
+        "ollamaMeta": "Модели на вашей машине. Для русского лучше qwen2.5.",
+        "ollamaEndpoint": "Локальный Ollama",
+        "external": "Внешний API",
+        "externalMeta": "OpenAI, Mistral, Groq или свой совместимый API.",
+        "cursor": "Cursor",
+        "cursorMeta": "Cloud Agents через cursor-proxy (нужен on-demand usage).",
+        "cursorEndpoint": "Cursor",
+        "cursorKeyHint": "API-ключ из cursor.com/dashboard → API Keys. Для чата/сборки курса нужен Cloud Agent usage.",
+        "notSet": "Не задан"
+      }
+    },
+    "editorRuntimes": {
+      "python": "Python",
+      "javascript": "JavaScript",
+      "go": "Go",
+      "sql": "SQL"
+    },
+    "saved": "Настройки сохранены.",
+    "errors": {
+      "loadFailed": "Не удалось загрузить настройки",
+      "saveFailed": "Не удалось сохранить настройки"
+    },
+    "integrations": {
+      "eyebrow": "Платформы",
+      "title": "Интеграции курсов",
+      "summaryLabel": "Подключения",
+      "summaryValue": "{connected} из {total} с учётками · {public} публичных",
+      "empty": "Сервис интеграций недоступен. Проверьте, что контейнер integrations запущен.",
+      "connected": "Учётные данные сохранены",
+      "notConnected": "Нужны учётки",
+      "importReady": "Каталог доступен",
+      "unsaved": "Сохраните, чтобы подключить",
+      "noAuthShort": "Готово",
+      "capImport": "Импорт",
+      "capSearch": "Поиск",
+      "credentialsMeta": "Укажите доступ к аккаунту платформы. Без этого частные курсы недоступны.",
+      "optionalBadge": "необязательно",
+      "optionalField": "Можно оставить пустым.",
+      "secretStored": "Секрет уже сохранён. Введите новый, чтобы заменить.",
+      "stepik": {
+        "help": "Client ID и секрет возьмите на stepik.org/oauth2/applications после создания приложения.",
+        "clientIdPlaceholder": "Вставьте Client ID из Stepik"
+      },
+      "publicAccess": "Публичный каталог",
+      "publicMeta": "Учётные данные не нужны. Каталог доступен сразу.",
+      "browseCatalog": "Каталог",
+      "authTypes": {
+        "none": "Без авторизации",
+        "oauth2": "OAuth 2.0",
+        "password": "Логин и пароль",
+        "token": "API-токен",
+        "api_key": "API-ключ"
+      },
+      "fields": {
+        "client_id": "Client ID",
+        "client_secret": "Секрет клиента",
+        "username": "Email или логин",
+        "password": "Пароль",
+        "base_url": "URL сайта",
+        "token": "API-токен",
+        "api_key": "API-ключ"
+      }
+    }
   },
   "tutor": {
-    "showHints": "Показать подсказки",
-    "openChat": "Спросить наставника",
-    "hideChat": "Скрыть наставника",
-    "hintsTitle": "Подсказки",
+    "showHints": "Подсказки",
+    "hintsTitle": "Подсказки к шагу",
+    "dockKicker": "Помощник",
+    "dockTitle": "ИИ чат",
+    "clearHistory": "Очистить чат",
+    "thinking": "Думаю…",
     "you": "Вы",
-    "tutor": "Наставник",
-    "messagePlaceholder": "Задайте вопрос...",
+    "tutor": "Помощник",
+    "messagePlaceholder": "Например: почему здесь нужен JOIN?",
     "send": "Отправить",
+    "fallback": {
+      "theory": {
+        "0": "Перечитайте фрагмент и отметьте ключевые термины.",
+        "1": "Попробуйте объяснить идею одним предложением без подглядки в текст."
+      },
+      "video": {
+        "0": "Посмотрите ролик сначала целиком, затем пересмотрите важные части.",
+        "1": "После каждого смыслового блока запишите один вывод."
+      },
+      "code": {
+        "0": "Начните с того, что нужно получить на выходе, и с каких таблиц/данных.",
+        "1": "Сначала решите самый простой случай, потом уточняйте условия."
+      },
+      "quiz": {
+        "0": "Отбросьте варианты, которые противоречат материалу шага.",
+        "1": "Вспомните определение или правило, прежде чем выбирать между похожими ответами."
+      },
+      "lab": {
+        "0": "Сверьте инструкции с ожидаемым результатом шага.",
+        "1": "Если застряли, вернитесь к предыдущему теоретическому пункту курса."
+      }
+    },
     "errors": {
       "hintsFailed": "Не удалось загрузить подсказки",
-      "chatFailed": "Наставник недоступен"
+      "chatFailed": "Помощник недоступен"
     }
   },
   "search": {
-    "title": "Поиск",
-    "placeholder": "Поиск курсов и шагов...",
     "submit": "Искать",
     "loading": "Поиск...",
     "empty": "Ничего не найдено.",
-    "import": "Импортировать",
+    "allTags": "Все темы",
+    "installed": "Доступен",
+    "downloadDone": "Скачан «{title}».",
     "errors": {
-      "failed": "Ошибка поиска",
-      "importFailed": "Не удалось запустить импорт"
+      "importFailed": "Не удалось скачать",
+      "importTimeout": "Скачивание слишком долгое. Повторите позже.",
+      "importInProgress": "Скачивание уже идёт — дождитесь завершения.",
+      "catalogFailed": "Не удалось загрузить каталоги платформ"
     },
     "sources": {
       "local": "Локальный",
       "stepik": "Stepik",
       "exercism": "Exercism",
-      "freecodecamp": "freeCodeCamp",
-      "olx": "OLX",
-      "moodle": "Moodle"
+      "freecodecamp": "freeCodeCamp"
     }
   },
   "analytics": {
     "title": "Аналитика",
-    "subtitle": "Прогресс обучения, пропуски study и история попыток.",
+    "subtitle": "Где вы сильны, где буксуете и как идёт ритм обучения.",
     "loading": "Загрузка аналитики...",
-    "progressChart": "Прогресс по дням",
-    "skipsTitle": "Пропуски study",
+    "progressChart": "Ритм за 30 дней",
+    "skipsTitle": "Пропуски теории",
     "attemptsTitle": "Последние попытки",
-    "emptyProgress": "Активности пока нет.",
-    "emptySkips": "Пропусков study нет.",
+    "emptyProgress": "Пока нет дневной активности.",
+    "emptyProgressMeta": "Откройте курс и пройдите несколько шагов — здесь появится график.",
     "emptyAttempts": "Попыток пока нет.",
     "topicLabel": "Тема: {topic}",
     "passed": "Зачёт",
     "failed": "Не зачёт",
     "stats": {
-      "sessions": "Начато сессий",
-      "steps": "Завершено шагов",
-      "skips": "Пропусков study"
+      "steps": "Пройдено шагов",
+      "passRate": "Доля зачётов",
+      "streak": "Серия дней",
+      "noAttempts": "Ещё нет проверенных ответов",
+      "passRateFoot": "{passed} зачёт · {failed} мимо",
+      "stepsFoot": "~{perDay} шагов/день · {days} активных",
+      "streakFoot": "Сессий за период: {sessions}"
+    },
+    "series": {
+      "sessions": "Сессии",
+      "steps": "Шаги"
+    },
+    "rhythm": {
+      "kicker": "Ритм",
+      "meta": "Сессии и шаги по дням"
+    },
+    "ring": {
+      "kicker": "Качество",
+      "title": "Зачёты vs ошибки"
+    },
+    "weak": {
+      "kicker": "Слабые места",
+      "title": "Где чаще провал",
+      "meta": "По непройденным попыткам",
+      "empty": "Слабых мест не видно",
+      "emptyMeta": "Либо попыток ещё мало, либо почти всё сдаёте с первого раза.",
+      "fails": "{count} провала"
+    },
+    "skips": {
+      "kicker": "Теория",
+      "meta": "{count} пропусков"
+    },
+    "feed": {
+      "kicker": "История"
     },
     "errors": {
       "loadFailed": "Не удалось загрузить аналитику"
+    }
+  },
+  "libraryCreate": {
+    "open": "Создать из статей",
+    "close": "Закрыть",
+    "done": "Готово",
+    "cancel": "Отменить",
+    "cancelConfirm": "Остановить сборку курса? Прогресс будет потерян.",
+    "buildCancelled": "Сборка отменена",
+    "eyebrow": "ИИ-автор курса",
+    "title": "Статьи → локальный курс",
+    "courseTitle": "Название курса",
+    "courseTitleHint": "Например: pathlib на практике",
+    "audience": "Аудитория",
+    "audienceHint": "Например: middle Python",
+    "locale": "Язык",
+    "pickMd": "Выбрать .md",
+    "urlLabel": "Ссылка на статью",
+    "urlPlaceholder": "https://habr.com/ru/articles/…",
+    "urlAdd": "Добавить",
+    "urlFetching": "Читаю…",
+    "urlStageDownload": "Загружаю страницу по ссылке",
+    "urlStageExtract": "Выделяю текст статьи из HTML",
+    "urlStageAi": "ИИ приводит текст к markdown",
+    "urlCancelled": "Чтение статьи остановлено",
+    "urlLoaded": "Статья добавлена из ссылки",
+    "ingestTitle": "Источники",
+    "dropHint": "Или перетащите .md сюда",
+    "filesLoaded": "Загружено файлов: {count}",
+    "articleN": "Источник {n}",
+    "articleTitle": "Заголовок источника",
+    "articlePlaceholder": "Markdown…",
+    "showMarkdown": "Показать markdown",
+    "hideMarkdown": "Скрыть Markdown",
+    "sourceEmptyTitle": "Источник пока пуст",
+    "sourceEmptyMeta": "Вставьте ссылку выше или выберите .md — текст появится здесь.",
+    "sourceReadyMeta": "Текст готов. При необходимости откройте markdown для правки.",
+    "charCount": "{count} символов",
+    "sourceCount": "Готовых источников: {count} из {max}",
+    "untitled": "Статья {n}",
+    "addArticle": "Ещё источник",
+    "removeArticle": "Удалить источник",
+    "maxArticles": "Можно не больше 6 источников",
+    "build": "Собрать и установить",
+    "building": "Сборка…",
+    "working": "ИИ собирает курс…",
+    "stagesLabel": "Что включить в курс",
+    "includeTheory": "Теория",
+    "includeQuizzes": "Квизы",
+    "includeCode": "Code-задания",
+    "installing": "Устанавливаем курс в библиотеку…",
+    "installed": "Курс «{title}» установлен в библиотеку.",
+    "installedToast": "Курс установлен в библиотеку",
+    "gateTitle": "Расхождения между статьями",
+    "gateToast": "Между статьями есть отличия — подтвердите продолжение или отмените.",
+    "gateRelated": "Тема общая (схожесть ~{similarity}%), но есть отличия. Продолжить сборку?",
+    "gateUnrelated": "Статьи выглядят слабо связанными. Можно отменить или всё равно продолжить.",
+    "gateCancel": "Отменить",
+    "gateContinue": "Продолжить",
+    "gateFooterHint": "Подтвердите продолжение сборки",
+    "gateCancelled": "Сборка отменена",
+    "errors": {
+      "tooShort": "Нужен хотя бы один источник ≥ 40 символов markdown",
+      "needContent": "Включите хотя бы один блок: теория, квизы или code-задания",
+      "failed": "Не удалось собрать курс из статей",
+      "urlInvalid": "Введите корректный http(s) URL",
+      "urlFailed": "Не удалось получить статью по ссылке",
+      "urlBusy": "Дождитесь окончания загрузки ссылки"
+    }
+  },
+  "courseBuild": {
+    "progressTitle": "Сборка курса",
+    "progressDone": "Курс готов",
+    "progressFailed": "Сборка не удалась",
+    "progressOutcomes": "Цели обучения",
+    "progressChapters": "Главы теории",
+    "progressQuizzes": "Квизы",
+    "progressTasks": "Code-задания",
+    "progressTests": "{count} тестов",
+    "warnings": "Предупреждения",
+    "stages": {
+      "consistency": "Согласованность",
+      "analyze": "Анализ",
+      "theory": "Теория",
+      "polish": "Редакция",
+      "quizzes": "Квизы",
+      "code": "Задания",
+      "assemble": "Сборка"
+    },
+    "messages": {
+      "consistencyChecking": "Проверяем согласованность темы и противоречия между статьями",
+      "consistencyDone": "Проверка согласованности завершена",
+      "consistencyGate": "Статьи расходятся — подтвердите продолжение или отмените",
+      "analyzeRunning": "Собираем единую прогрессивную программу из всех источников",
+      "analyzeOutlineReady": "Каркас программы готов — уточняем главы",
+      "analyzeEnriching": "Уточняем главу: {title}",
+      "analyzeDone": "План курса готов",
+      "theoryExpanding": "Раскрываем главу: {title}",
+      "theoryReady": "Теория готова: {title}",
+      "polishRunning": "Сводим теорию к единому голосу книги",
+      "polishDone": "Редакция применена к главам: {count}",
+      "quizzesDesigning": "Готовим {count} проверочных квизов",
+      "quizzesPrepared": "Подготовлено квизов: {count}",
+      "codeBuilding": "Собираем лестницу из {count} code-заданий (от простого к сложному)",
+      "codePrepared": "Подготовлено code-заданий: {count}",
+      "assembleRunning": "Собираем и проверяем манифест пакета",
+      "assembleDone": "Учебный пакет готов",
+      "generationComplete": "Генерация курса завершена"
+    },
+    "warningsMap": {
+      "continuedDespiteDeviations": "Продолжили несмотря на расхождения между статьями",
+      "trimmedChapters": "Число глав обрезано до {count}",
+      "bookPolishSkipped": "Редактуру пропустили: {reason}"
+    },
+    "errors": {
+      "noProvider": "Не настроен ИИ-провайдер помощника",
+      "noManifest": "Генерация курса не вернула пакет",
+      "noResult": "Генерация курса не дала результата",
+      "noChapters": "Анализ не вернул главы",
+      "quizzesTooFew": "Сгенерировано слишком мало квизов",
+      "codeTooFew": "Сгенерировано слишком мало code-заданий",
+      "noArticles": "Нет пригодных статей",
+      "articleTooShort": "Статья слишком короткая",
+      "generationFailed": "Не удалось сгенерировать курс",
+      "noContentSteps": "Генерация не создала ни одного шага курса",
+      "invalidManifest": "Некорректный пакет курса"
     }
   }
 }

@@ -9,7 +9,7 @@ from app.config import TutorConfig
 from app.domain.context import fetch_user_settings
 from app.domain.errors import TutorError
 from app.domain.llm import complete_chat_completion, resolve_llm_target
-from app.domain.prompts import load_prompt
+from app.domain.prompt_compose import pack_studio_system_prompt
 from fastapi import status
 from studio_contracts.studio_schemas import StudioSuggestRequest, StudioSuggestResponse
 
@@ -37,7 +37,7 @@ async def suggest_pack_fragment(
         raw = await complete_chat_completion(
             client,
             target,
-            system_prompt=load_prompt("pack_studio/pack_studio_generate"),
+            system_prompt=pack_studio_system_prompt(),
             user_message=_user_message(body),
         )
     except (httpx.HTTPError, ValueError) as exc:

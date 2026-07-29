@@ -98,6 +98,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/proxy.conf:/etc/nginx/proxy.conf:ro
 
   studio-api:
     <<: *backend
@@ -133,7 +134,7 @@ services:
       - traefik.http.routers.studio-api.entrypoints=web
       - traefik.http.services.studio-api.loadbalancer.server.port=8000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -152,7 +153,7 @@ services:
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
       ORCHESTRATOR_SYSTEM_TOKEN: ${ORCHESTRATOR_SYSTEM_TOKEN:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -168,10 +169,11 @@ services:
       PORT: "8002"
       PACKS_ROOT: /data/packs
       PACK_MAX_UPLOAD_MB: ${PACK_MAX_UPLOAD_MB}
+      MEDIA_SERVICE_URL: http://media:8009
     volumes:
       - ../data/packs:/data/packs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -187,8 +189,10 @@ services:
       PORT: "8003"
       CATALOG_SERVICE_URL: http://catalog:8002
       GRADING_SERVICE_URL: http://grading:8004
+      ANALYTICS_SERVICE_URL: http://analytics:8008
+      ANALYTICS_EVENTS_QUEUE: ${ANALYTICS_EVENTS_QUEUE:-analytics.events}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -205,8 +209,17 @@ services:
       PISTON_URL: http://piston:2000
       CATALOG_SERVICE_URL: http://catalog:8002
       SESSIONS_SERVICE_URL: http://sessions:8003
+      AUTH_SERVICE_URL: http://auth:8001
+      TUTOR_SERVICE_URL: http://tutor:8006
+      MEDIA_SERVICE_URL: http://media:8009
+      PACKS_ROOT: /data/packs
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+      LLM_GRADE_ENABLED: ${LLM_GRADE_ENABLED:-true}
+      LLM_GRADE_MIN_CONFIDENCE: ${LLM_GRADE_MIN_CONFIDENCE:-0.65}
       GRADING_JOBS_QUEUE: grading.jobs
       LAB_JOBS_QUEUE: lab.jobs
+    volumes:
+      - ../data/packs:/data/packs
     depends_on:
       postgres:
         condition: service_healthy
@@ -216,8 +229,14 @@ services:
         condition: service_healthy
       piston:
         condition: service_started
+      tutor:
+        condition: service_healthy
+      media:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -228,15 +247,23 @@ services:
     restart: unless-stopped
     networks: [internal]
     privileged: true
+    # Match grading PISTON_TIMEOUT_SECONDS (default 10s); image defaults are 3s.
+    environment:
+      PISTON_RUN_TIMEOUT: "15000"
+      PISTON_RUN_CPU_TIME: "15000"
+      PISTON_COMPILE_TIMEOUT: "15000"
+      PISTON_COMPILE_CPU_TIME: "15000"
     tmpfs:
       - /tmp:exec
+    volumes:
+      - ../data/piston/packages:/piston/packages
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:2000/api/v2/runtimes').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "require('http').get('http://127.0.0.1:2000/api/v2/runtimes', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
         ]
       interval: 30s
       timeout: 10s
@@ -255,11 +282,15 @@ services:
       INTEGRATION_MODULES_ROOT: /app/integration_modules
       PACKS_ROOT: /data/packs
       CATALOG_SERVICE_URL: http://catalog:8002
+      AUTH_SERVICE_URL: http://auth:8001
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+      STEPIK_CLIENT_ID: ${STEPIK_CLIENT_ID:-}
+      STEPIK_CLIENT_SECRET: ${STEPIK_CLIENT_SECRET:-}
     volumes:
       - ../integration_modules:/app/integration_modules:ro
       - ../data/packs:/data/packs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -291,7 +322,7 @@ services:
     volumes:
       - ../data/clickhouse:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/ping"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -321,7 +352,7 @@ services:
       ollama:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -331,6 +362,10 @@ services:
     profiles: [full]
     restart: unless-stopped
     networks: [internal]
+    environment:
+      # Keep one model warm between tutor draft+polish; avoid thrashing on CPU.
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
     volumes:
       - ../data/ollama:/root/.ollama
     healthcheck:
@@ -339,6 +374,24 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+
+  cursor-proxy:
+    <<: *backend
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: services/cursor-proxy/Dockerfile
+    environment:
+      <<: *backend-env
+      PORT: "8015"
+      CURSOR_API_BASE: ${CURSOR_API_BASE:-https://api.cursor.com}
+      CURSOR_PROXY_TIMEOUT_SECONDS: ${CURSOR_PROXY_TIMEOUT_SECONDS:-180}
+      CURSOR_PROXY_CLEANUP_AGENTS: ${CURSOR_PROXY_CLEANUP_AGENTS:-true}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8015/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   search:
     <<: *backend
@@ -349,14 +402,15 @@ services:
     environment:
       <<: *backend-env
       PORT: "8007"
-      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_URL: ${MEILISEARCH_URL:-http://meilisearch:7700}
+      MEILISEARCH_KEY: ${MEILISEARCH_KEY:-}
       CATALOG_SERVICE_URL: http://catalog:8002
       OLLAMA_URL: http://ollama:11434
     depends_on:
       meilisearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -370,17 +424,23 @@ services:
     environment:
       <<: *backend-env
       PORT: "8008"
-      CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_PORT: "8123"
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: ""
-      CLICKHOUSE_DATABASE: analytics
-      ANALYTICS_EVENTS_QUEUE: analytics.events
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-analytics}
+      ANALYTICS_EVENTS_QUEUE: ${ANALYTICS_EVENTS_QUEUE:-analytics.events}
     depends_on:
       clickhouse:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -401,12 +461,13 @@ services:
       MINIO_SECURE: "false"
     depends_on:
       minio:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
-      interval: 30s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8009/health')"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 12
+      start_period: 20s
 
   lab-runner:
     <<: *backend
@@ -434,7 +495,7 @@ services:
       grading:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -473,7 +534,7 @@ services:
       auth:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -543,10 +604,13 @@ services:
   web:
     profiles: [full]
     build:
-      context: ../apps/web
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     networks: [edge, internal]
+    environment:
+      API_BASE_INTERNAL: http://studio-api:8000
+      NUXT_PUBLIC_API_BASE: /api
     labels:
       - traefik.enable=true
       - traefik.docker.network=task-studio-edge

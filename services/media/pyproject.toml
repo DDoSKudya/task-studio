@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "studio-common",
     "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.20",
     "minio>=7.2",
 ]
 

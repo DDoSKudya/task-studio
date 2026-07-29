@@ -1,0 +1,102 @@
+export type LegacyProgressPattern = {
+  re: RegExp
+  key: string
+  params?: (match: RegExpMatchArray) => Record<string, string | number>
+}
+
+export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
+  {
+    re: /^Checking topic fit and contradictions across articles$/i,
+    key: 'consistencyChecking',
+  },
+  {
+    re: /^Consistency check finished$/i,
+    key: 'consistencyDone',
+  },
+  {
+    re: /^Articles differ/i,
+    key: 'consistencyGate',
+  },
+  {
+    re: /^Synthesizing one progressive syllabus from all sources$/i,
+    key: 'analyzeRunning',
+  },
+  {
+    re: /^Syllabus outline ready/i,
+    key: 'analyzeOutlineReady',
+  },
+  {
+    re: /^Enriching chapter:\s*(.+)$/i,
+    key: 'analyzeEnriching',
+    params: (m) => ({ title: m[1] ?? '' }),
+  },
+  {
+    re: /^Outline ready$/i,
+    key: 'analyzeDone',
+  },
+  {
+    re: /^Expanding chapter:\s*(.+)$/i,
+    key: 'theoryExpanding',
+    params: (m) => ({ title: m[1] ?? '' }),
+  },
+  {
+    re: /^Theory ready:\s*(.+)$/i,
+    key: 'theoryReady',
+    params: (m) => ({ title: m[1] ?? '' }),
+  },
+  {
+    re: /^Polishing theory into one book voice$/i,
+    key: 'polishRunning',
+  },
+  {
+    re: /^Book polish applied to\s+(\d+)\s+chapter/i,
+    key: 'polishDone',
+    params: (m) => ({ count: Number(m[1] || 0) }),
+  },
+  {
+    re: /^Designing\s+(\d+)\s+knowledge-check quizzes$/i,
+    key: 'quizzesDesigning',
+    params: (m) => ({ count: Number(m[1] || 0) }),
+  },
+  {
+    re: /^Prepared\s+(\d+)\s+quizzes$/i,
+    key: 'quizzesPrepared',
+    params: (m) => ({ count: Number(m[1] || 0) }),
+  },
+  {
+    re: /^Building\s+(\d+)-step code ladder/i,
+    key: 'codeBuilding',
+    params: (m) => ({ count: Number(m[1] || 0) }),
+  },
+  {
+    re: /^Prepared\s+(\d+)\s+code tasks$/i,
+    key: 'codePrepared',
+    params: (m) => ({ count: Number(m[1] || 0) }),
+  },
+  {
+    re: /^Assembling and validating pack manifest$/i,
+    key: 'assembleRunning',
+  },
+  {
+    re: /^Course pack ready$/i,
+    key: 'assembleDone',
+  },
+  {
+    re: /^Course generation complete$/i,
+    key: 'generationComplete',
+  },
+]
+
+export const COURSE_ERROR_PATTERNS: Array<{ re: RegExp; key: string }> = [
+  { re: /^no tutor provider configured$/i, key: 'noProvider' },
+  { re: /^course generation returned no manifest$/i, key: 'noManifest' },
+  { re: /^course generation produced no result$/i, key: 'noResult' },
+  { re: /^course analyze returned no chapters$/i, key: 'noChapters' },
+  { re: /^course quizzes stage returned too few items$/i, key: 'quizzesTooFew' },
+  { re: /^course code stage returned too few tasks$/i, key: 'codeTooFew' },
+  { re: /^no usable articles$/i, key: 'noArticles' },
+  { re: /^article too short$/i, key: 'articleTooShort' },
+  { re: /^course generation produced no content steps$/i, key: 'noContentSteps' },
+  { re: /^course generation failed$/i, key: 'generationFailed' },
+  { re: /^invalid manifest$/i, key: 'invalidManifest' },
+]

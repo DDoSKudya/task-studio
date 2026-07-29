@@ -1,12 +1,6 @@
-export type TutorHintResponse = {
-  hints: string[]
-  source: 'fallback' | 'llm'
-}
+import type { TutorHintResponse, TutorLlmStatus, TutorStreamEvent } from '~/utils/tutor'
 
-type TutorStreamEvent = {
-  type: 'token' | 'done' | 'error'
-  content?: string
-}
+export type { TutorHintResponse, TutorLlmStatus, TutorStreamEvent } from '~/utils/tutor'
 
 export function useTutor() {
   const config = useRuntimeConfig()
@@ -17,16 +11,37 @@ export function useTutor() {
     return request<TutorHintResponse>(`/v1/tutor/hints/${stepId}?${params.toString()}`)
   }
 
+  async function getLlmStatus() {
+    return request<TutorLlmStatus>('/v1/tutor/llm-status')
+  }
+
+  async function testLlm(body: {
+    provider: 'ollama' | 'external'
+    provider_url?: string | null
+    api_key?: string | null
+    model?: string | null
+  }) {
+    return request<TutorLlmStatus>('/v1/tutor/llm-test', {
+      method: 'POST',
+      body,
+    })
+  }
+
   async function streamChat(
     sessionId: string,
     message: string,
     onEvent: (event: TutorStreamEvent) => void,
+    options?: { history?: Array<{ role: 'user' | 'assistant'; content: string }> },
   ) {
     const response = await fetch(`${config.public.apiBase}/v1/tutor/chat`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, message }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        message,
+        history: options?.history ?? [],
+      }),
     })
 
     if (!response.ok) {
@@ -61,11 +76,21 @@ export function useTutor() {
         try {
           onEvent(JSON.parse(payload) as TutorStreamEvent)
         } catch {
-          // ignore malformed chunks
+
         }
       }
     }
   }
 
-  return { getHints, streamChat }
+  async function warmupCursor(sessionId: string) {
+    return request<{ ok: boolean; skipped: boolean; reused: boolean; detail: string }>(
+      '/v1/tutor/warmup',
+      {
+        method: 'POST',
+        body: { session_id: sessionId },
+      },
+    )
+  }
+
+  return { getHints, getLlmStatus, testLlm, streamChat, warmupCursor }
 }

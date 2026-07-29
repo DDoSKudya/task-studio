@@ -8,6 +8,7 @@
     "email": "Email",
     "password": "Пароль",
     "submitLogin": "Войти",
+    "submitting": "Вход...",
     "signedInAs": "Вы вошли как {email}",
     "logout": "Выйти",
     "errors": {
@@ -22,6 +23,56 @@
     "upload": "Загрузить в каталог",
     "suggestPrompt": "Опишите нужный шаг",
     "suggest": "ИИ-подсказка",
+    "fromArticle": "Статья → курс",
+    "fromArticleMeta": "Развернуть статью в theory + quiz + 3 code-задания (easy→hard).",
+    "articleTitle": "Название курса",
+    "articleAudience": "Аудитория",
+    "articleAudienceHint": "Например: middle Python backend",
+    "articleLocale": "Язык",
+    "articleFile": "Файл .md",
+    "articleBody": "Текст статьи (markdown)",
+    "articlePlaceholder": "Вставьте статью или загрузите .md…",
+    "buildCourse": "Собрать курс через ИИ",
+    "buildCourseRunning": "Сборка…",
+    "courseWorking": "Идёт сборка курса (анализ → теория → квизы → задания). Это может занять несколько минут…",
+    "courseReady": "Курс собран. Главы: {chapters}. Проверьте JSON и загрузите в каталог.",
+    "courseWarnings": "Предупреждения",
+    "progressTitle": "Сборка курса",
+    "progressDone": "Курс готов",
+    "progressFailed": "Сборка не удалась",
+    "progressOutcomes": "Цели обучения",
+    "progressChapters": "Главы теории",
+    "progressQuizzes": "Квизы",
+    "progressTasks": "Code-задания",
+    "progressTests": "{count} тестов",
+    "progressLog": "Журнал стадий",
+    "stages": {
+      "analyze": "Анализ",
+      "theory": "Теория",
+      "quizzes": "Квизы",
+      "code": "Задания",
+      "assemble": "Сборка"
+    },
+    "messages": {
+      "consistencyChecking": "Проверяем согласованность темы и противоречия между статьями",
+      "consistencyDone": "Проверка согласованности завершена",
+      "consistencyGate": "Статьи расходятся — подтвердите продолжение или отмените",
+      "analyzeRunning": "Собираем единую прогрессивную программу из всех источников",
+      "analyzeDone": "План курса готов",
+      "theoryExpanding": "Раскрываем главу: {title}",
+      "theoryReady": "Теория готова: {title}",
+      "quizzesDesigning": "Готовим {count} проверочных квизов",
+      "quizzesPrepared": "Подготовлено квизов: {count}",
+      "codeBuilding": "Собираем лестницу из {count} code-заданий (от простого к сложному)",
+      "codePrepared": "Подготовлено code-заданий: {count}",
+      "assembleRunning": "Собираем и проверяем манифест пакета",
+      "assembleDone": "Учебный пакет готов",
+      "generationComplete": "Генерация курса завершена"
+    },
+    "warningsMap": {
+      "continuedDespiteDeviations": "Продолжили несмотря на расхождения между статьями",
+      "trimmedChapters": "Число глав обрезано до {count}"
+    },
     "valid": "Manifest корректен",
     "invalid": "Ошибки валидации",
     "uploaded": "Пак загружен: {title} v{version}",
@@ -29,7 +80,9 @@
     "errors": {
       "loadFailed": "Не удалось открыть редактор",
       "invalidJson": "Manifest — некорректный JSON",
-      "actionFailed": "Операция не выполнена"
+      "actionFailed": "Операция не выполнена",
+      "articleTooShort": "Статья слишком короткая (нужно ≥ 80 символов)",
+      "courseFailed": "Не удалось собрать курс из статьи"
     }
   }
 }

@@ -7,22 +7,17 @@ from contextlib import asynccontextmanager
 
 import httpx
 import structlog
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from studio_common.app import register_ops_routes
 from studio_common.db import create_engine, create_session_factory
 from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
+from studio_common.migrations import ensure_schema, upgrade_head
 from studio_common.otel import configure_otel
 
 from app.config import load_settings
 from app.worker import start_lab_worker
-
-
-def _run_migrations() -> None:
-    command.upgrade(Config("alembic.ini"), "head")
 
 
 def build_app() -> FastAPI:
@@ -35,7 +30,8 @@ def build_app() -> FastAPI:
         engine = create_engine()
         worker_task: asyncio.Task[None] | None = None
         if engine is not None:
-            _run_migrations()
+            await ensure_schema(engine, "lab_runner")
+            await upgrade_head()
             app.state.db_session_factory = create_session_factory(engine)
         async with httpx.AsyncClient(timeout=120.0) as client:
             if engine is not None:

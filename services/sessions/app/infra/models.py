@@ -25,6 +25,11 @@ class Session(Base):
     current_phase: Mapped[str] = mapped_column(String(16), nullable=False)
     current_step_id: Mapped[str] = mapped_column(String(128), nullable=False)
     manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    completed_step_ids: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

@@ -14,6 +14,7 @@ members = [
     "studio-catalog",
     "studio-common",
     "studio-contracts",
+    "studio-cursor-proxy",
     "studio-grading",
     "studio-integration-sdk",
     "studio-integrations",
@@ -1955,7 +1956,6 @@ source = { editable = "services/auth" }
 dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
-    { name = "email-validator" },
     { name = "studio-common" },
     { name = "studio-contracts" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1965,7 +1965,6 @@ dependencies = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "argon2-cffi", specifier = ">=23.1" },
-    { name = "email-validator", specifier = ">=2.2" },
     { name = "studio-common", editable = "packages/python-common" },
     { name = "studio-contracts", editable = "packages/contracts" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
@@ -1998,8 +1997,10 @@ version = "0.1.0"
 source = { editable = "packages/python-common" }
 dependencies = [
     { name = "aio-pika" },
+    { name = "alembic" },
     { name = "asyncpg" },
     { name = "cryptography" },
+    { name = "email-validator" },
     { name = "fastapi" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -2009,14 +2010,15 @@ dependencies = [
     { name = "redis" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
-    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aio-pika", specifier = ">=9.5" },
+    { name = "alembic", specifier = ">=1.14" },
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "cryptography", specifier = ">=44.0" },
+    { name = "email-validator", specifier = ">=2.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "opentelemetry-api", specifier = ">=1.29" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.50b0" },
@@ -2026,7 +2028,6 @@ requires-dist = [
     { name = "redis", specifier = ">=5.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.4" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
 [[package]]
@@ -2042,6 +2043,23 @@ dependencies = [
 requires-dist = [
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "pydantic", specifier = ">=2.10" },
+]
+
+[[package]]
+name = "studio-cursor-proxy"
+version = "0.1.0"
+source = { editable = "services/cursor-proxy" }
+dependencies = [
+    { name = "httpx" },
+    { name = "studio-common" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "studio-common", editable = "packages/python-common" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
 [[package]]
@@ -2086,6 +2104,7 @@ dependencies = [
     { name = "aio-pika" },
     { name = "alembic" },
     { name = "httpx" },
+    { name = "python-multipart" },
     { name = "redis" },
     { name = "studio-common" },
     { name = "studio-contracts" },
@@ -2098,6 +2117,7 @@ requires-dist = [
     { name = "aio-pika", specifier = ">=9.5" },
     { name = "alembic", specifier = ">=1.14" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=5.2" },
     { name = "studio-common", editable = "packages/python-common" },
     { name = "studio-contracts", editable = "packages/contracts" },
@@ -2130,6 +2150,7 @@ version = "0.1.0"
 source = { editable = "services/media" }
 dependencies = [
     { name = "minio" },
+    { name = "python-multipart" },
     { name = "studio-common" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -2137,6 +2158,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "minio", specifier = ">=7.2" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "studio-common", editable = "packages/python-common" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]

@@ -5,8 +5,6 @@ from contextlib import asynccontextmanager
 
 import httpx
 import structlog
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -14,15 +12,12 @@ from studio_common.app import register_ops_routes
 from studio_common.db import create_engine, create_session_factory
 from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
+from studio_common.migrations import ensure_schema, upgrade_head
 from studio_common.otel import configure_otel
 
 from app.api.router import router as sessions_router
 from app.config import load_settings
 from app.domain.sessions import SessionError
-
-
-def _run_migrations() -> None:
-    command.upgrade(Config("alembic.ini"), "head")
 
 
 def build_app() -> FastAPI:
@@ -34,9 +29,12 @@ def build_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine()
         if engine is not None:
-            _run_migrations()
+            await ensure_schema(engine, "sessions")
+            await upgrade_head()
             app.state.db_session_factory = create_session_factory(engine)
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=600.0, write=120.0, pool=10.0)
+        ) as client:
             app.state.sessions_upstream_client = client
             app.state.sessions_settings = sessions_settings
             log.info("service_started")

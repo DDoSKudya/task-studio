@@ -10,6 +10,7 @@ class GradingCheckRequest(BaseModel):
 
     step: dict[str, object]
     submission: dict[str, object]
+    user_id: str | None = None
 
 
 class GradingCheckResponse(BaseModel):
@@ -29,7 +30,7 @@ class GradingLabSubmitRequest(BaseModel):
 
 
 class GradingLabSubmitResponse(BaseModel):
-    status: Literal["pending"]
+    status: Literal["pending", "completed"]
     attempt_id: str
 
 

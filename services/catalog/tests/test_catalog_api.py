@@ -43,6 +43,8 @@ async def test_upload_and_list_pack(catalog_client: AsyncClient) -> None:
     body = listed.json()
     assert len(body) == 1
     assert body[0]["slug"] == "intro-python"
+    assert body[0]["integrity"] == "ok"
+    assert body[0]["integrity_issues"] == []
 
 
 @pytest.mark.asyncio

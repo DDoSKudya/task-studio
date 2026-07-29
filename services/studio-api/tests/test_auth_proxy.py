@@ -50,3 +50,19 @@ async def test_me_requires_cookie(jwt_env: None, build_app) -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/v1/auth/me")
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_clears_cookie_with_204(jwt_env: None, build_app) -> None:
+    app = build_app()
+    app.state.upstream_client = AsyncMock()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        client.cookies.set("studio_access_token", "stale-token")
+        response = await client.post("/v1/auth/logout")
+
+    assert response.status_code == 204
+                                                                           
+    assert "studio_access_token" not in response.cookies or response.cookies.get(
+        "studio_access_token"
+    ) in {"", None}

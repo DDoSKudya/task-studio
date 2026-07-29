@@ -4,8 +4,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -13,15 +11,12 @@ from studio_common.app import register_ops_routes
 from studio_common.db import create_engine, create_session_factory
 from studio_common.logging import configure_logging
 from studio_common.middleware import register_request_id_middleware
+from studio_common.migrations import ensure_schema, upgrade_head
 from studio_common.otel import configure_otel
 
 from app.api.router import router as catalog_router
 from app.config import load_settings
 from app.domain.packs import PackError
-
-
-def _run_migrations() -> None:
-    command.upgrade(Config("alembic.ini"), "head")
 
 
 def build_app() -> FastAPI:
@@ -34,7 +29,8 @@ def build_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine()
         if engine is not None:
-            _run_migrations()
+            await ensure_schema(engine, "catalog")
+            await upgrade_head()
             app.state.db_session_factory = create_session_factory(engine)
         log.info("service_started")
         try:

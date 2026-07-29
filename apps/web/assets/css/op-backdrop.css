@@ -1,0 +1,227 @@
+
+
+
+.op-backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--color-bg);
+}
+
+.op-backdrop-wash{
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 42% at 16% 78%, rgb(179 102 255 / 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 45% 38% at 84% 68%, rgb(255 215 0 / 0.04) 0%, transparent 65%);
+}
+
+.op-backdrop-grid{
+  position: absolute;
+  inset: -12%;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 25%, transparent 80%);
+  opacity: 0.55;
+}
+
+.op-backdrop-field{
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.op-diamond{
+  position: absolute;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  transform: rotate(45deg);
+  animation: op-diamond-spin 12s ease-in-out infinite;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.03);
+  opacity: 0.55;
+  pointer-events: auto;
+  cursor: crosshair;
+  transition:
+    border-color 200ms var(--ease-soft),
+    background 200ms var(--ease-soft),
+    box-shadow 240ms var(--ease-soft),
+    opacity 200ms var(--ease-soft),
+    filter 220ms var(--ease-soft);
+}
+
+.op-diamond.is-upright{
+  transform: rotate(0deg);
+  animation-name: op-square-spin;
+}
+
+.op-diamond.is-fill{
+  background: rgb(255 255 255 / 0.03);
+  border-color: rgb(255 255 255 / 0.16);
+}
+
+.op-diamond-sm{
+  width: 64px;
+  height: 64px;
+}
+
+.op-diamond-md{
+  width: 190px;
+  height: 190px;
+}
+
+.op-diamond-lg{
+  width: min(44vw, 440px);
+  height: min(44vw, 440px);
+}
+
+.op-diamond:hover{
+  border-color: rgb(255 255 255 / 0.42);
+  filter: brightness(1.2);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    0 0 22px rgb(255 255 255 / 0.08);
+}
+
+.op-shard{
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.04);
+  transform: rotate(45deg);
+  animation: op-shard-dance 4.5s ease-in-out infinite;
+  opacity: 0.5;
+  pointer-events: auto;
+  cursor: crosshair;
+  transition:
+    border-color 180ms var(--ease-soft),
+    background 180ms var(--ease-soft),
+    filter 180ms var(--ease-soft),
+    box-shadow 200ms var(--ease-soft);
+}
+
+.op-shard.is-signal{
+  border-color: rgb(255 255 255 / 0.36);
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: 0 0 8px rgb(255 255 255 / 0.06);
+  animation-name: op-shard-signal;
+}
+
+.op-shard:hover{
+  border-color: rgb(255 255 255 / 0.55);
+  background: rgb(255 255 255 / 0.1);
+  filter: brightness(1.25);
+  box-shadow: 0 0 12px rgb(255 255 255 / 0.12);
+}
+
+.op-orbit{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgb(255 255 255 / 0.07);
+  border-radius: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  animation: op-orbit-spin 40s linear infinite;
+  pointer-events: none;
+}
+
+.op-orbit-a{
+  width: min(58vw, 520px);
+  height: min(58vw, 520px);
+  animation-duration: 36s;
+}
+
+.op-orbit-b{
+  width: min(78vw, 720px);
+  height: min(78vw, 720px);
+  border-color: rgb(255 255 255 / 0.06);
+  animation-duration: 52s;
+  animation-direction: reverse;
+}
+
+@keyframes op-diamond-spin {
+  0%,
+  100%{
+    transform: rotate(45deg) translate3d(0, 0, 0) scale(1);
+    opacity: 0.45;
+  }
+  25%{
+    transform: rotate(52deg) translate3d(3%, -4%, 0) scale(1.06);
+    opacity: 0.7;
+  }
+  50%{
+    transform: rotate(45deg) translate3d(-2%, 2%, 0) scale(0.96);
+    opacity: 0.5;
+  }
+  75%{
+    transform: rotate(38deg) translate3d(2%, 3%, 0) scale(1.03);
+    opacity: 0.65;
+  }
+}
+
+@keyframes op-square-spin {
+  0%,
+  100%{
+    transform: rotate(0deg) translate3d(0, 0, 0) scale(1);
+    opacity: 0.4;
+  }
+  25%{
+    transform: rotate(8deg) translate3d(3%, -3%, 0) scale(1.05);
+    opacity: 0.65;
+  }
+  50%{
+    transform: rotate(0deg) translate3d(-2%, 2%, 0) scale(0.97);
+    opacity: 0.48;
+  }
+  75%{
+    transform: rotate(-7deg) translate3d(2%, 3%, 0) scale(1.02);
+    opacity: 0.6;
+  }
+}
+
+@keyframes op-shard-dance {
+  0%,
+  100%{
+    transform: rotate(45deg) translate3d(0, 0, 0);
+    opacity: 0.3;
+  }
+  50%{
+    transform: rotate(55deg) translate3d(8px, -22px, 0);
+    opacity: 0.75;
+  }
+}
+
+@keyframes op-shard-signal {
+  0%,
+  100%{
+    transform: rotate(45deg) scale(1);
+    opacity: 0.35;
+  }
+  50%{
+    transform: rotate(45deg) scale(1.45);
+    opacity: 0.8;
+  }
+}
+
+@keyframes op-orbit-spin {
+  0%{ transform: translate(-50%, -50%) rotate(45deg); }
+  100%{ transform: translate(-50%, -50%) rotate(405deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op-diamond,
+  .op-shard,
+  .op-orbit{
+    animation: none !important;
+  }
+}
+
+@media (hover: none) {
+  .op-diamond,
+  .op-shard{
+    pointer-events: none;
+  }
+}

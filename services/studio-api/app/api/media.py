@@ -1,39 +1,69 @@
+                                                
+
 from __future__ import annotations
 
 from typing import Annotated
 
 from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 
 router = APIRouter(prefix="/v1/media", tags=["media"])
-
-_REDIRECT_STATUS_CODES = frozenset({301, 302, 307, 308})
 
 type Settings = Annotated[StudioApiSettings, Depends(get_settings)]
 
 
-@router.get("/{asset_id:path}")
+@router.post("/upload")
+async def upload_media_asset(
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+    file: Annotated[UploadFile, File()],
+    asset_id: Annotated[str | None, Form()] = None,
+) -> Response:
+    files = {
+        "file": (
+            file.filename or "upload.bin",
+            await file.read(),
+            file.content_type or "application/octet-stream",
+        )
+    }
+    data = {"asset_id": asset_id} if asset_id else None
+    upstream = await client.post(
+        f"{settings.media_service_url}/internal/v1/media/upload",
+        headers={"X-User-Id": str(user_id)},
+        files=files,
+        data=data,
+    )
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=upstream.headers.get("content-type", "application/json"),
+    )
+
+
+@router.get("/{asset_id:path}", response_model=None)
 async def get_media_asset(
     asset_id: str,
     user_id: UserId,
     settings: Settings,
     client: UpstreamClient,
-) -> RedirectResponse:
+) -> Response:
+                                                                        
     upstream = await client.get(
         f"{settings.media_service_url}/internal/v1/media/{asset_id}",
         headers={"X-User-Id": str(user_id)},
-        follow_redirects=False,
     )
-    if upstream.status_code in _REDIRECT_STATUS_CODES:
-        location = upstream.headers.get("location")
-        if not location:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="missing redirect location",
-            )
-        return RedirectResponse(url=location, status_code=upstream.status_code)
     if upstream.is_error:
         raise HTTPException(status_code=upstream.status_code, detail=upstream.text)
-    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="unexpected media response")
+    media_type = upstream.headers.get("content-type") or "application/octet-stream"
+    headers: dict[str, str] = {}
+    if length := upstream.headers.get("content-length"):
+        headers["content-length"] = length
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=media_type,
+        headers=headers,
+    )
