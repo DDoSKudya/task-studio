@@ -1926,7 +1926,7 @@ wheels = [
 
 [[package]]
 name = "studio-analytics"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/analytics" }
 dependencies = [
     { name = "aio-pika" },
@@ -1951,7 +1951,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-auth"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/auth" }
 dependencies = [
     { name = "alembic" },
@@ -1972,7 +1972,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-catalog"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/catalog" }
 dependencies = [
     { name = "alembic" },
@@ -1993,7 +1993,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-common"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "packages/python-common" }
 dependencies = [
     { name = "aio-pika" },
@@ -2032,7 +2032,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-contracts"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "packages/contracts" }
 dependencies = [
     { name = "jsonschema" },
@@ -2047,7 +2047,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-cursor-proxy"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/cursor-proxy" }
 dependencies = [
     { name = "httpx" },
@@ -2064,7 +2064,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-grading"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/grading" }
 dependencies = [
     { name = "aio-pika" },
@@ -2087,7 +2087,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-integration-sdk"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "packages/integration-sdk" }
 dependencies = [
     { name = "studio-contracts" },
@@ -2098,7 +2098,7 @@ requires-dist = [{ name = "studio-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "studio-integrations"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/integrations" }
 dependencies = [
     { name = "aio-pika" },
@@ -2127,7 +2127,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-lab-runner"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/lab-runner" }
 dependencies = [
     { name = "alembic" },
@@ -2146,7 +2146,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-media"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/media" }
 dependencies = [
     { name = "minio" },
@@ -2165,7 +2165,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-orchestrator"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/orchestrator" }
 dependencies = [
     { name = "httpx" },
@@ -2190,7 +2190,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-search"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/search" }
 dependencies = [
     { name = "aio-pika" },
@@ -2215,7 +2215,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-sessions"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/sessions" }
 dependencies = [
     { name = "alembic" },
@@ -2236,7 +2236,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-studio-api"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/studio-api" }
 dependencies = [
     { name = "httpx" },
@@ -2257,7 +2257,7 @@ requires-dist = [
 
 [[package]]
 name = "studio-tutor"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "services/tutor" }
 dependencies = [
     { name = "httpx" },
@@ -2278,7 +2278,7 @@ requires-dist = [
 
 [[package]]
 name = "task-studio"
-version = "0.1.0"
+version = "1.0.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
