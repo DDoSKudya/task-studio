@@ -156,7 +156,7 @@
       <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">1.12</td>
     </tr>
   </table>
-  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185">v0.1.0 · MIT</div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185">v1.0.0 · MIT</div>
 </div>
 
 </td>
@@ -395,7 +395,7 @@
 </div>
 
 <div style="padding:16px 24px 22px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;color:#737373;font-size:11px;letter-spacing:0.06em;text-transform:uppercase">
-  Task Studio · v0.1.0 · Docker · Nuxt · FastAPI · MIT
+  Task Studio · v1.0.0 · Docker · Nuxt · FastAPI · MIT
 </div>
 
 </td>
