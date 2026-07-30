@@ -10,6 +10,12 @@ $script:TsDanger = "Red"
 $script:TsSelBg = "DarkMagenta"
 $script:TsSelFg = "Black"
 
+function Use-TsSimpleUi {
+  if ($env:TASK_STUDIO_SIMPLE_UI -eq "1") { return $true }
+  if ($env:TASK_STUDIO_SIMPLE_UI -eq "0") { return $false }
+  return ($PSVersionTable.PSEdition -ne "Core")
+}
+
 function Write-TsLogLine([string]$Line) {
   if ($script:TsLogFile) {
     Add-Content -Path $script:TsLogFile -Value $Line -Encoding utf8 -ErrorAction SilentlyContinue
@@ -136,6 +142,29 @@ function Read-TsChoice {
     [Parameter(Mandatory = $true)][hashtable[]]$Items
   )
 
+  if (Use-TsSimpleUi) {
+    while ($true) {
+      Clear-Host
+      Write-Host (Get-TsText app_title) -ForegroundColor $script:TsViolet
+      Write-Host ""
+      Write-Host $Prompt -ForegroundColor $script:TsGold
+      Write-Host ""
+      for ($i = 0; $i -lt $Items.Count; $i++) {
+        Write-Host ("[{0}] {1}" -f ($i + 1), $Items[$i].Label) -ForegroundColor $script:TsFg
+      }
+      Write-Host ""
+      $answer = Read-Host ((Get-TsText enter_continue) + " / number / q")
+      if (-not $answer) { continue }
+      if ($answer -match '^[Qq]$') { return $null }
+      $picked = 0
+      if ([int]::TryParse($answer, [ref]$picked)) {
+        if ($picked -ge 1 -and $picked -le $Items.Count) {
+          return $Items[$picked - 1].Value
+        }
+      }
+    }
+  }
+
   $selected = 0
   $count = $Items.Count
   $prefW = 58
@@ -218,6 +247,11 @@ function Confirm-TsYes {
 
 function Wait-TsPause {
   param([string]$Message = $(Get-TsText press_enter_menu))
+  if (Use-TsSimpleUi) {
+    Write-Host ""
+    [void](Read-Host $Message)
+    return
+  }
   $box = Get-TsCenterBox -PrefW 56 -PrefH 8
   $inner = $box.Width - 2
   $line = ("-" * $inner)
@@ -392,6 +426,32 @@ function Invoke-TsProgress {
     [Parameter(Mandatory = $true)][scriptblock]$Action
   )
 
+  if (Use-TsSimpleUi) {
+    $script:TsProg = $null
+    $script:TsProgressRefresh = $null
+    Write-Host ""
+    Write-Host ("== " + $Title + " ==") -ForegroundColor $script:TsViolet
+    $ok = $true
+    $errMsg = ""
+    try {
+      & $Action
+    } catch {
+      $ok = $false
+      $errMsg = $_.Exception.Message
+      if (-not $errMsg) { $errMsg = (Get-TsText cmd_failed_short) }
+      Write-TsErr $errMsg
+    } finally {
+      $script:TsProgressRefresh = $null
+      $script:TsProg = $null
+    }
+    if ($ok) {
+      Write-TsOk (Get-TsText prog_completed)
+    } else {
+      Wait-TsPause
+    }
+    return
+  }
+
   $logPath = [System.IO.Path]::GetTempFileName()
   $script:TsProg = @{
     Group = (Get-TsText prog_starting); Status = ""; PctLo = 0; PctHi = 5; StageEst = 10; LeftEst = 0
@@ -559,6 +619,17 @@ function Show-TsTextPanel {
     [string]$Title,
     [string[]]$Lines
   )
+  if (Use-TsSimpleUi) {
+    Clear-Host
+    Write-Host $Title -ForegroundColor $script:TsViolet
+    Write-Host ""
+    foreach ($l in $Lines) {
+      Write-Host $l -ForegroundColor $script:TsFg
+    }
+    Write-Host ""
+    [void](Read-Host (Get-TsText press_enter_menu))
+    return
+  }
   $prefH = $Lines.Count + 8
   $box = Get-TsCenterBox -PrefW 64 -PrefH $prefH
   $inner = $box.Width - 2
