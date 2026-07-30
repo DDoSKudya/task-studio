@@ -9,6 +9,10 @@ $script:TsOk = "Magenta"
 $script:TsDanger = "Red"
 $script:TsSelBg = "DarkMagenta"
 $script:TsSelFg = "Black"
+$script:TsLibDir = $PSScriptRoot
+if (-not $script:TsLibDir -and $MyInvocation.MyCommand.Path) {
+  $script:TsLibDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
 
 function Test-TsRawUi {
   try {
@@ -462,7 +466,32 @@ function Invoke-TsProgress {
     return
   }
 
-  $logPath = [System.IO.Path]::GetTempFileName()
+  # Same model as Linux ui_run_progress: work in a child process, UI polls a sync file.
+  $work = Join-Path ([System.IO.Path]::GetTempPath()) ("ts-prog-" + [guid]::NewGuid().ToString())
+  New-Item -ItemType Directory -Path $work -Force | Out-Null
+  $logPath = Join-Path $work "log.txt"
+  $syncPath = Join-Path $work "sync.txt"
+  $rcPath = Join-Path $work "rc.txt"
+  $actionPath = Join-Path $work "action.ps1"
+  New-Item -ItemType File -Path $logPath -Force | Out-Null
+  $enc = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($actionPath, $Action.ToString(), $enc)
+  [System.IO.File]::WriteAllText(
+    $syncPath,
+    @(
+      "Group=$(Get-TsText prog_starting)"
+      "Status="
+      "PctLo=0"
+      "PctHi=5"
+      "StageEst=10"
+      "LeftEst=0"
+      "StageT0=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+      "Phase=run"
+      "Error="
+    ) -join "`n",
+    $enc
+  )
+
   $script:TsProg = @{
     Group = (Get-TsText prog_starting); Status = ""; PctLo = 0; PctHi = 5; StageEst = 10; LeftEst = 0
     StageT0 = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); Phase = "run"; Error = ""
@@ -561,40 +590,56 @@ function Invoke-TsProgress {
   }
 
   Show-ProgressPanel -Force
-  $script:TsLogFile = $logPath
-  $script:TsLogQuiet = $true
-  $script:TsProgressRefresh = { Show-ProgressPanel }
-  $ok = $true
-  $errMsg = ""
-  try {
-    & $Action *>&1 | ForEach-Object {
-      $line = ("$_").TrimEnd()
-      if ($line) { Add-Content -Path $logPath -Value $line -Encoding utf8 }
-      Show-ProgressPanel
+
+  $root = (Get-Location).Path
+  $worker = Join-Path $script:TsLibDir "ProgressWorker.ps1"
+  if (-not (Test-Path $worker)) {
+    throw "ProgressWorker.ps1 not found next to Ui.ps1"
+  }
+  $proc = Start-Process -FilePath "powershell.exe" -ArgumentList (
+    "-NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$worker`" " +
+    "-Root `"$root`" -SyncPath `"$syncPath`" -LogPath `"$logPath`" " +
+    "-RcPath `"$rcPath`" -ActionPath `"$actionPath`""
+  ) -WorkingDirectory $root -WindowStyle Hidden -PassThru
+
+  while (-not $proc.HasExited) {
+    Read-TsProgSync -Path $syncPath
+    Show-ProgressPanel
+    Start-Sleep -Milliseconds 250
+  }
+  try { $proc.Refresh() } catch { }
+  Read-TsProgSync -Path $syncPath
+
+  $exitCode = $proc.ExitCode
+  $reexec = $false
+  if (Test-Path $rcPath) {
+    Get-Content -LiteralPath $rcPath -ErrorAction SilentlyContinue | ForEach-Object {
+      if ($_ -match '^ExitCode=(.*)$') {
+        $parsed = 0
+        if ([int]::TryParse($Matches[1], [ref]$parsed)) { $exitCode = $parsed }
+      }
+      if ($_ -match '^Reexec=1$') { $reexec = $true }
     }
-  } catch {
-    $ok = $false
-    $errMsg = $_.Exception.Message
-    Add-Content -Path $logPath -Value ("x " + $errMsg) -Encoding utf8
-    Fail-TsProgress $errMsg
-  } finally {
-    $script:TsLogFile = $null
-    $script:TsLogQuiet = $false
-    $script:TsProgressRefresh = $null
+  }
+  $script:UpdateReexec = $reexec
+
+  if ($exitCode -ne 0) {
+    if (-not $script:TsProg -or $script:TsProg.Phase -ne "error") {
+      $errMsg = ""
+      if ($script:TsProg -and $script:TsProg.Error) { $errMsg = $script:TsProg.Error }
+      if (-not $errMsg -and (Test-Path $logPath)) {
+        $hit = Get-Content $logPath -ErrorAction SilentlyContinue |
+          Where-Object { $_ -match '(?i)error:|failed|fatal|denied|cannot |not found' } |
+          Select-Object -Last 1
+        if ($hit) { $errMsg = [string]$hit }
+      }
+      if (-not $errMsg) { $errMsg = (Get-TsText cmd_failed_short) }
+      Fail-TsProgress $errMsg
+    }
+  } elseif (-not $script:TsProg -or $script:TsProg.Phase -notin @("done", "error")) {
+    Complete-TsProgress
   }
 
-  if ($ok) {
-    if (-not $script:TsProg -or $script:TsProg.Phase -ne "done") { Complete-TsProgress }
-  } else {
-    if (-not $errMsg -and (Test-Path $logPath)) {
-      $hit = Get-Content $logPath -ErrorAction SilentlyContinue |
-        Where-Object { $_ -match '(?i)error:|failed|fatal|denied|cannot |not found' } |
-        Select-Object -Last 1
-      if ($hit) { $errMsg = [string]$hit }
-    }
-    if (-not $errMsg) { $errMsg = (Get-TsText cmd_failed_short) }
-    Fail-TsProgress $errMsg
-  }
   Show-ProgressPanel -Force
   # Auto-return after 5s; any key skips.
   $deadline = [DateTime]::UtcNow.AddSeconds(5)
@@ -613,7 +658,7 @@ function Invoke-TsProgress {
     }
     Start-Sleep -Milliseconds 250
   }
-  Remove-Item -Force $logPath -ErrorAction SilentlyContinue
+  Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
   $script:TsProg = $null
   $script:TsProgChromeDrawn = $false
 }
