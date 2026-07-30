@@ -10,10 +10,21 @@ $script:TsDanger = "Red"
 $script:TsSelBg = "DarkMagenta"
 $script:TsSelFg = "Black"
 
+function Test-TsRawUi {
+  try {
+    $null = $Host.UI.RawUI.WindowSize
+    $null = $Host.UI.RawUI.CursorPosition
+    return $true
+  } catch {
+    return $false
+  }
+}
+
 function Use-TsSimpleUi {
   if ($env:TASK_STUDIO_SIMPLE_UI -eq "1") { return $true }
   if ($env:TASK_STUDIO_SIMPLE_UI -eq "0") { return $false }
-  return ($PSVersionTable.PSEdition -ne "Core")
+  # PS 5.1 supports in-place RawUI updates; full redraw only when RawUI is unavailable.
+  return -not (Test-TsRawUi)
 }
 
 function Write-TsLogLine([string]$Line) {
@@ -136,6 +147,29 @@ function Write-TsBoxLine {
   Write-Host "|" -ForegroundColor $script:TsViolet
 }
 
+function Show-TsChoiceFallback {
+  param(
+    [Parameter(Mandatory = $true)][string]$Prompt,
+    [Parameter(Mandatory = $true)][hashtable[]]$Items
+  )
+  Write-Host ""
+  Write-Host $Prompt -ForegroundColor $script:TsGold
+  for ($i = 0; $i -lt $Items.Count; $i++) {
+    Write-Host ("  {0}. {1}" -f ($i + 1), $Items[$i].Label) -ForegroundColor $script:TsMuted
+  }
+  while ($true) {
+    $answer = Read-Host ((Get-TsText enter_continue) + " / number / q")
+    if (-not $answer) { continue }
+    if ($answer -match '^[Qq]$') { return $null }
+    $picked = 0
+    if ([int]::TryParse($answer, [ref]$picked)) {
+      if ($picked -ge 1 -and $picked -le $Items.Count) {
+        return $Items[$picked - 1].Value
+      }
+    }
+  }
+}
+
 function Read-TsChoice {
   param(
     [Parameter(Mandatory = $true)][string]$Prompt,
@@ -143,48 +177,7 @@ function Read-TsChoice {
   )
 
   if (Use-TsSimpleUi) {
-    $selected = 0
-    while ($true) {
-      $box = Get-TsCenterBox -PrefW 58 -PrefH ($Items.Count + 9)
-      $inner = $box.Width - 2
-      $line = ("-" * $inner)
-      $pad = (" " * $box.Left)
-      Clear-Host
-      for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
-      Write-Host ($pad) -NoNewline
-      Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-      Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Prompt -Style gold
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      for ($i = 0; $i -lt $Items.Count; $i++) {
-        $prefix = if ($i -eq $selected) { "> " } else { "  " }
-        $style = if ($i -eq $selected) { "selected" } else { "muted" }
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text ($prefix + $Items[$i].Label) -Style $style
-      }
-      Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText menu_footer_ps) -Style muted
-      try {
-        $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        switch ($key.VirtualKeyCode) {
-          38 { $selected = ($selected - 1 + $Items.Count) % $Items.Count; continue }
-          40 { $selected = ($selected + 1) % $Items.Count; continue }
-          13 { return $Items[$selected].Value }
-          32 { return $Items[$selected].Value }
-          27 { return $null }
-          81 { return $null }
-        }
-      } catch {
-        $answer = Read-Host ((Get-TsText enter_continue) + " / number / q")
-        if (-not $answer) { continue }
-        if ($answer -match '^[Qq]$') { return $null }
-        $picked = 0
-        if ([int]::TryParse($answer, [ref]$picked)) {
-          if ($picked -ge 1 -and $picked -le $Items.Count) {
-            return $Items[$picked - 1].Value
-          }
-        }
-      }
-    }
+    return (Show-TsChoiceFallback -Prompt $Prompt -Items $Items)
   }
 
   $selected = 0
@@ -233,12 +226,15 @@ function Read-TsChoice {
         Write-TsBoxLine -Left 0 -Width $box.Width -Text ("> " + $Items[$selected].Label) -Style selected
         $prev = $selected
       } catch {
-        $chromeDrawn = $false
-        continue
+        return (Show-TsChoiceFallback -Prompt $Prompt -Items $Items)
       }
     }
 
-    $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    try {
+      $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {
+      return (Show-TsChoiceFallback -Prompt $Prompt -Items $Items)
+    }
     switch ($key.VirtualKeyCode) {
       38 { $selected = ($selected - 1 + $count) % $count }
       40 { $selected = ($selected + 1) % $count }
@@ -270,24 +266,9 @@ function Confirm-TsYes {
 function Wait-TsPause {
   param([string]$Message = $(Get-TsText press_enter_menu))
   if (Use-TsSimpleUi) {
-    $box = Get-TsCenterBox -PrefW 56 -PrefH 8
-    $inner = $box.Width - 2
-    $line = ("-" * $inner)
-    $pad = (" " * $box.Left)
-    Clear-Host
-    for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
-    Write-Host ($pad) -NoNewline
-    Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Message -Style gold
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "[ Enter ]" -Style selected
-    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-    try {
-      [void]$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    } catch {
-      [void](Read-Host $Message)
-    }
+    Write-Host ""
+    Write-Host $Message -ForegroundColor $script:TsGold
+    [void](Read-Host (Get-TsText press_enter_menu))
     return
   }
   $box = Get-TsCenterBox -PrefW 56 -PrefH 8
@@ -465,83 +446,19 @@ function Invoke-TsProgress {
   )
 
   if (Use-TsSimpleUi) {
-    $logPath = [System.IO.Path]::GetTempFileName()
-    $script:TsProg = @{
-      Group = (Get-TsText prog_starting); Status = ""; PctLo = 0; PctHi = 5; StageEst = 10; LeftEst = 0
-      StageT0 = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); Phase = "run"; Error = ""
-    }
-    function Show-SimpleProgressPanel {
-      $snap = Get-TsProgressSnapshot
-      $statusLine = $snap.Status
-      if ($snap.Phase -eq "run") {
-        $spin = Get-TsSpinnerFrame
-        if ($statusLine) { $statusLine = "$spin  $statusLine" } else { $statusLine = $spin }
-      }
-      $eta = if ($snap.Phase -eq "error") { Get-TsText prog_eta_failed }
-        elseif ($snap.Phase -eq "done") { Get-TsText prog_eta_done }
-        elseif ($snap.Eta -le 0) { Get-TsText prog_eta_finishing }
-        else { Format-TsEta $snap.Eta }
-      $box = Get-TsCenterBox -PrefW 64 -PrefH 16
-      $inner = $box.Width - 2
-      $line = ("-" * $inner)
-      $pad = (" " * $box.Left)
-      $barW = [Math]::Max(10, $box.Width - 14)
-      $bar = Write-TsProgressBar -Pct $snap.Pct -Width $barW
-      Clear-Host
-      for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
-      Write-Host ($pad) -NoNewline
-      Write-Host (Write-TsPad ("  " + (Get-TsText app_title) + " · " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-      Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $snap.Group -Style gold
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $statusLine -Style muted
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text ("[" + $bar + "] " + $snap.Pct + "%") -Style selected
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $eta -Style muted
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      if ($snap.Phase -eq "error") {
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText prog_error_label) -Style danger
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $(if ($snap.Error) { $snap.Error } else { Get-TsText prog_unknown_error }) -Style danger
-      } elseif ($snap.Phase -eq "done") {
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText prog_completed) -Style ok
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      } else {
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText prog_details_ps) -Style muted
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-      }
-      Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $(if ($snap.Phase -in @("done", "error")) { Get-TsText prog_footer_return } else { Get-TsText prog_footer_run }) -Style muted
-    }
-
-    Show-SimpleProgressPanel
-    $script:TsLogFile = $logPath
+    Write-TsInfo ("[" + $Title + "] …")
     $script:TsLogQuiet = $true
-    $script:TsProgressRefresh = { Show-SimpleProgressPanel }
     $ok = $true
-    $errMsg = ""
     try {
-      & $Action *>&1 | ForEach-Object {
-        $line = ("$_").TrimEnd()
-        if ($line) { Add-Content -Path $logPath -Value $line -Encoding utf8 }
-        Show-SimpleProgressPanel
-      }
+      & $Action
     } catch {
       $ok = $false
-      $errMsg = $_.Exception.Message
-      if (-not $errMsg) { $errMsg = (Get-TsText cmd_failed_short) }
-      Fail-TsProgress $errMsg
+      Write-TsErr $_.Exception.Message
     } finally {
-      $script:TsLogFile = $null
       $script:TsLogQuiet = $false
-      $script:TsProgressRefresh = $null
     }
-    if ($ok) {
-      Complete-TsProgress
-    }
-    Show-SimpleProgressPanel
+    if ($ok) { Write-TsOk (Get-TsText prog_completed) } else { Write-TsErr (Get-TsText prog_failed) }
     Wait-TsPause
-    Remove-Item -Force $logPath -ErrorAction SilentlyContinue
-    $script:TsProg = $null
     return
   }
 
@@ -646,14 +563,14 @@ function Invoke-TsProgress {
   Show-ProgressPanel -Force
   $script:TsLogFile = $logPath
   $script:TsLogQuiet = $true
-  $script:TsProgressRefresh = { Show-ProgressPanel -Force }
+  $script:TsProgressRefresh = { Show-ProgressPanel }
   $ok = $true
   $errMsg = ""
   try {
     & $Action *>&1 | ForEach-Object {
       $line = ("$_").TrimEnd()
       if ($line) { Add-Content -Path $logPath -Value $line -Encoding utf8 }
-      Show-ProgressPanel -Force
+      Show-ProgressPanel
     }
   } catch {
     $ok = $false
@@ -713,27 +630,12 @@ function Show-TsTextPanel {
     [string[]]$Lines
   )
   if (Use-TsSimpleUi) {
-    $prefH = $Lines.Count + 8
-    $box = Get-TsCenterBox -PrefW 64 -PrefH $prefH
-    $inner = $box.Width - 2
-    $line = ("-" * $inner)
-    $pad = (" " * $box.Left)
-    Clear-Host
-    for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
-    Write-Host ($pad) -NoNewline
-    Write-Host (Write-TsPad ("  " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
+    Write-Host ""
+    Write-Host $Title -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
     foreach ($l in $Lines) {
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $l -Style muted
+      if ($l) { Write-Host $l -ForegroundColor $script:TsMuted } else { Write-Host "" }
     }
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "[ Enter ]" -Style selected
-    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-    try {
-      [void]$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    } catch {
-      [void](Read-Host (Get-TsText press_enter_menu))
-    }
+    [void](Read-Host (Get-TsText press_enter_menu))
     return
   }
   $prefH = $Lines.Count + 8
