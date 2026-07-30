@@ -34,6 +34,38 @@ jobs:
       - name: Tracked modules
         run: bash scripts/ci/check-tracked-modules.sh
 
+  launcher-unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Launcher checks
+        run: bash scripts/ci/check-launcher.sh
+      - name: Bootstrap smoke
+        run: bash scripts/ci/smoke-launcher-bootstrap.sh
+      - name: Update smoke
+        run: bash scripts/ci/smoke-launcher-update.sh
+
+  launcher-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Launcher checks
+        shell: powershell
+        run: .\scripts\ci\check-launcher.ps1
+      - name: Bootstrap smoke
+        shell: powershell
+        run: .\scripts\ci\smoke-launcher-bootstrap.ps1
+      - name: Update smoke
+        shell: powershell
+        run: .\scripts\ci\smoke-launcher-update.ps1
+
   test:
     runs-on: ubuntu-latest
     steps:

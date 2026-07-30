@@ -112,14 +112,26 @@ if (Test-Path $i18nPath) {
 }
 . (Join-Path $root "scripts\lib\DesktopShortcuts.ps1")
 
-Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_prepare } else { Boot-TsText "prep" "Preparing PowerShell execution and desktop shortcut…" "Подготовка PowerShell и ярлыка на рабочий стол…" })
+if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+  Write-Host (Get-TsText boot_ps_prepare)
+} else {
+  Write-Host (Boot-TsText "prep" "Preparing PowerShell execution and desktop shortcut…" "Подготовка PowerShell и ярлыка на рабочий стол…")
+}
 try {
   Install-TaskStudioDesktopShortcuts -Root $root
 } catch {
   $msg = $_.Exception.Message
-  Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_shortcut_fail $msg } else { Boot-TsText "warn" "Warning: desktop shortcut failed — $msg" "Предупреждение: ярлык не создан — $msg" })
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    Write-Host (Get-TsText boot_ps_shortcut_fail $msg)
+  } else {
+    Write-Host (Boot-TsText "warn" "Warning: desktop shortcut failed — $msg" "Предупреждение: ярлык не создан — $msg")
+  }
   $fallback = Join-Path $root "scripts\studio.cmd"
-  Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_fallback $fallback } else { Boot-TsText "fb" "  You can still start: $fallback" "  Можно запустить вручную: $fallback" })
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    Write-Host (Get-TsText boot_ps_fallback $fallback)
+  } else {
+    Write-Host (Boot-TsText "fb" "  You can still start: $fallback" "  Можно запустить вручную: $fallback")
+  }
 }
 
 Remove-TsBootstrapScripts -Root $root
@@ -142,6 +154,10 @@ if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefa
   }
 }
 
-Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_starting } else { Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…" })
+if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+  Write-Host (Get-TsText boot_starting)
+} else {
+  Write-Host (Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…")
+}
 $code = Start-TsStudioConsole -Root $root -Arguments $Rest
 exit $code
