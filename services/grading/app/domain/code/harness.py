@@ -40,5 +40,4 @@ async def stage_local_harness(ctx: GradeContext) -> CheckOutcome | None:
         ctx.ungradable_feedback = exc.detail
         return None
 
-                                                            
     return host.piston_outcome(piston_result, started=ctx.started, checker=resolved.checker)

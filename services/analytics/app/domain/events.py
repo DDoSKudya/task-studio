@@ -34,7 +34,6 @@ async def process_event(
     if await session.get(ProcessedEvent, event.event_id) is not None:
         return
 
-                                                                                     
     if client is not None:
         try:
             await asyncio.to_thread(insert_event, client, database, event)

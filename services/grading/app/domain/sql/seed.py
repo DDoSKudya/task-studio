@@ -12,7 +12,7 @@ __all__ = [
 
 
 def build_sql_seed(step: dict[str, object]) -> str | None:
-                                                                                           
+
     explicit = step.get("sql_seed")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().rstrip(";") + ";"
@@ -41,7 +41,7 @@ def build_sql_seed(step: dict[str, object]) -> str | None:
         return None
 
     table_name = guess_table_name(blob) or "data"
-                                                    
+
     grid = max(parser.tables, key=lambda rows: len(rows) * max(len(row) for row in rows))
     header = [sql_ident(cell, fallback=f"col{index + 1}") for index, cell in enumerate(grid[0])]
     if not header:

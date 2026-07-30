@@ -11,7 +11,7 @@ class MediaSettings:
     secret_key: str
     bucket: str
     secure: bool
-                                                                                   
+
     presign_ttl_seconds: int
 
 

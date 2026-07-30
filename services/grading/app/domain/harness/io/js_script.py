@@ -34,7 +34,7 @@ def javascript_io_script(
     if io_cases:
         assert entrypoint is not None
         name_lit = json.dumps(entrypoint)
-                                                          
+
         chunks.append(f"const __cases = {json.dumps(io_cases, ensure_ascii=False)};")
         chunks.append(
             f"let __solve = (typeof {entrypoint} === 'function') ? {entrypoint} : null;\n"

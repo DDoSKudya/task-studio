@@ -14,7 +14,7 @@ router = APIRouter()
 
 type Settings = Annotated[StudioApiSettings, Depends(get_settings)]
 
-                                                                         
+
 _SUBMIT_TIMEOUT = httpx.Timeout(connect=10.0, read=600.0, write=120.0, pool=10.0)
 
 

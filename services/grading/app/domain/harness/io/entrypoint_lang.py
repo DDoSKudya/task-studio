@@ -17,9 +17,7 @@ def python_functions(code: str) -> list[tuple[str, int | None]]:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if node.name.startswith("_"):
                 continue
-            positional = sum(
-                arg.arg not in {"self", "cls"} for arg in node.args.args
-            )
+            positional = sum(arg.arg not in {"self", "cls"} for arg in node.args.args)
             found.append((node.name, positional))
     return found
 

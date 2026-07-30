@@ -22,7 +22,7 @@ async def ensure_local_pack_root(
     disk_path: Path,
     object_key: str | None,
 ) -> str:
-                                                                                    
+
     if disk_path.is_dir():  # noqa: ASYNC240 — sync existence check before download
         return str(disk_path)
     if not object_key or not settings.media_service_url:

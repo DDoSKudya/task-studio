@@ -1,5 +1,3 @@
-                                                                
-
 from __future__ import annotations
 
 import time
@@ -41,7 +39,7 @@ async def stage_answer_key(ctx: GradeContext) -> CheckOutcome | None:
 
 
 async def stage_stepik(ctx: GradeContext) -> CheckOutcome | None:
-                                                                  
+
     from app.domain import quiz_grade as host
 
     if not is_stepik_quiz(ctx.step):

@@ -6,7 +6,7 @@ from .textutil import _as_str, _slug
 
 
 def _code_step_tests_executable(step: dict[str, object]) -> bool:
-                                                                                 
+
     if _as_str(step.get("checker")) == "llm":
         return False
     tests = step.get("tests")
@@ -74,7 +74,7 @@ def _assemble_manifest(
     video_steps: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     videos = video_steps or []
-                                                                            
+
     study_ids = [str(step["id"]) for step in theory_steps] + [str(step["id"]) for step in videos]
     practice_ids = [str(step["id"]) for step in code_steps]
     assess_ids = [str(step["id"]) for step in quiz_steps]
@@ -115,7 +115,7 @@ def _assemble_manifest(
 
 
 def _repair_manifest_shapes(manifest: dict[str, object]) -> dict[str, object]:
-                                                                   
+
     topics = manifest.get("topics")
     if not isinstance(topics, list):
         return manifest

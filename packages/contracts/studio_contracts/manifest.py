@@ -7,7 +7,7 @@ from typing import Literal, cast
 PhaseName = Literal["study", "practice", "assess"]
 
 DEFAULT_PHASE_ORDER: tuple[PhaseName, ...] = ("study", "practice", "assess")
-                                                      
+
 ARTICLE_PHASE_ORDER: tuple[PhaseName, ...] = ("study", "assess", "practice")
 
 _TASK_HEADING_RE = re.compile(r"задач[аеи]\s*\d+", re.IGNORECASE)
@@ -105,7 +105,6 @@ def phase_step_ids(
             if isinstance(steps, list):
                 return [step_id for step_id in steps if isinstance(step_id, str)]
 
-                                                                                
     flat = topic.get(phase)
     if isinstance(flat, list):
         return [step_id for step_id in flat if isinstance(step_id, str)]
@@ -125,7 +124,7 @@ def get_step(manifest: dict[str, object], step_id: str) -> dict[str, object]:
 
 
 def repair_step(step: dict[str, object]) -> dict[str, object]:
-                                                                  
+
     kind = step.get("kind")
     if kind == "code":
         return step
@@ -224,7 +223,7 @@ def entry_after_phase(
 
 
 def iter_positions(manifest: dict[str, object]) -> list[SessionPosition]:
-                                                                          
+
     positions: list[SessionPosition] = []
     order = phase_order_for(manifest)
     for topic in list_topics(manifest):

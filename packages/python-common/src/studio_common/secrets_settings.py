@@ -1,5 +1,3 @@
-                                                                                  
-
 from __future__ import annotations
 
 from studio_common.secrets_crypto import (

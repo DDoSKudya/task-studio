@@ -26,10 +26,7 @@ async def wait_for_run_result(
     request_timeout: float,
     poll_interval: float = 1.0,
 ) -> str:
-\
-\
-\
-       
+
     deadline = asyncio.get_running_loop().time() + max(5.0, request_timeout)
     last_status = ""
     while asyncio.get_running_loop().time() < deadline:

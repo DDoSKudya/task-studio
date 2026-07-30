@@ -34,7 +34,7 @@ def platform_block_from_fetch(
     error: str | None = None,
     remote: list[dict[str, object]] | None = None,
 ) -> PlatformCatalogBlock:
-    _ = needle                                                               
+    _ = needle
     info = adapter.info
     supports_catalog = info.capabilities.search_catalog or info.capabilities.import_course
     status, message, courses = resolve_platform_catalog_state(

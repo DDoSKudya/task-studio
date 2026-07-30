@@ -24,7 +24,7 @@ async def grade_submission(
     body: TutorGradeRequest,
 ) -> TutorGradeResponse:
     settings = TutorSettings()
-                                                                               
+
     with suppress(TutorError):
         settings = await fetch_user_settings(client, config, user_id)
 

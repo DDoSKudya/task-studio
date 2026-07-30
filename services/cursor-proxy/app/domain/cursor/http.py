@@ -18,7 +18,7 @@ def json_headers() -> dict[str, str]:
 
 
 def basic_auth(api_key: str) -> httpx.BasicAuth:
-                                                          
+
     return httpx.BasicAuth(api_key, "")
 
 
@@ -37,7 +37,7 @@ def error_detail(response: httpx.Response) -> str:
                 nested = value.get("message")
                 if isinstance(nested, str) and nested.strip():
                     return nested.strip()
-                                                              
+
         code = payload.get("code")
         if isinstance(code, str) and code.strip():
             return f"{code}: {payload}"

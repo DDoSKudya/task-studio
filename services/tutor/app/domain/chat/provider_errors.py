@@ -33,7 +33,7 @@ def http_error_detail(exc: httpx.HTTPStatusError) -> str:
     raw = ""
     if exc.args and isinstance(exc.args[0], str):
         candidate = exc.args[0].strip()
-                                                                            
+
         if candidate and not candidate.startswith(("Client error", "Server error")):
             raw = candidate
     if not raw:

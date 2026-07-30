@@ -1,5 +1,3 @@
-                                                                      
-
 from __future__ import annotations
 
 import time
@@ -31,7 +29,7 @@ GradeStage = Callable[[GradeContext], Awaitable[CheckOutcome | None]]
 
 
 async def run_chain(ctx: GradeContext, stages: Sequence[GradeStage]) -> CheckOutcome:
-                                                                              
+
     for stage in stages:
         outcome = await stage(ctx)
         if outcome is not None:

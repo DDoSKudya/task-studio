@@ -12,7 +12,7 @@ def decrypt_platform_credentials(
     *,
     master_key: str | None,
 ) -> dict[str, str]:
-                                                                                        
+
     out: dict[str, str] = {}
     for key, value in platform.items():
         if not isinstance(key, str) or not isinstance(value, str) or not value.strip():
@@ -23,7 +23,6 @@ def decrypt_platform_credentials(
                 out[plain_name] = decrypted
             continue
         if key in INTEGRATION_SECRET_FIELDS:
-                                                                
             out[key] = value.strip()
             continue
         out[key] = value.strip()
@@ -37,7 +36,7 @@ def merge_platform(
     master_key: str | None,
 ) -> dict[str, object]:
     merged: dict[str, object] = {}
-                                                               
+
     for key, value in incoming.items():
         if not isinstance(key, str):
             continue
@@ -56,7 +55,6 @@ def merge_platform(
             elif isinstance(existing.get(f"{field}_encrypted"), str):
                 merged[f"{field}_encrypted"] = existing[f"{field}_encrypted"]
             else:
-                                                                               
                 merged[field] = plain.strip()
             continue
         enc_key = f"{field}_encrypted"
@@ -66,19 +64,15 @@ def merge_platform(
             continue
         prev_plain = existing.get(field)
         if isinstance(prev_plain, str) and prev_plain.strip():
-            if encrypted := encrypt_secret_value(
-                prev_plain, master_key=master_key
-            ):
+            if encrypted := encrypt_secret_value(prev_plain, master_key=master_key):
                 merged[enc_key] = encrypted
             else:
                 merged[field] = prev_plain.strip()
 
-                                                                             
     for key, value in existing.items():
         if key in merged or key in INTEGRATION_SECRET_FIELDS:
             continue
         if key.endswith("_encrypted"):
-                                                                
             plain = key[: -len("_encrypted")]
             if plain in INTEGRATION_SECRET_FIELDS:
                 continue

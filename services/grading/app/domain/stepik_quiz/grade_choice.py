@@ -15,7 +15,7 @@ async def grade_via_stepik(
     choice_index: int,
     credentials: dict[str, str],
 ) -> tuple[bool, str | None, dict[str, object]]:
-                                                                                           
+
     external_id = external_step_id_from_step(step)
     if not external_id:
         raise StepikQuizError("stepik step id missing")

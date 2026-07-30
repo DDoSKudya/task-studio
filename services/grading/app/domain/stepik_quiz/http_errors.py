@@ -16,7 +16,7 @@ def http_error_detail(response: httpx.Response) -> str | None:
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
-                                                                           
+
         blob = str(payload)
         if "solve_sql" in blob or "invalid schema" in blob.casefold():
             if match := re.search(r"Reply has invalid schema:[^\"]+", blob):

@@ -24,7 +24,7 @@ async def ingest_events(
     clickhouse: ClickHouseClient,
     settings: Settings,
 ) -> IngestEventsResponse:
-                                                                       
+
     accepted = 0
     for event in body.events:
         await process_event(

@@ -25,7 +25,7 @@ def _polish_full_content_ok(original: str, revised: str) -> bool:
     if not src:
         return len(text) >= 80
     ratio = len(text) / max(1, len(src))
-                                                                  
+
     upper = 3.5 if len(src) < 240 else 2.2
     return 0.45 <= ratio <= upper
 
@@ -37,7 +37,7 @@ def _apply_opening_edit(step: dict[str, object], opening: str, cut: int) -> bool
     original = str(step.get("content") or "")
     if cut <= 0:
         cut = min(len(original), max(len(revised), 200))
-                                                    
+
     if len(revised) > max(cut * 3, 400) + 200:
         return False
     rest = original[cut:].lstrip() if cut < len(original) else ""

@@ -38,11 +38,7 @@ async def start_session(
     settings: SessionsSettings,
     client: httpx.AsyncClient,
 ) -> tuple[Session, bool]:
-\
-\
-\
-\
-       
+
     existing = await active_sessions_for_pack(session, user_id, pack_version_id)
     if existing:
         primary, *duplicates = existing

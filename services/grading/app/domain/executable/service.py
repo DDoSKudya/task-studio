@@ -1,5 +1,3 @@
-                                                                      
-
 from __future__ import annotations
 
 from app.domain.executable.fixtures import SUPPORTED_IO_RUNTIMES, args_need_fixtures
@@ -13,7 +11,7 @@ def step_checker_mode(step: dict[str, object]) -> str:
 
 
 def step_tests_are_executable(step: dict[str, object]) -> bool:
-                                                                            
+
     mode = step_checker_mode(step)
     if mode == "llm":
         return False

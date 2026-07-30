@@ -61,5 +61,4 @@ def validate_public_http_url(url: str) -> str:
     return parsed.geturl()
 
 
-                                                            
 _is_blocked_host = is_blocked_host

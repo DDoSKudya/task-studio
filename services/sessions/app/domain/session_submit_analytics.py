@@ -18,14 +18,11 @@ async def publish_submit_analytics(
     try:
         events = [submit_event(learning_session, outcome.attempt, outcome.grading)]
         if outcome.status == "completed" and (
-            completed := step_completed_event(
-                learning_session, outcome.attempt, outcome.grading
-            )
+            completed := step_completed_event(learning_session, outcome.attempt, outcome.grading)
         ):
             events.append(completed)
         await publish_analytics_events(settings, events)
     except Exception as exc:
-                                                                      
         log.warning(
             "submit_analytics_failed",
             error=str(exc),

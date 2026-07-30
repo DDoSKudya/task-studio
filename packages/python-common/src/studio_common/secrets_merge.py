@@ -165,7 +165,7 @@ def merge_integrations_settings(
             prev_platform,
             master_key=master_key,
         )
-                                                                 
+
     for platform_id, prev in existing_map.items():
         if platform_id not in out and isinstance(prev, dict):
             out[platform_id] = dict(prev)

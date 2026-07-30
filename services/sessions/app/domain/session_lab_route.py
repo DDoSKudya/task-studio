@@ -44,7 +44,7 @@ async def submit_lab_step(
     except SessionError as exc:
         if exc.status_code not in {503, 502}:
             raise
-                                                                                  
+
         await session.rollback()
         return await submit_gradable(
             session,

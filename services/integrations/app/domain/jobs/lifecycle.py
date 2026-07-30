@@ -34,7 +34,7 @@ async def get_import_job(
 
 
 async def claim_import_job(session: AsyncSession, job: ImportJob) -> bool:
-                                                                                        
+
     result = await session.execute(
         update(ImportJob)
         .where(ImportJob.id == job.id, ImportJob.status == "pending")

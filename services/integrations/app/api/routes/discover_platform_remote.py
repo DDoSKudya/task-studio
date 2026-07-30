@@ -37,7 +37,6 @@ async def fetch_and_sync_platform_block(
         remote=remote,
     )
     if needle:
-                                                                                  
         if remote:
             await upsert_external_courses(
                 session,
@@ -59,7 +58,6 @@ async def fetch_and_sync_platform_block(
             courses=remote,
         )
     else:
-                                                                             
         cached = await list_cached_courses(session, user_id=user_id, platform_id=platform_id)
         if cached_courses := filter_summaries(summaries_from_cache(cached), needle=needle):
             block = platform_block_from_fetch(

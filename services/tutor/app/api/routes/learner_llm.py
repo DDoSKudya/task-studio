@@ -31,7 +31,6 @@ async def llm_test(
         provider_url = (body.provider_url or "").strip()
         api_key = (body.api_key or "").strip() or None
         if not api_key:
-                                                                          
             user_settings = await fetch_user_settings(client, config, user_id)
             cleaned = provider_url.casefold()
             mode = "cursor" if "cursor-proxy" in cleaned else "external" if cleaned else None

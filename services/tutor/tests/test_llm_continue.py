@@ -18,7 +18,7 @@ def test_chat_completion_result_detects_open_fence() -> None:
 
 
 def test_chat_completion_result_near_budget_without_finish_reason() -> None:
-                                                                                  
+
     content = "x" * 3000
     result = ChatCompletionResult(content=content, finish_reason="stop", max_tokens=1000)
     assert result.truncated is True

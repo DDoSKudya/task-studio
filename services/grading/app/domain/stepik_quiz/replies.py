@@ -11,7 +11,7 @@ def _code_reply_candidates(
     source: str,
     attempt: dict[str, Any],
 ) -> list[dict[str, Any]]:
-                                                                                               
+
     cleaned = source.strip()
     mode = str(step.get("stepik_reply") or "").casefold()
     runtime = str(step.get("runtime") or "").casefold()
@@ -23,13 +23,11 @@ def _code_reply_candidates(
 
     wants_sql = mode in {"solve_sql", "sql"} or runtime == "sql"
     if wants_sql:
-                                                                    
         _add({"solve_sql": cleaned})
 
     if mode == "text":
         _add({"text": cleaned})
 
-                                                                                   
     if mode in {"", "code"} or not wants_sql:
         for language in _code_language_candidates(step, attempt):
             _add({"language": language, "code": cleaned})

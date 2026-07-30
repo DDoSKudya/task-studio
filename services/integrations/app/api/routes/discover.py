@@ -29,7 +29,7 @@ async def discover_courses(
     client: HttpClient,
     q: str | None = None,
 ) -> DiscoverResponse:
-                                                                       
+
     needle = (q or "").strip()
     platform_blocks: list[PlatformCatalogBlock] = []
     merged: list[ExternalCourseSummary] = []

@@ -15,7 +15,7 @@ _SMART_QUOTES = str.maketrans(
 
 
 def extract_json_object(raw: str) -> dict[str, Any] | None:
-                                                                                   
+
     text = _normalize_raw(raw)
     if not text:
         return None
@@ -27,7 +27,7 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
 
 
 def salvage_truncated_json_object(raw: str) -> dict[str, Any] | None:
-                                                                              
+
     text = _normalize_raw(raw)
     start = text.find("{")
     if start < 0:
@@ -68,7 +68,6 @@ def salvage_truncated_json_object(raw: str) -> dict[str, Any] | None:
     if closed.endswith(","):
         closed = closed[:-1]
     if in_string:
-                                                                              
         if closed.endswith("\\"):
             closed = closed[:-1]
         closed += '"'

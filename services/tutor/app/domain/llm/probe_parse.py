@@ -21,7 +21,7 @@ def model_is_available(wanted: str | None, installed: list[str]) -> bool:
 
 
 def resolve_installed_model(wanted: str | None, installed: list[str]) -> str | None:
-                                                                               
+
     if not installed:
         return None
     if not wanted or not wanted.strip():

@@ -40,7 +40,6 @@ class TutorChatTurn(BaseModel):
 
 
 class TutorChatRequest(BaseModel):
-                                                                                            
     model_config = ConfigDict(strict=False)
 
     session_id: uuid.UUID
@@ -90,8 +89,6 @@ class TutorLlmTestRequest(BaseModel):
 
 
 class TutorGradeRequest(BaseModel):
-                                                                                            
-
     model_config = ConfigDict(strict=False)
 
     kind: Literal["quiz", "code", "task", "lab"]
@@ -129,9 +126,7 @@ def infer_tutor_provider(provider_url: str | None) -> TutorProviderMode:
 def _normalize_tutor_blob(raw: dict[str, object]) -> dict[str, object]:
     blob = dict(raw)
     profiles_raw = blob.get("provider_profiles")
-    profiles: dict[str, object] = (
-        dict(profiles_raw) if isinstance(profiles_raw, dict) else {}
-    )
+    profiles: dict[str, object] = dict(profiles_raw) if isinstance(profiles_raw, dict) else {}
     active = blob.get("active_provider")
     provider_url_raw = blob.get("provider_url")
     provider_url = provider_url_raw if isinstance(provider_url_raw, str) else None
@@ -170,7 +165,7 @@ def parse_tutor_settings(user_settings: dict[str, object]) -> TutorSettings:
     raw = user_settings.get("tutor")
     if isinstance(raw, dict):
         settings = TutorSettings.model_validate(_normalize_tutor_blob(raw))
-                                                                             
+
         if not settings.enabled:
             return settings.model_copy(update={"enabled": True})
         return settings
@@ -187,7 +182,7 @@ def tutor_allowed(
         return False
     if not pack_tutor_enabled:
         return False
-                                                                           
+
     _ = user_enabled
     return True
 

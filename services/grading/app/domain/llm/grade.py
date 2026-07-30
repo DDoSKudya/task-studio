@@ -23,11 +23,7 @@ async def try_llm_grade(
     prior_feedback: str | None = None,
     prior_checker: str | None = None,
 ) -> CheckOutcome | None:
-\
-\
-\
-\
-       
+
     if not settings.llm_grade_enabled:
         return None
 
@@ -35,7 +31,6 @@ async def try_llm_grade(
     if user_id is not None:
         headers["X-User-Id"] = str(user_id)
     else:
-                                                                         
         headers["X-User-Id"] = "00000000-0000-4000-8000-000000000000"
 
     payload = {

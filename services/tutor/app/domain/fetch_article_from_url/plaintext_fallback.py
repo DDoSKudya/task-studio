@@ -16,7 +16,7 @@ def plaintext_article_response(
     plaintext: str,
     page_videos: list[CourseArticleVideo] | None = None,
 ) -> FetchArticleFromUrlResponse:
-                                                                                 
+
     body = re.sub(r"\n{3,}", "\n\n", plaintext.strip())
     if len(body) > _MAX_FALLBACK_CHARS:
         body = body[:_MAX_FALLBACK_CHARS]

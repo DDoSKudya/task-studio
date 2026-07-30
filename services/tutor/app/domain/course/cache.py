@@ -1,5 +1,3 @@
-                                                                                
-
 from __future__ import annotations
 
 from app.domain.course.digest import fetch_course_digest, get_cached_course_digest
