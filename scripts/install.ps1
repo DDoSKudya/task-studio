@@ -29,6 +29,19 @@ function Boot-TsText([string]$Key, [string]$En, [string]$Ru) {
   return $En
 }
 
+function Convert-TsPsTreeToUtf8Bom([string]$Root) {
+  $utf8Bom = New-Object System.Text.UTF8Encoding $true
+  $paths = @(
+    (Join-Path $Root "scripts\studio.ps1")
+  ) + (Get-ChildItem -Path (Join-Path $Root "scripts\lib") -Filter "*.ps1" -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+  foreach ($path in ($paths | Select-Object -Unique)) {
+    if (-not (Test-Path $path)) { continue }
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    [System.IO.File]::WriteAllText($path, $text, $utf8Bom)
+  }
+}
+
 function Get-TsInstallRoot {
   if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "studio.ps1"))) {
     return (Split-Path -Parent $PSScriptRoot)
@@ -105,6 +118,7 @@ if (-not (Test-Path $studioPs1)) {
   throw (Boot-TsText "miss" "studio.ps1 not found under $root\scripts" "studio.ps1 не найден в $root\scripts")
 }
 
+Convert-TsPsTreeToUtf8Bom $root
 Set-Location $root
 $i18nPath = Join-Path $root "scripts\lib\I18n.ps1"
 if (Test-Path $i18nPath) {

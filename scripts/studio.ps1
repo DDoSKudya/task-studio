@@ -12,6 +12,21 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RootCandidate = Split-Path -Parent $ScriptDir
 
+function Convert-TsPsTreeToUtf8Bom([string]$Root) {
+  $utf8Bom = New-Object System.Text.UTF8Encoding $true
+  $paths = @(
+    (Join-Path $Root "scripts\install.ps1"),
+    (Join-Path $Root "scripts\studio.ps1")
+  ) + (Get-ChildItem -Path (Join-Path $Root "scripts\lib") -Filter "*.ps1" -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+  foreach ($path in ($paths | Select-Object -Unique)) {
+    if (-not (Test-Path $path)) { continue }
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    [System.IO.File]::WriteAllText($path, $text, $utf8Bom)
+  }
+}
+
+Convert-TsPsTreeToUtf8Bom $RootCandidate
 . (Join-Path $ScriptDir "lib\I18n.ps1")
 . (Join-Path $ScriptDir "lib\Ui.ps1")
 . (Join-Path $ScriptDir "lib\OpenApp.ps1")
