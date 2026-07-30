@@ -242,7 +242,6 @@ ts_t() {
     err_unknown_opt) en="Unknown option: %s"; ru="Неизвестный параметр: %s" ;;
     err_install_not_found) en="Task Studio Launcher install not found."; ru="Установка Task Studio Launcher не найдена." ;;
     err_uninstall_running) en="Cannot uninstall while containers are still running."; ru="Нельзя удалять, пока контейнеры ещё работают." ;;
-    err_rsync) en="rsync not found (required for safe update)."; ru="rsync не найден (нужен для безопасного обновления)." ;;
     err_robocopy) en="robocopy not found (required for safe update on Windows)."; ru="robocopy не найден (нужен для безопасного обновления в Windows)." ;;
     err_update_dev) en="Self-update is only for the consumer install (%s). Developer trees are left untouched."; ru="Самообновление только для пользовательской установки (%s). Дерево разработчика не трогаем." ;;
     err_update_check) en="Update check failed: %s"; ru="Проверка обновлений не удалась: %s" ;;

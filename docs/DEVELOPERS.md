@@ -35,8 +35,8 @@
 
 См. [README.md](../README.md). Скрипты:
 
-- `scripts/install.sh` / `scripts/install.ps1` — **стабильный публичный URL** (скриншот / README). Одноразовый bootstrap: clone → ярлык → удаление `install.*` из `~/task-studio` → запуск `studio` в том же терминале
-- `scripts/studio.sh` / `scripts/studio.ps1` / `scripts/studio.cmd` — **единственная консоль**: меню по состоянию стека (`missing` / `stopped` / `running`) + `install|start|stop|restart|update|uninstall`, прогресс по этапам, показ ошибки при сбое. Самообновление **без git**: HTTP-манифест `studio-version.json` (TTL `TASK_STUDIO_UPDATE_TTL_SEC`, по умолчанию 3600) → скачивание архива → сравнение content-sha256 → `rsync`/`robocopy` с исключением пользовательских данных (`data/`, `.env`, …). Только consumer-установка (`~/task-studio` / `.studio-consumer`)
+- `scripts/install.sh` / `scripts/install.ps1` — **стабильный публичный URL** (скриншот / README). Одноразовый bootstrap: download archive → ярлык → удаление `install.*` из `~/task-studio` → запуск `studio` в том же терминале
+- `scripts/studio.sh` / `scripts/studio.ps1` / `scripts/studio.cmd` — **единственная консоль**: меню по состоянию стека (`missing` / `stopped` / `running`) + `install|start|stop|restart|update|uninstall`, прогресс по этапам, показ ошибки при сбое. Самообновление **без git**: HTTP-манифест `studio-version.json` (TTL `TASK_STUDIO_UPDATE_TTL_SEC`, по умолчанию 3600) → скачивание архива → сравнение content-sha256 → staged replace с сохранением пользовательских данных (`data/`, `.env`, …). Только consumer-установка (`~/task-studio` / `.studio-consumer`)
 
 Логика и UI: `scripts/lib/ops.sh` + `progress.sh` + `ui.sh` + `i18n.sh` (Unix), `Ops.ps1` + `Ui.ps1` + `I18n.ps1` (Windows). Язык консоли и установщика выбирается **только по языку ОС** (`ru*` → русский, иначе английский), переключателей нет. Палитра как в веб-приложении (`tokens.css`: `#b366ff`, `#ffd700`, `#05050a`). Меню на стрелках (без внешних утилит).
 
@@ -76,7 +76,7 @@
 1. `studio` читает манифест по HTTP (с TTL).
 2. Если `version` новее локального `.studio-state.json` — в меню **Update**.
 3. Update скачивает archive URL из манифеста, считает content-sha256 деревьев (без `data/`, `.env`, …).
-4. При отличии хеша — `rsync`/`robocopy` с исключениями; пользовательские данные не затираются.
+4. При отличии хеша — staged replace с сохранением пользовательских данных; пользовательские данные не затираются.
 5. Пересборка Docker-стека.
 
 Не обновляет дерево разработчика (PET checkout), пока не выставлен `TASK_STUDIO_ALLOW_SELF_UPDATE=1`.

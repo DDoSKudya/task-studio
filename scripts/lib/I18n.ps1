@@ -160,9 +160,6 @@ function Get-TsText {
     'err_robocopy_code' {
       $en = 'robocopy failed with code %s'; $ru = 'robocopy завершился с кодом %s'
     }
-    'err_rsync' {
-      $en = 'rsync not found (required for safe update).'; $ru = 'rsync не найден (нужен для безопасного обновления).'
-    }
     'err_still_running' {
       $en = 'Some containers are still running. Try again or check: docker compose ps'; $ru = 'Часть контейнеров ещё работает. Повторите или проверьте: docker compose ps'
     }

@@ -4,13 +4,13 @@
 # Typical Windows entry (runs in memory — ExecutionPolicy does not block irm|iex):
 #   irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex
 #
-# Then: clone → unlock scripts → set CurrentUser policy if possible →
+# Then: download archive → unlock scripts → set CurrentUser policy if possible →
 # desktop shortcut (studio.cmd + Bypass) → remove local install.* → start studio.
 param([Parameter(ValueFromRemainingArguments = $true)]$Rest)
 
 $ErrorActionPreference = "Stop"
-$RepoHttps = if ($env:TASK_STUDIO_REPO_HTTPS) { $env:TASK_STUDIO_REPO_HTTPS } else { "https://github.com/DDoSKudya/task-studio.git" }
 $RepoBranch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "develop" }
+$ArchiveUrl = if ($env:TASK_STUDIO_ARCHIVE_URL_ZIP) { $env:TASK_STUDIO_ARCHIVE_URL_ZIP } else { "https://codeload.github.com/DDoSKudya/task-studio/zip/refs/heads/$RepoBranch" }
 $InstallDir = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { Join-Path $HOME "task-studio" }
 
 # Locale: Russian OS → Cyrillic; otherwise English (no switches).
@@ -43,22 +43,32 @@ function Get-TsInstallRoot {
   return $null
 }
 
-function Install-TsClone {
+function Install-TsArchive {
   Write-Host (Boot-TsText "dl" "Downloading Task Studio Launcher into $InstallDir …" "Скачивание Task Studio Launcher в $InstallDir …")
-  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    throw (Boot-TsText "git" "git not found. Install Git for Windows, then re-run: irm …/install.ps1 | iex" "git не найден. Установите Git for Windows и снова выполните: irm …/install.ps1 | iex")
-  }
   $parent = Split-Path -Parent $InstallDir
   if ($parent -and -not (Test-Path $parent)) {
     New-Item -ItemType Directory -Path $parent | Out-Null
   }
-  if (Test-Path (Join-Path $InstallDir ".git")) {
+  if (Test-Path $InstallDir) {
     Write-Host (Boot-TsText "upd" "Updating existing install…" "Обновление существующей установки…")
-    try { git -C $InstallDir fetch --depth 1 origin $RepoBranch 2>$null } catch { }
-    try { git -C $InstallDir checkout $RepoBranch 2>$null } catch { }
-    try { git -C $InstallDir pull --ff-only origin $RepoBranch 2>$null } catch { }
-  } else {
-    git clone --branch $RepoBranch --depth 1 $RepoHttps $InstallDir
+  }
+  $work = Join-Path ([System.IO.Path]::GetTempPath()) ("task-studio-bootstrap-" + [guid]::NewGuid().ToString())
+  $zipPath = Join-Path $work "src.zip"
+  $extract = Join-Path $work "extract"
+  New-Item -ItemType Directory -Path $extract -Force | Out-Null
+  try {
+    Invoke-WebRequest -Uri $ArchiveUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 600
+    Expand-Archive -Path $zipPath -DestinationPath $extract -Force
+    $payload = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
+    if (-not $payload -or -not (Test-Path (Join-Path $payload.FullName "scripts\studio.ps1"))) {
+      throw "Downloaded archive has unexpected layout."
+    }
+    if (Test-Path $InstallDir) {
+      Remove-Item -Recurse -Force $InstallDir
+    }
+    Move-Item -Path $payload.FullName -Destination $InstallDir
+  } finally {
+    Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
   }
   return (Resolve-Path $InstallDir).Path
 }
@@ -87,7 +97,7 @@ try {
 
 $root = Get-TsInstallRoot
 if (-not $root) {
-  $root = Install-TsClone
+  $root = Install-TsArchive
 }
 
 $studioPs1 = Join-Path $root "scripts\studio.ps1"

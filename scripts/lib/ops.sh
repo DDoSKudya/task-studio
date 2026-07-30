@@ -758,31 +758,65 @@ ops_content_sha256() {
   )
 }
 
-ops_update_rsync_excludes() {
-  # Args for rsync --exclude (leading / = relative to transfer root)
+ops_update_preserve_paths() {
+  # Paths kept from the local install during self-update.
   printf '%s\n' \
-    '/data/' \
-    '/.env' \
-    '/.env.local' \
-    '/.studio-update-check' \
-    '/.studio-state.json' \
-    '/.studio-consumer' \
-    '/.git/' \
-    '/compose.override.yml' \
-    '/docker-compose.override.yml'
+    'data' \
+    '.env' \
+    '.env.local' \
+    '.studio-update-check' \
+    '.studio-state.json' \
+    '.studio-consumer' \
+    '.git' \
+    'compose.override.yml' \
+    'docker-compose.override.yml'
 }
 
 ops_sync_payload() {
   local src="$1" dst="$2"
-  command -v rsync >/dev/null 2>&1 || ui_die "$(ts_t err_rsync)"
-  local args=()
-  local ex
-  while IFS= read -r ex; do
-    [[ -n "$ex" ]] || continue
-    args+=(--exclude="$ex")
-  done < <(ops_update_rsync_excludes)
-  # --delete removes obsolete app files, but never touches excluded paths.
-  rsync -a --delete "${args[@]}" "$src"/ "$dst"/
+  command -v tar >/dev/null 2>&1 || ui_die "$(ts_t err_tar)"
+
+  local parent base work newroot preserve backup rel
+  parent="$(dirname "$dst")"
+  base="$(basename "$dst")"
+  work="$parent/.task-studio-update.$$"
+  newroot="$work/newroot"
+  preserve="$work/preserve"
+  backup="$work/backup"
+
+  rm -rf "$work"
+  mkdir -p "$newroot" "$preserve"
+
+  if ! tar -C "$src" -cf - . | tar -C "$newroot" -xf -; then
+    rm -rf "$work"
+    return 1
+  fi
+
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    [[ -e "$dst/$rel" ]] || continue
+    mkdir -p "$preserve/$(dirname "$rel")" "$newroot/$(dirname "$rel")"
+    mv "$dst/$rel" "$preserve/$rel"
+    mv "$preserve/$rel" "$newroot/$rel"
+  done < <(ops_update_preserve_paths)
+
+  if ! mv "$dst" "$backup"; then
+    rm -rf "$work"
+    return 1
+  fi
+
+  if ! mv "$newroot" "$dst"; then
+    rm -rf "$dst"
+    mv "$backup" "$dst" 2>/dev/null || true
+    rm -rf "$work"
+    return 1
+  fi
+
+  cd "$dst" || {
+    rm -rf "$backup" "$work"
+    return 1
+  }
+  rm -rf "$backup" "$work"
 }
 
 ops_update_cache_path() {

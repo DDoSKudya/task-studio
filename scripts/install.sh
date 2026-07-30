@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Public bootstrap — URL must stay stable (README / screenshot).
-# Downloads Task Studio Launcher (studio console), creates a desktop shortcut,
+# Downloads Task Studio Launcher archive, creates a desktop shortcut,
 # removes this install script from the install folder, then starts studio
 # in the same terminal.
 set -euo pipefail
 
-REPO_SSH="${TASK_STUDIO_REPO_SSH:-git@github.com:DDoSKudya/task-studio.git}"
-REPO_HTTPS="${TASK_STUDIO_REPO_HTTPS:-https://github.com/DDoSKudya/task-studio.git}"
 REPO_BRANCH="${TASK_STUDIO_BRANCH:-develop}"
+ARCHIVE_URL="${TASK_STUDIO_ARCHIVE_URL:-https://codeload.github.com/DDoSKudya/task-studio/tar.gz/refs/heads/${REPO_BRANCH}}"
 INSTALL_DIR="${TASK_STUDIO_DIR:-$HOME/task-studio}"
 COMPOSE_FILE="deploy/docker-compose.yml"
 
@@ -34,8 +33,12 @@ _t() {
   case "$key" in
     err) en="Error: %s"; ru="Ошибка: %s" ;;
     downloading) en="Downloading Task Studio Launcher into %s …"; ru="Скачивание Task Studio Launcher в %s …" ;;
-    git_missing) en="git not found."; ru="git не найден." ;;
     updating) en="Updating existing install…"; ru="Обновление существующей установки…" ;;
+    err_curl) en="curl not found."; ru="curl не найден." ;;
+    err_tar) en="tar not found."; ru="tar не найден." ;;
+    err_download) en="Could not download Task Studio archive."; ru="Не удалось скачать архив Task Studio." ;;
+    err_unpack) en="Could not unpack Task Studio archive."; ru="Не удалось распаковать архив Task Studio." ;;
+    err_layout) en="Downloaded archive has unexpected layout."; ru="Скачанный архив имеет неожиданный формат." ;;
     studio_missing) en="studio.sh not found under %s/scripts"; ru="studio.sh не найден в %s/scripts" ;;
     shortcuts) en="Installing console and desktop shortcut…"; ru="Установка консоли и ярлыка на рабочий стол…" ;;
     shortcut_warn) en="Warning: could not create desktop shortcut (you can still run: bash %s/scripts/studio.sh)."; ru="Предупреждение: не удалось создать ярлык (можно запустить: bash %s/scripts/studio.sh)." ;;
@@ -72,18 +75,36 @@ resolve_install_root() {
   return 1
 }
 
-clone_studio() {
-  info "$(_t downloading "$INSTALL_DIR")"
-  command -v git >/dev/null 2>&1 || die "$(_t git_missing)"
+download_studio() {
+  info "$(_t downloading "$INSTALL_DIR")" >&2
+  command -v curl >/dev/null 2>&1 || die "$(_t err_curl)"
+  command -v tar >/dev/null 2>&1 || die "$(_t err_tar)"
   mkdir -p "$(dirname "$INSTALL_DIR")"
-  if [[ -d "$INSTALL_DIR/.git" ]]; then
-    info "$(_t updating)"
-    git -C "$INSTALL_DIR" fetch --depth 1 origin "$REPO_BRANCH" 2>/dev/null || true
-    git -C "$INSTALL_DIR" checkout "$REPO_BRANCH" 2>/dev/null || true
-    git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH" 2>/dev/null || true
-  elif ! git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_HTTPS" "$INSTALL_DIR" 2>/dev/null; then
-    git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_SSH" "$INSTALL_DIR"
+  if [[ -d "$INSTALL_DIR" ]]; then
+    info "$(_t updating)" >&2
   fi
+  local work archive extract payload
+  work="$(mktemp -d "${TMPDIR:-/tmp}/task-studio-bootstrap.XXXXXX")"
+  archive="$work/src.tgz"
+  extract="$work/extract"
+  mkdir -p "$extract"
+  if ! curl -fsSL --connect-timeout 15 --max-time 600 "$ARCHIVE_URL" -o "$archive"; then
+    rm -rf "$work"
+    die "$(_t err_download)"
+  fi
+  if ! tar -xzf "$archive" -C "$extract"; then
+    rm -rf "$work"
+    die "$(_t err_unpack)"
+  fi
+  payload="$(find "$extract" -mindepth 1 -maxdepth 1 -type d | head -1)"
+  if [[ -z "$payload" || ! -f "$payload/scripts/studio.sh" ]]; then
+    rm -rf "$work"
+    die "$(_t err_layout)"
+  fi
+  rm -rf "$INSTALL_DIR"
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+  mv "$payload" "$INSTALL_DIR"
+  rm -rf "$work"
   cd "$INSTALL_DIR" && pwd -P
 }
 
@@ -102,7 +123,7 @@ remove_bootstrap_scripts() {
 
 root="$(resolve_install_root || true)"
 if [[ -z "${root:-}" ]]; then
-  root="$(clone_studio)"
+  root="$(download_studio)"
 fi
 
 [[ -f "$root/scripts/studio.sh" ]] || die "$(_t studio_missing "$root")"
