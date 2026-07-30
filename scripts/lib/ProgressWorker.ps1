@@ -27,11 +27,14 @@ $exitCode = 0
 try {
   $actionText = [System.IO.File]::ReadAllText($ActionPath)
   $sb = [scriptblock]::Create($actionText)
-  & $sb *>&1 | ForEach-Object {
-    $line = ("$_").TrimEnd()
-    if ($line) {
-      Add-Content -LiteralPath $LogPath -Value $line -Encoding utf8 -ErrorAction SilentlyContinue
-    }
+  # Docker/BuildKit prints progress on stderr. With Stop + *>&1 those lines become
+  # terminating ErrorRecords ("Image … Building") and abort a healthy build.
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $sb > $LogPath 2>&1
+  } finally {
+    $ErrorActionPreference = $prevEap
   }
   if (-not $script:TsProg -or $script:TsProg.Phase -notin @("done", "error")) {
     Complete-TsProgress
@@ -40,6 +43,10 @@ try {
   $exitCode = 1
   $msg = $_.Exception.Message
   if (-not $msg) { $msg = "Command failed" }
+  # Ignore BuildKit progress lines mistaken for failures (legacy / edge hosts).
+  if ($msg -match '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\s*$') {
+    $msg = Get-TsText cmd_failed_short
+  }
   Add-Content -LiteralPath $LogPath -Value ("x " + $msg) -Encoding utf8 -ErrorAction SilentlyContinue
   Fail-TsProgress $msg
 }

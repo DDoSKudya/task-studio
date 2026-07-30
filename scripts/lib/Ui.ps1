@@ -629,7 +629,10 @@ function Invoke-TsProgress {
       if ($script:TsProg -and $script:TsProg.Error) { $errMsg = $script:TsProg.Error }
       if (-not $errMsg -and (Test-Path $logPath)) {
         $hit = Get-Content $logPath -ErrorAction SilentlyContinue |
-          Where-Object { $_ -match '(?i)error:|failed|fatal|denied|cannot |not found' } |
+          Where-Object {
+            $_ -match '(?i)error:|failed|fatal|denied|cannot |not found' -and
+            $_ -notmatch '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\b'
+          } |
           Select-Object -Last 1
         if ($hit) { $errMsg = [string]$hit }
       }
