@@ -98,6 +98,7 @@ ts_t() {
     confirm_uninstall) en="Uninstall Task Studio? Containers and local data will be removed."; ru="Удалить Task Studio? Будут удалены контейнеры и локальные данные." ;;
     boot_downloading) en="Downloading Task Studio Launcher into %s …"; ru="Скачивание Task Studio Launcher в %s …" ;;
     boot_starting) en="Starting Task Studio Launcher…"; ru="Запуск Task Studio Launcher…" ;;
+    boot_starting_new_window) en="Opening Task Studio Launcher in a new window…"; ru="Открытие Task Studio Launcher в новом окне…" ;;
     shortcut_main) en="Task Studio Launcher"; ru="Task Studio Launcher" ;;
     shortcut_uninstall) en="Task Studio Launcher — Uninstall"; ru="Task Studio Launcher — Удаление" ;;
     shortcut_comment) en="Task Studio Launcher"; ru="Task Studio Launcher" ;;

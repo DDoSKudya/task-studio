@@ -5,7 +5,7 @@
 #   irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex
 #
 # Then: download archive → unlock scripts → set CurrentUser policy if possible →
-# desktop shortcut (studio.cmd + Bypass) → remove local install.* → start studio.
+# desktop shortcut (studio.cmd + Bypass) → remove local install.* → new PS window → studio.
 param([Parameter(ValueFromRemainingArguments = $true)]$Rest)
 
 $ErrorActionPreference = "Stop"
@@ -171,10 +171,21 @@ if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefa
   }
 }
 
-if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
-  Write-Host (Get-TsText boot_starting)
-} else {
-  Write-Host (Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…")
+$inlineLaunch = ($env:TASK_STUDIO_INSTALL_INLINE -eq "1") -or ($Rest -and $Rest.Count -gt 0)
+if ($inlineLaunch) {
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    Write-Host (Get-TsText boot_starting)
+  } else {
+    Write-Host (Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…")
+  }
+  $code = Start-TsStudioConsole -Root $root -Arguments $Rest
+  exit $code
 }
-$code = Start-TsStudioConsole -Root $root -Arguments $Rest
-exit $code
+
+if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+  Write-Host (Get-TsText boot_starting_new_window)
+} else {
+  Write-Host (Boot-TsText "newwin" "Opening Task Studio Launcher in a new window…" "Открытие Task Studio Launcher в новом окне…")
+}
+Start-TsStudioNewWindow -Root $root
+exit 0

@@ -181,6 +181,19 @@ function Remove-TaskStudioDesktopShortcuts {
   }
 }
 
+function Get-TsStudioLaunchPaths {
+  param([Parameter(Mandatory = $true)][string]$Root)
+  $studioCmd = Join-Path $Root "scripts\studio.cmd"
+  $studioPs1 = Join-Path $Root "scripts\studio.ps1"
+  if (-not (Test-Path $studioPs1)) {
+    throw "studio.ps1 not found under $Root\scripts"
+  }
+  return @{
+    Cmd = $studioCmd
+    Ps1 = $studioPs1
+  }
+}
+
 function Start-TsStudioConsole {
   param(
     [Parameter(Mandatory = $true)][string]$Root,
@@ -189,8 +202,9 @@ function Start-TsStudioConsole {
   Enable-TsScriptExecution | Out-Null
   Unlock-TaskStudioScripts -Root $Root
   Set-Location $Root
-  $studioCmd = Join-Path $Root "scripts\studio.cmd"
-  $studioPs1 = Join-Path $Root "scripts\studio.ps1"
+  $paths = Get-TsStudioLaunchPaths -Root $Root
+  $studioCmd = $paths.Cmd
+  $studioPs1 = $paths.Ps1
   if (Test-Path $studioCmd) {
     # Same console / TTY so the dialog manager stays interactive.
     if ($Arguments -and $Arguments.Count -gt 0) {
@@ -200,9 +214,28 @@ function Start-TsStudioConsole {
     }
     return $LASTEXITCODE
   }
-  if (Test-Path $studioPs1) {
-    & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $studioPs1 @Arguments
-    return $LASTEXITCODE
+  & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $studioPs1 @Arguments
+  return $LASTEXITCODE
+}
+
+function Start-TsStudioNewWindow {
+  param(
+    [Parameter(Mandatory = $true)][string]$Root,
+    [object[]]$Arguments = @()
+  )
+  Enable-TsScriptExecution | Out-Null
+  Unlock-TaskStudioScripts -Root $Root
+  $studioPs1 = (Get-TsStudioLaunchPaths -Root $Root).Ps1
+  $argList = @(
+    "-NoLogo"
+    "-NoProfile"
+    "-ExecutionPolicy"
+    "Bypass"
+    "-File"
+    $studioPs1
+  )
+  if ($Arguments -and $Arguments.Count -gt 0) {
+    $argList += $Arguments
   }
-  throw "studio.cmd / studio.ps1 not found under $Root\scripts"
+  Start-Process -FilePath "powershell.exe" -ArgumentList $argList -WorkingDirectory $Root
 }

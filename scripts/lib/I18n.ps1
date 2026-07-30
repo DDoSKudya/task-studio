@@ -55,6 +55,9 @@ function Get-TsText {
     'boot_starting' {
       $en = 'Starting Task Studio Launcher…'; $ru = 'Запуск Task Studio Launcher…'
     }
+    'boot_starting_new_window' {
+      $en = 'Opening Task Studio Launcher in a new window…'; $ru = 'Открытие Task Studio Launcher в новом окне…'
+    }
     'boot_studio_missing' {
       $en = 'studio.sh not found under %s/scripts'; $ru = 'studio.sh не найден в %s/scripts'
     }
