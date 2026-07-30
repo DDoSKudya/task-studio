@@ -24,12 +24,7 @@ async def create_import_job(
     course_id: str,
     force: bool = False,
 ) -> tuple[ImportJob, bool]:
-\
-\
-\
-\
-\
-       
+
     if force:
         await supersede_active_import_jobs(
             session,

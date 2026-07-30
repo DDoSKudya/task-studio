@@ -2,6 +2,8 @@
 
 ---
 
+**Внимание:** на любой платформе (Linux, macOS, Windows, WSL) должен быть установлен и **уже запущен** Docker (Docker Desktop или Docker Engine + Compose v2). Без рабочего Docker Task Studio не запустится.
+
 **Linux · macOS · WSL:**
 
 ```bash
@@ -17,5 +19,6 @@ irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/inst
 ## Документация
 
 - [Для разработчиков](docs/DEVELOPERS.md)
+- [Превью / обзор продукта](docs/PREVIEW.md)
 - [Интеграции](docs/integrations/authoring.md)
 - [Переменные окружения](docs/env.md)

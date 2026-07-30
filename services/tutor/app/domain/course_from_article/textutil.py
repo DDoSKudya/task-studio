@@ -38,7 +38,6 @@ def _articles_from_body(body: CourseFromArticleRequest) -> list[dict[str, object
             if not videos:
                 videos = extract_video_refs(content)
             else:
-                                                                                      
                 videos = extract_video_refs(
                     "\n".join(video.url for video in videos),
                     content,

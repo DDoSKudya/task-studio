@@ -1,179 +1,137 @@
 #Requires -Version 5.1
-$ErrorActionPreference = "Stop"
+# Public bootstrap — URL must stay stable (README / screenshot).
+#
+# Typical Windows entry (runs in memory — ExecutionPolicy does not block irm|iex):
+#   irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex
+#
+# Then: clone → unlock scripts → set CurrentUser policy if possible →
+# desktop shortcut (studio.cmd + Bypass) → remove local install.* → start studio.
+param([Parameter(ValueFromRemainingArguments = $true)]$Rest)
 
+$ErrorActionPreference = "Stop"
 $RepoHttps = if ($env:TASK_STUDIO_REPO_HTTPS) { $env:TASK_STUDIO_REPO_HTTPS } else { "https://github.com/DDoSKudya/task-studio.git" }
 $RepoBranch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "develop" }
 $InstallDir = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { Join-Path $HOME "task-studio" }
-$ComposeFile = "deploy/docker-compose.yml"
-$MinRamGb = if ($env:TASK_STUDIO_MIN_RAM_GB) { [int]$env:TASK_STUDIO_MIN_RAM_GB } else { 8 }
-$OllamaModel = if ($env:OLLAMA_MODEL) { $env:OLLAMA_MODEL } else { "qwen2.5:3b" }
 
-function Write-Log([string]$Message) { Write-Host $Message }
-
-function Assert-Command([string]$Name) {
-  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-    throw "Не найдена команда «$Name». Установите Docker Desktop и повторите."
+# Locale: Russian OS → Cyrillic; otherwise English (no switches).
+$script:TsUiLang = "en"
+try {
+  if ([System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq "ru") {
+    $script:TsUiLang = "ru"
   }
+} catch { }
+foreach ($var in @($env:LANG, $env:LC_ALL, $env:LC_MESSAGES)) {
+  if ($var -and ($var -match "(?i)^ru([_.@]|$)")) { $script:TsUiLang = "ru"; break }
 }
 
-function Get-RamGb {
-  try {
-    $cs = Get-CimInstance Win32_ComputerSystem
-    return [int][math]::Floor($cs.TotalPhysicalMemory / 1GB)
-  } catch {
-    return 0
-  }
+function Boot-TsText([string]$Key, [string]$En, [string]$Ru) {
+  if ($script:TsUiLang -eq "ru") { return $Ru }
+  return $En
 }
 
-function Ensure-Repo {
-  if ((Test-Path $ComposeFile) -and (Test-Path ".env.example")) {
+function Get-TsInstallRoot {
+  if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "studio.ps1"))) {
+    return (Split-Path -Parent $PSScriptRoot)
+  }
+  if ((Test-Path "deploy\docker-compose.yml") -and (Test-Path "scripts\studio.ps1")) {
     return (Get-Location).Path
   }
-  $candidate = Join-Path $InstallDir $ComposeFile
+  $candidate = Join-Path $InstallDir "scripts\studio.ps1"
   if (Test-Path $candidate) {
-    Set-Location $InstallDir
-    return (Get-Location).Path
+    return (Resolve-Path $InstallDir).Path
   }
-  Write-Log "Репозиторий не найден — клонирую в $InstallDir …"
-  Assert-Command git
+  return $null
+}
+
+function Install-TsClone {
+  Write-Host (Boot-TsText "dl" "Downloading Task Studio Launcher into $InstallDir …" "Скачивание Task Studio Launcher в $InstallDir …")
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw (Boot-TsText "git" "git not found. Install Git for Windows, then re-run: irm …/install.ps1 | iex" "git не найден. Установите Git for Windows и снова выполните: irm …/install.ps1 | iex")
+  }
   $parent = Split-Path -Parent $InstallDir
-  if ($parent -and -not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent | Out-Null }
-  git clone --branch $RepoBranch --depth 1 $RepoHttps $InstallDir
-  Set-Location $InstallDir
-  return (Get-Location).Path
+  if ($parent -and -not (Test-Path $parent)) {
+    New-Item -ItemType Directory -Path $parent | Out-Null
+  }
+  if (Test-Path (Join-Path $InstallDir ".git")) {
+    Write-Host (Boot-TsText "upd" "Updating existing install…" "Обновление существующей установки…")
+    try { git -C $InstallDir fetch --depth 1 origin $RepoBranch 2>$null } catch { }
+    try { git -C $InstallDir checkout $RepoBranch 2>$null } catch { }
+    try { git -C $InstallDir pull --ff-only origin $RepoBranch 2>$null } catch { }
+  } else {
+    git clone --branch $RepoBranch --depth 1 $RepoHttps $InstallDir
+  }
+  return (Resolve-Path $InstallDir).Path
 }
 
-function Get-EnvValue([string]$Name) {
-  $line = Get-Content ".env" -ErrorAction SilentlyContinue | Where-Object { $_ -match "^$Name=" } | Select-Object -First 1
-  if (-not $line) { return "" }
-  return ($line -split "=", 2)[1].Trim().Trim('"').Trim("'")
+function Test-TsConsumerInstallDir([string]$Root) {
+  $want = $InstallDir
+  if (Test-Path $InstallDir) {
+    $want = (Resolve-Path $InstallDir).Path
+  }
+  return ($Root -eq $want)
 }
 
-function Set-EnvValue([string]$Name, [string]$Value) {
-  $lines = @(Get-Content ".env")
-  $found = $false
-  for ($i = 0; $i -lt $lines.Count; $i++) {
-    if ($lines[$i] -match "^$Name=") {
-      $lines[$i] = "$Name=$Value"
-      $found = $true
-      break
+function Remove-TsBootstrapScripts([string]$Root) {
+  if (-not (Test-TsConsumerInstallDir $Root)) { return }
+  foreach ($name in @("install.sh", "install.ps1")) {
+    $path = Join-Path $Root "scripts\$name"
+    if (Test-Path $path) {
+      Remove-Item -Force $path -ErrorAction SilentlyContinue
     }
   }
-  if (-not $found) { $lines += "$Name=$Value" }
-  Set-Content -Path ".env" -Value $lines -Encoding utf8
 }
 
-function New-MasterKey {
-  $bytes = New-Object byte[] 32
-  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-  return [Convert]::ToBase64String($bytes)
-}
-
-function New-JwtSecret {
-  $bytes = New-Object byte[] 48
-  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-  return [Convert]::ToBase64String($bytes)
-}
-
-function Test-MasterKey([string]$Raw) {
-  if (-not $Raw -or $Raw.ToLower().Contains("change-me")) { return $false }
-  try {
-    $decoded = [Convert]::FromBase64String($Raw)
-    return $decoded.Length -eq 32
-  } catch {
-    return $false
-  }
-}
-
-function Ensure-Env {
-  if (-not (Test-Path ".env")) {
-    Copy-Item ".env.example" ".env"
-    Write-Log "Создан файл .env из .env.example"
-  }
-
-  $key = Get-EnvValue "SECRETS_MASTER_KEY"
-  if (-not (Test-MasterKey $key)) {
-    Set-EnvValue "SECRETS_MASTER_KEY" (New-MasterKey)
-    Write-Log "Сгенерирован SECRETS_MASTER_KEY"
-  }
-
-  $jwt = Get-EnvValue "JWT_SECRET"
-  if (-not $jwt -or $jwt.ToLower().Contains("change-me") -or $jwt.Length -lt 16) {
-    Set-EnvValue "JWT_SECRET" (New-JwtSecret)
-    Write-Log "Сгенерирован JWT_SECRET"
-  }
-
-  $model = Get-EnvValue "OLLAMA_MODEL"
-  if (-not $model -or $model -eq "llama3.2") {
-    Set-EnvValue "OLLAMA_MODEL" $OllamaModel
-  }
-}
-
-function Prepare-Dirs {
-  $dirs = @(
-    "data/postgres", "data/redis", "data/rabbitmq", "data/packs",
-    "data/meilisearch", "data/clickhouse", "data/minio", "data/ollama",
-    "data/grafana", "data/prometheus", "data/piston/packages"
-  )
-  foreach ($d in $dirs) {
-    New-Item -ItemType Directory -Force -Path $d | Out-Null
-  }
-}
-
-Assert-Command docker
-try { docker info | Out-Null } catch { throw "Docker не запущен. Откройте Docker Desktop и дождитесь готовности." }
-try { docker compose version | Out-Null } catch { throw "Нужен Docker Compose v2." }
-
-$ram = Get-RamGb
-if ($ram -gt 0 -and $ram -lt $MinRamGb) {
-  throw "Обнаружено ≈${ram} ГБ RAM, минимум — ${MinRamGb} ГБ (рекомендуется 16 ГБ)."
-}
-if ($ram -gt 0 -and $ram -lt 16) {
-  $env:ORCHESTRATOR_MODE = if ($env:ORCHESTRATOR_MODE) { $env:ORCHESTRATOR_MODE } else { "power_saving" }
-  Write-Log "RAM ≈${ram} ГБ — режим ORCHESTRATOR_MODE=power_saving."
-}
-
-$root = Ensure-Repo
-Set-Location $root
-Ensure-Env
-Prepare-Dirs
-
-$mode = if ($env:ORCHESTRATOR_MODE) { $env:ORCHESTRATOR_MODE } else { "balancing" }
-$profileArgs = @("--profile", "full")
-if ($mode -ne "power_saving") { $profileArgs += @("--profile", "editor") }
-
-$env:DOCKER_BUILDKIT = "1"
-$env:COMPOSE_DOCKER_CLI_BUILD = "1"
-
-Write-Log "Собираю и запускаю контейнеры (первый запуск долгий)…"
-docker compose -f $ComposeFile --env-file .env @profileArgs build
-docker compose -f $ComposeFile --env-file .env @profileArgs up -d --remove-orphans
-
-Write-Log "Жду готовности http://localhost …"
-$ready = $false
-for ($i = 0; $i -lt 90; $i++) {
-  try {
-    Invoke-WebRequest -Uri "http://127.0.0.1" -UseBasicParsing -TimeoutSec 3 | Out-Null
-    $ready = $true
-    break
-  } catch {
-    Start-Sleep -Seconds 5
-  }
-}
-if ($ready) { Write-Log "Стек отвечает на http://localhost" } else { Write-Log "Предупреждение: http://localhost пока не отвечает." }
-
-$modelLine = (Get-Content .env | Where-Object { $_ -match '^OLLAMA_MODEL=' } | Select-Object -First 1)
-$model = if ($modelLine) { ($modelLine -split '=', 2)[1].Trim() } else { $OllamaModel }
-Write-Log "Загружаю модель Ollama: $model …"
 try {
-  docker compose -f $ComposeFile --env-file .env --profile full exec -T ollama ollama pull $model
-} catch {
-  Write-Log "Предупреждение: не удалось скачать модель сейчас."
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+} catch { }
+
+$root = Get-TsInstallRoot
+if (-not $root) {
+  $root = Install-TsClone
 }
 
-Write-Log ""
-Write-Log "Готово."
-Write-Log "  Каталог:  $root"
-Write-Log "  UI:        http://localhost"
-Write-Log "  Остановка: .\scripts\stop.ps1"
-Write-Log "  Зарегистрируйте пользователя на странице входа."
+$studioPs1 = Join-Path $root "scripts\studio.ps1"
+if (-not (Test-Path $studioPs1)) {
+  throw (Boot-TsText "miss" "studio.ps1 not found under $root\scripts" "studio.ps1 не найден в $root\scripts")
+}
+
+Set-Location $root
+$i18nPath = Join-Path $root "scripts\lib\I18n.ps1"
+if (Test-Path $i18nPath) {
+  . $i18nPath
+}
+. (Join-Path $root "scripts\lib\DesktopShortcuts.ps1")
+
+Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_prepare } else { Boot-TsText "prep" "Preparing PowerShell execution and desktop shortcut…" "Подготовка PowerShell и ярлыка на рабочий стол…" })
+try {
+  Install-TaskStudioDesktopShortcuts -Root $root
+} catch {
+  $msg = $_.Exception.Message
+  Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_shortcut_fail $msg } else { Boot-TsText "warn" "Warning: desktop shortcut failed — $msg" "Предупреждение: ярлык не создан — $msg" })
+  $fallback = Join-Path $root "scripts\studio.cmd"
+  Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_ps_fallback $fallback } else { Boot-TsText "fb" "  You can still start: $fallback" "  Можно запустить вручную: $fallback" })
+}
+
+Remove-TsBootstrapScripts -Root $root
+
+$installDefault = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { Join-Path $HOME "task-studio" }
+$resolvedDefault = $null
+if (Test-Path $installDefault) { $resolvedDefault = (Resolve-Path $installDefault).Path }
+if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefault)) {
+  New-Item -ItemType File -Path (Join-Path $root ".studio-consumer") -Force | Out-Null
+  $verFile = Join-Path $root "studio-version.json"
+  if (Test-Path $verFile) {
+    try {
+      $ver = (Get-Content -Raw $verFile | ConvertFrom-Json).version
+      if ($ver) {
+        $payload = (@{ version = [string]$ver; content_sha256 = "" } | ConvertTo-Json) + "`n"
+        $enc = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText((Join-Path $root ".studio-state.json"), $payload, $enc)
+      }
+    } catch { }
+  }
+}
+
+Write-Host (if (Get-Command Get-TsText -ErrorAction SilentlyContinue) { Get-TsText boot_starting } else { Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…" })
+$code = Start-TsStudioConsole -Root $root -Arguments $Rest
+exit $code

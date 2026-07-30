@@ -28,6 +28,7 @@ import {
 import { extractErrorMessage } from '~/utils/api'
 import {
   buildCatalogCourseRows,
+  canDownloadExternalCourse,
   canRedownloadPack,
   cardInitial as cardInitialGlyph,
   catalogOpenSourceAction,
@@ -50,6 +51,8 @@ import {
   packPrimaryHref,
   platformHintText,
   settingsLinkForPlatform,
+  stepikCardAction,
+  stepikCourseUrl,
   type PackLearningSnapshot,
 } from '~/utils/catalog'
 
@@ -135,6 +138,58 @@ const courseRows = computed(() =>
 
 const groupedCourses = computed(() => groupCatalogCourseRows(courseRows.value))
 
+const awaitingStepikEnrollment = computed(() =>
+  courseRows.value.some((row) => row.platform === 'stepik' && row.enrolled !== true),
+)
+
+const pendingStepikRefresh = ref(false)
+let stepikPollTimer: ReturnType<typeof setInterval> | null = null
+let stepikRefreshInFlight = false
+
+function markStepikReturnRefresh() {
+  pendingStepikRefresh.value = true
+}
+
+async function refreshStepikCatalogIfNeeded() {
+  if (activeTab.value !== 'external') {
+    return
+  }
+  if (!pendingStepikRefresh.value && !awaitingStepikEnrollment.value) {
+    return
+  }
+  if (stepikRefreshInFlight || catalogPending.value || pending.value) {
+    return
+  }
+  stepikRefreshInFlight = true
+  try {
+    discoverCache.clear()
+    await loadDiscover(query.value.trim(), { force: true })
+    pendingStepikRefresh.value = false
+  } finally {
+    stepikRefreshInFlight = false
+  }
+}
+
+function onWindowBecameVisible() {
+  if (document.visibilityState !== 'visible') {
+    return
+  }
+  void refreshStepikCatalogIfNeeded()
+}
+
+function syncStepikPollTimer() {
+  const shouldPoll =
+    activeTab.value === 'external' && (awaitingStepikEnrollment.value || pendingStepikRefresh.value)
+  if (shouldPoll && stepikPollTimer === null) {
+    stepikPollTimer = setInterval(() => {
+      void refreshStepikCatalogIfNeeded()
+    }, 45_000)
+  } else if (!shouldPoll && stepikPollTimer !== null) {
+    clearInterval(stepikPollTimer)
+    stepikPollTimer = null
+  }
+}
+
 const searchPlaceholder = computed(() =>
   activeTab.value === 'library'
     ? t('catalog.searchLibraryPlaceholder')
@@ -180,6 +235,18 @@ const {
   findInstalledTitle: (platform: string, externalId: string) =>
     installedPack(platform, externalId)?.title ?? null,
   refreshPacks,
+  onEnrolled: async (platform: string, externalId: string) => {
+    if (platform !== 'stepik') {
+      return
+    }
+    catalog.value = catalog.value.map((course) =>
+      course.platform === platform && course.external_id === externalId
+        ? { ...course, enrolled: true }
+        : course,
+    )
+    pendingStepikRefresh.value = true
+    void refreshStepikCatalogIfNeeded()
+  },
 })
 
 const activeImports = computed(
@@ -435,9 +502,25 @@ watch(
   },
 )
 
+watch([activeTab, awaitingStepikEnrollment, pendingStepikRefresh], () => {
+  syncStepikPollTimer()
+})
+
 onMounted(async () => {
+  window.addEventListener('focus', onWindowBecameVisible)
+  document.addEventListener('visibilitychange', onWindowBecameVisible)
   await refreshPacks()
   await loadDiscover(query.value.trim())
+  syncStepikPollTimer()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', onWindowBecameVisible)
+  document.removeEventListener('visibilitychange', onWindowBecameVisible)
+  if (stepikPollTimer !== null) {
+    clearInterval(stepikPollTimer)
+    stepikPollTimer = null
+  }
 })
 </script>
 
@@ -848,6 +931,30 @@ onMounted(async () => {
                           <span class="lib-tag">{{ sourceLabel(row.platform) }}</span>
                           <span v-if="row.language" class="lib-tag">{{ row.language }}</span>
                           <span
+                            v-if="row.platform === 'stepik' && row.enrolled === true"
+                            class="lib-tag is-enrolled"
+                          >
+                            {{ t('catalog.onAccount') }}
+                          </span>
+                          <span
+                            v-else-if="row.platform === 'stepik' && row.enrolled === false"
+                            class="lib-tag is-remote"
+                          >
+                            {{ t('catalog.notOnAccount') }}
+                          </span>
+                          <span
+                            v-if="row.platform === 'stepik' && row.isPaid === true"
+                            class="lib-tag is-paid"
+                          >
+                            {{ t('catalog.paidCourse') }}
+                          </span>
+                          <span
+                            v-else-if="row.platform === 'stepik' && row.isPaid === false"
+                            class="lib-tag is-free"
+                          >
+                            {{ t('catalog.freeCourse') }}
+                          </span>
+                          <span
                             v-if="row.packId || isInstalled(row.platform, row.externalId)"
                             class="lib-tag"
                           >
@@ -867,6 +974,16 @@ onMounted(async () => {
                         <p class="lib-card-mark" aria-hidden="true">{{ cardInitial(row.title) }}</p>
                         <h3 class="lib-card-title">{{ row.title }}</h3>
                         <p class="lib-card-subtitle">{{ courseCardMeta(row) }}</p>
+                        <p
+                          v-if="row.platform === 'stepik' && !canDownloadExternalCourse(row)"
+                          class="lib-card-note"
+                        >
+                          {{
+                            stepikCardAction(row) === 'goto'
+                              ? t('catalog.stepikPaidHint')
+                              : t('catalog.stepikEnrollHint')
+                          }}
+                        </p>
                       </div>
 
                       <footer class="lib-card-foot">
@@ -879,6 +996,17 @@ onMounted(async () => {
                             {{ t('catalog.openCourse') }}
                             <span class="lib-card-cta-arrow" aria-hidden="true">→</span>
                           </NuxtLink>
+                          <a
+                            v-else-if="stepikCardAction(row) === 'goto'"
+                            class="lib-card-cta"
+                            :href="stepikCourseUrl(row.externalId)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            @click="markStepikReturnRefresh"
+                          >
+                            {{ t('catalog.openOnStepikPaid') }}
+                            <span class="lib-card-cta-arrow" aria-hidden="true">→</span>
+                          </a>
                           <button
                             v-else
                             class="lib-card-cta"
@@ -897,6 +1025,7 @@ onMounted(async () => {
                                 row.platform,
                                 row.externalId,
                                 isBrokenPack(installedPack(row.platform, row.externalId)),
+                                { enrollFirst: stepikCardAction(row) === 'enroll' },
                               )
                             "
                           >
@@ -909,7 +1038,11 @@ onMounted(async () => {
                             <span class="lib-card-cta-label">
                               <template v-if="isDownloadBusy(row.key)">
                                 <span class="loading-spinner loading-spinner-sm" aria-hidden="true" />
-                                {{ t('catalog.downloadingCourse') }}
+                                {{
+                                  importStates[row.key]?.status === 'enrolling'
+                                    ? t('catalog.enrollingOnStepik')
+                                    : t('catalog.downloadingCourse')
+                                }}
                               </template>
                               <template v-else>
                                 {{

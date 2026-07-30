@@ -46,7 +46,7 @@ def _excerpt_balanced(text: str, limit: int) -> str:
 
 
 def _combined_corpus(sources: list[dict[str, object]]) -> str:
-                                                                                        
+
     if not sources:
         return ""
     if len(sources) == 1:

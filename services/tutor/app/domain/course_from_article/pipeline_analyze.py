@@ -37,7 +37,7 @@ def _chapter_detail_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     chapter = payload.get("chapter")
     if isinstance(chapter, dict):
         return chapter
-                                                                          
+
     if "chapters" in payload or "pack_id" in payload or "book_spine" in payload:
         return None
     if payload.get("source_excerpt") or payload.get("purpose") or payload.get("bridge_from_prev"):
@@ -137,7 +137,6 @@ async def iter_analyze_stage(
     )
     locale = _as_str(analysis.get("locale")) or body.locale
 
-                                                                                     
     units = 1 + len(chapters)
     skeleton = [{"id": c["id"], "title": c["title"]} for c in chapters]
     yield _stage_event(

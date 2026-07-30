@@ -516,11 +516,7 @@ async def test_generate_course_from_article_mocked_stages() -> None:
             level = "easy"
             if "## Level\n" in user_message:
                 level = user_message.split("## Level\n", 1)[1].split("\n", 1)[0].strip()
-            task = next(
-                item
-                for item in stage_responses["code"]["tasks"]
-                if item["level"] == level
-            )
+            task = next(item for item in stage_responses["code"]["tasks"] if item["level"] == level)
             return {"tasks": [dict(task)]}
         if stage == "quizzes":
             index = 1
@@ -574,7 +570,7 @@ async def test_generate_course_from_article_mocked_stages() -> None:
 
 @pytest.mark.asyncio
 async def test_external_theory_mid_chapters_preserve_order() -> None:
-                                                                                         
+
     import uuid
 
     course = load_service_module("app.domain.course_from_article")
@@ -594,7 +590,6 @@ async def test_external_theory_mid_chapters_preserve_order() -> None:
         await asyncio.sleep(0)
         if stage == "analyze":
             if "## Chapter position\n" in user_message:
-                             
                 pos = user_message.split("## Chapter position\n", 1)[1].split("\n", 1)[0]
                 index = int(pos.split("/", 1)[0])
                 ch = chapters[index - 1]
@@ -621,11 +616,10 @@ async def test_external_theory_mid_chapters_preserve_order() -> None:
                 "chapters": [{"id": c["id"], "title": c["title"]} for c in chapters],
             }
         if stage == "theory":
-                                                                         
             marker = "## This chapter\n"
             assert marker in user_message
             line = user_message.split(marker, 1)[1].split("\n", 1)[0]
-                              
+
             title = line.split(":", 1)[1].strip()
             return {
                 "id": f"theory-{title.lower().replace(' ', '-')}",

@@ -40,13 +40,11 @@ def _quiz_one_user_message(
     prior_titles: list[str],
 ) -> str:
     chapter_titles = [c["title"] for c in chapters]
-                                                                               
+
     focus = theory_steps[index % len(theory_steps)] if theory_steps else None
     focus_block = ""
     if focus is not None:
-        focus_block = (
-            f"### {focus.get('title')}\n{str(focus.get('content') or '')[:1400]}"
-        )
+        focus_block = f"### {focus.get('title')}\n{str(focus.get('content') or '')[:1400]}"
     prior = ", ".join(prior_titles) if prior_titles else "(none yet)"
     return "\n\n".join(
         part

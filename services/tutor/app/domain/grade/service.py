@@ -12,7 +12,6 @@ from app.domain.grade.payload import normalize_grade_payload, parse_grade_json
 from app.domain.llm import resolve_llm_target
 from studio_contracts.tutor_schemas import TutorGradeRequest, TutorGradeResponse, TutorSettings
 
-                                                       
 _normalize_grade_payload = normalize_grade_payload
 _parse_grade_json = parse_grade_json
 
@@ -25,7 +24,7 @@ async def grade_submission(
     body: TutorGradeRequest,
 ) -> TutorGradeResponse:
     settings = TutorSettings()
-                                                                               
+
     with suppress(TutorError):
         settings = await fetch_user_settings(client, config, user_id)
 

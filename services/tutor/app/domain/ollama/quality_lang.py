@@ -1,5 +1,3 @@
-                                                            
-
 from __future__ import annotations
 
 import re
@@ -9,13 +7,13 @@ ReplyLanguage = Literal["ru", "en"]
 
 _UNEXPECTED_SCRIPT_RE = re.compile(
     "["
-    "\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff"          
-    "\u4e00-\u9fff\u3400-\u4dbf"       
-    "\u3040-\u30ff"                 
-    "\uac00-\ud7af"          
-    "\u0590-\u05ff"          
-    "\u0e00-\u0e7f"        
-    "\u0900-\u097f"              
+    "\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff"
+    "\u4e00-\u9fff\u3400-\u4dbf"
+    "\u3040-\u30ff"
+    "\uac00-\ud7af"
+    "\u0590-\u05ff"
+    "\u0e00-\u0e7f"
+    "\u0900-\u097f"
     "]"
 )
 _CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
@@ -47,7 +45,7 @@ def has_unexpected_scripts(text: str) -> bool:
 
 
 def language_mismatch(text: str, language: ReplyLanguage) -> bool:
-                                                                         
+
     prose = prose_without_code(text)
     letters = [ch for ch in prose if ch.isalpha()]
     if len(letters) < 40:

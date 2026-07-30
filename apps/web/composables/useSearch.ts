@@ -1,6 +1,7 @@
 import type {
   AdapterInfo,
   DiscoverResponse,
+  EnrollCourseResponse,
   ExternalCourseSummary,
   ImportJobResponse,
   PlatformCatalogBlock,
@@ -10,6 +11,7 @@ import type {
 export type {
   AdapterInfo,
   DiscoverResponse,
+  EnrollCourseResponse,
   ExternalCourseSummary,
   ImportJobResponse,
   PlatformCatalogBlock,
@@ -105,6 +107,13 @@ export function useSearch() {
     })
   }
 
+  async function enrollCourse(platform: string, courseId: string) {
+    return request<EnrollCourseResponse>(`/v1/integrations/${platform}/enroll`, {
+      method: 'POST',
+      body: { course_id: courseId },
+    })
+  }
+
   async function getImportJob(jobId: string) {
     return request<ImportJobResponse>(`/v1/integrations/jobs/${jobId}`)
   }
@@ -116,6 +125,7 @@ export function useSearch() {
     discoverCourses,
     startImport,
     importFromSearch,
+    enrollCourse,
     getImportJob,
   }
 }

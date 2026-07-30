@@ -207,7 +207,7 @@ onBeforeUnmount(async () => {
     try {
       await sendBeacon('close', { language: props.lspId, sessionId: props.sessionId })
     } catch {
-
+      // best-effort close on unmount
     }
   }
   await disconnectLanguageClient(lspHandle)

@@ -19,9 +19,39 @@ describe('isMermaidBlock', () => {
     expect(isMermaidBlock(code, 'text')).toBe(true)
   })
 
+  it('detects diagrams after %%init and line comments', () => {
+    const code = [
+      '%%{init: {"theme": "dark"}}%%',
+      '%% overview',
+      'flowchart LR',
+      '  A[Client] --> B[API]',
+    ].join('\n')
+    expect(isMermaidBlock(code)).toBe(true)
+    expect(isMermaidBlock(code, 'text')).toBe(true)
+  })
+
+  it('detects sequenceDiagram and newer diagram kinds', () => {
+    expect(isMermaidBlock('sequenceDiagram\n  Alice->>Bob: Hi')).toBe(true)
+    expect(isMermaidBlock('erDiagram\n  USER ||--o{ ORDER : places')).toBe(true)
+    expect(isMermaidBlock('xychart-beta\n  title "Sales"')).toBe(true)
+  })
+
+  it('detects untitled edge lists and repairs a flowchart header', () => {
+    const code = [
+      'A[Клиент] --> B[Шлюз]',
+      'B --> C[Сервис]',
+      'C --> D[(БД)]',
+    ].join('\n')
+    expect(isMermaidBlock(code)).toBe(true)
+    const fixed = repairMermaidSource(code)
+    expect(fixed.startsWith('flowchart TD')).toBe(true)
+    expect(fixed).toContain('A["Клиент"]')
+  })
+
   it('ignores ordinary code', () => {
     expect(isMermaidBlock('def post_list(request):\n    return posts')).toBe(false)
     expect(isMermaidBlock('SELECT id FROM posts', 'sql')).toBe(false)
+    expect(isMermaidBlock('a --> b', 'python')).toBe(false)
   })
 })
 
@@ -43,6 +73,11 @@ describe('repairMermaidSource', () => {
     expect(fixed).toContain(' -->|"пишет"| ')
     expect(fixed).toContain(' -->|"временное состояние"| ')
     expect(fixed).not.toContain('B[Доска у входа(Redis)]')
+  })
+
+  it('normalizes spaced diagram titles from LLMs', () => {
+    expect(repairMermaidSource('sequence diagram\n  A->>B: x').startsWith('sequenceDiagram')).toBe(true)
+    expect(repairMermaidSource('flow chart LR\n  A-->B').startsWith('flowchart LR')).toBe(true)
   })
 
   it('strips wrapping fences and keeps already-quoted labels', () => {

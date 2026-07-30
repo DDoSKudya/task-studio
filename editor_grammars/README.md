@@ -1,8 +1,8 @@
-# Editor grammars
+# Грамматики редактора
 
-Custom Monarch grammars for languages that Monaco does not ship with built-in support.
+Пользовательские Monarch-грамматики для языков, у которых в Monaco нет встроенной поддержки.
 
-## Layout
+## Структура
 
 ```
 editor_grammars/
@@ -10,7 +10,7 @@ editor_grammars/
   <language>.json
 ```
 
-Each file:
+Каждый файл:
 
 ```json
 {
@@ -19,14 +19,14 @@ Each file:
 }
 ```
 
-`editor-core` loads `editor_grammars/<language>.json` at runtime and registers the Monarch provider.
+`editor-core` загружает `editor_grammars/<language>.json` во время работы и регистрирует провайдер Monarch.
 
-## When to add a grammar
+## Когда добавлять грамматику
 
-- The pack uses a runtime without a built-in Monaco language id.
-- LSP is optional or unavailable for that language.
-- Syntax highlighting is still required (`editor_mode: syntax_only` or no LSP container).
+- В пакете используется рантайм без встроенного language id Monaco.
+- LSP для языка нет или он опционален.
+- Подсветка синтаксиса всё равно нужна (`editor_mode: syntax_only` или без контейнера LSP).
 
-## Template
+## Шаблон
 
-Copy `example.json` and replace `language` plus tokenizer rules.
+Скопируйте `example.json` и замените `language` и правила tokenizer.

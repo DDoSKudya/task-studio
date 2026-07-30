@@ -5,7 +5,6 @@ import time
 from app.domain.check.outcome import CheckOutcome
 from studio_contracts.tutor_schemas import TutorGradeResponse
 
-                                                                                             
 _SOFT_ACCEPT_FLOOR = 0.55
 
 

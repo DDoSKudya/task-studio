@@ -68,6 +68,14 @@
     "downloadCourse": "Download",
     "downloadingCourse": "Downloading",
     "redownloadCourse": "Re-download",
+    "onAccount": "On account",
+    "notOnAccount": "Not enrolled",
+    "paidCourse": "Paid",
+    "freeCourse": "Free",
+    "stepikEnrollHint": "Free course not on your account: download will enroll it on Stepik first, then import it here.",
+    "stepikPaidHint": "Paid course: buy on Stepik. After purchase this card refreshes and Download becomes available.",
+    "openOnStepikPaid": "Buy",
+    "enrollingOnStepik": "Enrolling on Stepik…",
     "integrityBroken": "Broken",
     "integrityBrokenMeta": "Course files on disk are missing or incomplete. Re-download the course.",
     "redownloadConfirm": "Re-download “{title}”? The broken copy will be replaced.",
@@ -88,7 +96,7 @@
       "unavailable": "Unavailable"
     },
     "platformHints": {
-      "stepik": "Requires email, password, and OAuth Client ID. Shows only your enrolled courses.",
+      "stepik": "Requires email, password, and OAuth Client ID. Free courses enroll on download; paid ones use Buy on Stepik.",
       "exercism": "Public track catalog. Download builds a local pack with exercises.",
       "freecodecamp": "Public freeCodeCamp certification paths. Download builds a local scaffold pack."
     },

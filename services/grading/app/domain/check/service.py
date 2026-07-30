@@ -1,5 +1,3 @@
-                                                                               
-
 from __future__ import annotations
 
 import uuid
@@ -8,9 +6,9 @@ import httpx
 from app.config import GradingSettings
 from app.domain.check.infer import infer_unknown_kind
 from app.domain.check.outcome import CheckOutcome, GradingError, parse_attempt_id
+from app.domain.check.task import grade_task
 from app.domain.code.grade import grade_code
 from app.domain.quiz.grade import grade_quiz
-from app.domain.check.task import grade_task
 
 __all__ = [
     "CheckOutcome",

@@ -34,7 +34,7 @@ def resolve_llm_target(
 
 
 def is_ollama_target(config: TutorConfig, target: LlmTarget) -> bool:
-                                                                      
+
     if not config.ollama_url:
         return False
     base = target.base_url.rstrip("/")
@@ -43,7 +43,7 @@ def is_ollama_target(config: TutorConfig, target: LlmTarget) -> bool:
 
 
 def is_cursor_target(target: LlmTarget) -> bool:
-                                                                                 
+
     return "cursor-proxy" in target.base_url.casefold()
 
 

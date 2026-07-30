@@ -34,7 +34,6 @@ async def delete_pack_with_cleanup(
     )
     raise_for_upstream_error(upstream)
 
-                                                                                
     await call_service(
         client,
         settings.sessions_service_url,

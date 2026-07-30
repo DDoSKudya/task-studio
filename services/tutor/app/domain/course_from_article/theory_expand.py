@@ -21,7 +21,7 @@ _CONTENT_SYSTEM = (
 
 
 def _theory_serial_count(chapter_count: int, *, compact: bool) -> int:
-                                                                       
+
     if chapter_count <= 0:
         return 0
     if compact or chapter_count <= _THEORY_SERIAL_PREFIX:
@@ -63,8 +63,7 @@ async def _expand_one_theory_chapter(
             max_tokens=900 if compact else 1200,
         )
         existing = meta.get("content")
-                                                                              
-                                                                           
+
         if isinstance(existing, str) and len(existing.strip()) >= 40:
             content = existing.strip()
         else:

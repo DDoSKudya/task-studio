@@ -12,7 +12,6 @@ from .run_status import (
     run_status,
 )
 
-                                                 
 _run_status = run_status
 _result_text_from_payload = result_text_from_payload
 
@@ -27,10 +26,7 @@ async def wait_for_run_result(
     request_timeout: float,
     poll_interval: float = 1.0,
 ) -> str:
-\
-\
-\
-       
+
     deadline = asyncio.get_running_loop().time() + max(5.0, request_timeout)
     last_status = ""
     while asyncio.get_running_loop().time() < deadline:

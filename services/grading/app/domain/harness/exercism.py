@@ -35,7 +35,6 @@ def build_exercism_job(
             ],
         )
 
-                                                                                 
     return None
 
 

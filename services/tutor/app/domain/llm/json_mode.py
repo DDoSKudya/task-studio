@@ -7,9 +7,7 @@ from app.domain.llm.target import LlmTarget
 
 _JSON_OBJECT = {"type": "json_object"}
 
-                                                                                
-                                                                                   
-                                                                       
+
 _UNSUPPORTED_JSON_MODE_MARKERS = (
     "response_format",
     "json_object",
@@ -41,7 +39,7 @@ async def complete_json_chat_result(
     num_ctx: int | None = None,
     prefer_json_object: bool = True,
 ) -> ChatCompletionResult:
-                                                                                            
+
     if prefer_json_object:
         try:
             return await complete_chat_result(
@@ -87,7 +85,7 @@ async def complete_json_chat_completion(
     max_tokens: int | None = None,
     num_ctx: int | None = None,
 ) -> str:
-                                                                                
+
     result = await complete_json_chat_result(
         client,
         target,

@@ -1,5 +1,3 @@
-                                                           
-
 from __future__ import annotations
 
 import uuid
@@ -17,7 +15,6 @@ from app.domain.stepik_quiz import (
     is_stepik_quiz,
 )
 
-                                                                               
 _stage_answer_key = stage_answer_key
 _stage_stepik = stage_stepik
 
@@ -55,7 +52,7 @@ async def grade_quiz(
         prior_checker="quiz",
         ungradable_feedback="answer key unavailable",
     )
-                                                                 
+
     ctx.submission = {**submission, "choice_index": choice}
 
     return _with_quiz_reveal(
@@ -73,7 +70,7 @@ async def grade_quiz(
 
 
 def _with_quiz_reveal(step: dict[str, object], outcome: CheckOutcome) -> CheckOutcome:
-                                                                                      
+
     if outcome.passed:
         return outcome
     if outcome.details.get("expected") is not None:

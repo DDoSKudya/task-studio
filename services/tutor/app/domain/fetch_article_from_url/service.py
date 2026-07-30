@@ -21,7 +21,7 @@ from .videos import extract_video_refs
 
 logger = logging.getLogger(__name__)
 
-                                                                           
+
 _page_to_plaintext = page_to_plaintext
 _fetch_page = fetch_page
 _parse_article_json = parse_article_json
@@ -73,7 +73,6 @@ async def fetch_article_from_url(
                 page_videos=page_videos,
             )
         except TutorError as exc:
-                                                                                       
             if exc.status_code >= 500:
                 logger.warning(
                     "article LLM extract failed (%s), falling back to plaintext",

@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 
 _FENCE_RE = re.compile(r"```([^\n`]*)\n([\s\S]*?)```", re.MULTILINE)
-                                                                                  
+
 _FENCE_LINE_RE = re.compile(r"^\s*(`{2,})([A-Za-z][\w+-]*)?\s*$")
 
 
 def _repair_code_fences(markdown: str) -> str:
-                                                                                
+
     if not markdown or "`" not in markdown:
         return markdown
 
@@ -24,7 +24,6 @@ def _repair_code_fences(markdown: str) -> str:
             continue
         out.append(line)
 
-                                                             
     if fence_count % 2 == 1:
         out.append("```")
     return "\n".join(out)
@@ -39,7 +38,7 @@ def _looks_like_python(code: str) -> bool:
         return True
     if re.search(r"^\s*print\s*\(", code, re.MULTILINE):
         return True
-                                                                       
+
     if re.search(r"^\s*with\s+.+\s+as\s+\w+\s*:", code, re.MULTILINE | re.IGNORECASE):
         return True
     if re.search(
@@ -107,7 +106,7 @@ def _infer_fence_language(code: str, hinted: str) -> str:
 
 
 def _retarget_code_fences(markdown: str) -> str:
-                                                                             
+
     markdown = _repair_code_fences(markdown)
 
     def replace(match: re.Match[str]) -> str:

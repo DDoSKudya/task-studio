@@ -52,7 +52,6 @@ def code_editor(
     }
 
 
-                                                               
 _nav_target = nav_target
 _phase_transitions = phase_transitions
 _tutor_meta = tutor_meta

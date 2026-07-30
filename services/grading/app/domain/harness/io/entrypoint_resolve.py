@@ -47,7 +47,6 @@ def resolve_entrypoint(
             go_functions(template or ""),
         )
 
-            
     source_fns = python_functions(source)
     template_fns = python_functions(template or "")
     source_names = [name for name, _ in source_fns]

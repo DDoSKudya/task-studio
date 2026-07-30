@@ -1,5 +1,3 @@
-                                                          
-
 from __future__ import annotations
 
 from app.domain.catalog_client import fetch_pack_version

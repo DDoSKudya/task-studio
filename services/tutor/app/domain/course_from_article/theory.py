@@ -141,7 +141,6 @@ async def _iter_theory_expansion(
             )
         return
 
-                                                                                      
     for index, chapter in remaining:
         yield _stage_event(
             stage="theory",

@@ -1,11 +1,9 @@
-                                                        
-
 from __future__ import annotations
 
 import httpx
 from app.config import GradingSettings
-from app.domain.harness import PistonJob
 from app.domain.check.outcome import GradingError
+from app.domain.harness import PistonJob
 from app.domain.piston.lang import map_piston_language, piston_entry_name
 from app.domain.piston.response import (
     parse_piston_response,

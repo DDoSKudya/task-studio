@@ -9,7 +9,7 @@ from app.domain.stepik_quiz import is_stepik_quiz
 
 
 async def stage_stepik(ctx: GradeContext) -> CheckOutcome | None:
-                                                                  
+
     from app.domain.code import grade as host
 
     if has_local_test_artifacts(ctx.step):

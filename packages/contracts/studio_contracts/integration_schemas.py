@@ -25,7 +25,7 @@ def parse_job_status(status: str) -> ImportJobStatus:
     return "failed"
 
 
-class ImportWarning(BaseModel):
+class _ImportWarning(BaseModel):
     model_config = ConfigDict(strict=True)
 
     step: str
@@ -39,7 +39,7 @@ class ImportReport(BaseModel):
     imported_full: int = Field(ge=0)
     imported_partial: int = Field(ge=0)
     skipped: int = Field(ge=0)
-    warnings: list[ImportWarning] = Field(default_factory=list)
+    warnings: list[_ImportWarning] = Field(default_factory=list)
     fidelity_percent: float = Field(default=0.0, ge=0, le=100)
 
 
@@ -81,6 +81,8 @@ class ExternalCourseSummary(BaseModel):
     author: str = ""
     language: str = ""
     tags: list[str] = Field(default_factory=list)
+    enrolled: bool | None = None
+    is_paid: bool | None = None
 
 
 PlatformCatalogStatus = Literal[
@@ -117,8 +119,20 @@ class StartImportRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     course_id: str = Field(min_length=1)
-                                                                              
     force: bool = False
+
+
+class EnrollCourseRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    course_id: str = Field(min_length=1)
+
+
+class EnrollCourseResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    enrolled: bool
+    already: bool = False
 
 
 class ImportJobResponse(BaseModel):

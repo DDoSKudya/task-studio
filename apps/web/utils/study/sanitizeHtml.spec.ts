@@ -36,6 +36,54 @@ describe('sanitizeStudyHtml', () => {
     expect(html).toMatch(/<(?:p|h3)\b/)
   })
 
+  it('keeps HTML samples inside pre/code escaped (does not render tags)', () => {
+    const dirty = [
+      '<p>Шаблон:</p>',
+      '<pre><code class="language-html">&lt;h1&gt;Статьи&lt;/h1&gt;',
+      '&lt;ul&gt;',
+      '{% for article in articles %}',
+      '  &lt;li&gt;{{ article.title }}&lt;/li&gt;',
+      '{% endfor %}',
+      '&lt;/ul&gt;</code></pre>',
+    ].join('\n')
+    const html = sanitizeStudyHtml(dirty)
+    expect(html).toContain('&lt;h1&gt;Статьи&lt;/h1&gt;')
+    expect(html).toContain('&lt;ul&gt;')
+    expect(html).toContain('&lt;li&gt;')
+    expect(html).not.toMatch(/<pre[^>]*>[\s\S]*<h1>/i)
+  })
+
+  it('escapes raw HTML tags that leaked into pre/code', () => {
+    const dirty =
+      '<pre><code class="language-html"><h1>Статьи</h1>\n<ul>\n<li>{{ title }}</li>\n</ul></code></pre>'
+    const html = sanitizeStudyHtml(dirty)
+    expect(html).toContain('&lt;h1&gt;Статьи&lt;/h1&gt;')
+    expect(html).toContain('&lt;ul&gt;')
+    expect(html).not.toMatch(/<code[^>]*>\s*<h1>/i)
+  })
+
+  it('studyBodyToHtml keeps fenced HTML examples visible as code', () => {
+    const md = [
+      'Шаблоны отвечают за генерацию HTML-страниц.',
+      '',
+      '```html',
+      '<h1>Статьи</h1>',
+      '<ul>',
+      '{% for article in articles %}',
+      '  <li>{{ article.title }} — {{ article.published_at }}</li>',
+      '{% endfor %}',
+      '</ul>',
+      '```',
+      '',
+      'Здесь `{% for %}` — директива.',
+    ].join('\n')
+    const html = studyBodyToHtml(md)
+    expect(html).toContain('language-html')
+    expect(html).toContain('&lt;h1&gt;Статьи&lt;/h1&gt;')
+    expect(html).toContain('&lt;li&gt;')
+    expect(html).not.toMatch(/<pre[^>]*>[\s\S]*?<h1>/i)
+  })
+
   it('hydrates preformatted spreadsheet dumps into real tables', () => {
     const html = sanitizeStudyHtml(
       '<p>Пример</p><pre>OrderID  OrderDate  Name\n1  2025-10-01  Anna\n2  2025-10-02  Bob</pre>',

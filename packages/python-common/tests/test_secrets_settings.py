@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import os
 
-from studio_common.crypto import encrypt_bytes
 from studio_common.secrets_settings import (
     decrypt_platform_credentials,
     merge_integrations_settings,

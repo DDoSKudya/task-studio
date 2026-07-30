@@ -35,8 +35,22 @@
 
 См. [README.md](../README.md). Скрипты:
 
-- `scripts/install.sh` / `scripts/install.ps1` — клон (при необходимости), `.env`, `compose build/up`, ожидание UI, `ollama pull`
-- `scripts/stop.sh` / `scripts/stop.ps1` — остановка стека
+- `scripts/install.sh` / `scripts/install.ps1` — **стабильный публичный URL** (скриншот / README). Одноразовый bootstrap: clone → ярлык → удаление `install.*` из `~/task-studio` → запуск `studio` в том же терминале
+- `scripts/studio.sh` / `scripts/studio.ps1` / `scripts/studio.cmd` — **единственная консоль**: меню по состоянию стека (`missing` / `stopped` / `running`) + `install|start|stop|restart|update|uninstall`, прогресс по этапам, показ ошибки при сбое. Самообновление **без git**: HTTP-манифест `studio-version.json` (TTL `TASK_STUDIO_UPDATE_TTL_SEC`, по умолчанию 3600) → скачивание архива → сравнение content-sha256 → `rsync`/`robocopy` с исключением пользовательских данных (`data/`, `.env`, …). Только consumer-установка (`~/task-studio` / `.studio-consumer`)
+
+Логика и UI: `scripts/lib/ops.sh` + `progress.sh` + `ui.sh` + `i18n.sh` (Unix), `Ops.ps1` + `Ui.ps1` + `I18n.ps1` (Windows). Язык консоли и установщика выбирается **только по языку ОС** (`ru*` → русский, иначе английский), переключателей нет. Палитра как в веб-приложении (`tokens.css`: `#b366ff`, `#ffd700`, `#05050a`). Меню на стрелках (без внешних утилит).
+
+Ярлыки **не хранятся в репозитории**: установщик пишет на Desktop **Task Studio** (меню) и **Uninstall**.
+
+Запуск без права execute / при жёсткой политике:
+
+| Платформа | Как обходят |
+|---|---|
+| Linux / macOS | ярлык → `bash scripts/studio.sh`; `chmod +x`, снятие `com.apple.quarantine`, `.desktop` + `gio trusted` где доступно |
+| Windows | ярлык → `scripts/studio.cmd` (`-ExecutionPolicy Bypass`); bootstrap (`irm\|iex`) ставит Process/CurrentUser policy, `Unblock-File`, Zone.Identifier; при жёстком GPO — предупреждение |
+| Любая | запасной путь: `docker compose -f deploy/docker-compose.yml --env-file .env --profile full up -d` |
+
+Если Group Policy / AppLocker запрещает и PowerShell, и скрипты — ярлыки не помогут; нужен доступ к Docker Compose вручную.
 
 Переменные окружения установщика (опционально):
 
@@ -47,6 +61,25 @@
 | `TASK_STUDIO_MIN_RAM_GB` | `8` |
 | `OLLAMA_MODEL` | `qwen2.5:3b` |
 | `ORCHESTRATOR_MODE` | авто: `power_saving` при RAM &lt; 16 ГБ, иначе `balancing` |
+| `TASK_STUDIO_UI_URL` | `http://localhost` (что открывать в браузере) |
+| `TASK_STUDIO_UPDATE_TTL_SEC` | `3600` (как часто `studio` читает удалённый `studio-version.json`) |
+| `TASK_STUDIO_VERSION_URL` | URL манифеста версии (по умолчанию raw GitHub `studio-version.json` на ветке) |
+| `TASK_STUDIO_ALLOW_SELF_UPDATE` | `1` — разрешить update вне consumer-папки (осторожно) |
+| `TASK_STUDIO_UNINSTALL_YES` | `1` — без подтверждения в `uninstall` |
+
+### Самообновление (без git)
+
+Файл в корне репозитория: [`studio-version.json`](../studio-version.json). При релизе для пользователей **поднимите `version`** (это сигнал для меню Update).
+
+Поток у consumer (`~/task-studio`, маркер `.studio-consumer`):
+
+1. `studio` читает манифест по HTTP (с TTL).
+2. Если `version` новее локального `.studio-state.json` — в меню **Update**.
+3. Update скачивает archive URL из манифеста, считает content-sha256 деревьев (без `data/`, `.env`, …).
+4. При отличии хеша — `rsync`/`robocopy` с исключениями; пользовательские данные не затираются.
+5. Пересборка Docker-стека.
+
+Не обновляет дерево разработчика (PET checkout), пока не выставлен `TASK_STUDIO_ALLOW_SELF_UPDATE=1`.
 
 ## Разработка на уже склонированном репо
 
@@ -78,7 +111,7 @@ just up
 chmod +x scripts/setup-shell.sh && ./scripts/setup-shell.sh
 ```
 
-### Frontend hot reload
+### Горячая перезагрузка фронтенда
 
 Не гоняйте `just up` на каждое изменение UI.
 
@@ -119,7 +152,7 @@ Piston запускается с `privileged: true`.
 ```bash
 # в .env: DOCKER_REGISTRY, DOCKER_USERNAME, DOCKER_PASSWORD
 just build-images
-just publish tag=v0.1.0
+just publish tag=v1.0.0
 ```
 
 Bake: `deploy/docker-bake.hcl` (linux/amd64 + linux/arm64).

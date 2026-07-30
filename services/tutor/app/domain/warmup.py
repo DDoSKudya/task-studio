@@ -25,6 +25,5 @@ async def warmup_cursor_for_session(
     session_id: uuid.UUID,
 ) -> TutorWarmupResponse:
     _ = (client, redis, config, user_id, session_id)
-                                                                           
-                                                
+
     return TutorWarmupResponse(ok=True, skipped=True, detail="cursor warmup disabled")

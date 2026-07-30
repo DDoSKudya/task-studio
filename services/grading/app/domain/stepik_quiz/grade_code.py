@@ -17,7 +17,7 @@ async def grade_code_via_stepik(
     source: str,
     credentials: dict[str, str],
 ) -> tuple[bool, str | None, dict[str, object]]:
-                                                                               
+
     external_id = external_step_id_from_step(step)
     if not external_id:
         raise StepikQuizError("stepik step id missing")
@@ -46,7 +46,7 @@ async def grade_code_via_stepik(
             break
         except StepikQuizError as exc:
             last_error = exc.detail
-                                                            
+
             attempt = await _create_attempt(client, headers=headers, external_id=external_id)
             attempt_id = attempt.get("id")
             if not isinstance(attempt_id, int):

@@ -44,7 +44,6 @@ async def submit_step(
             client=client,
         )
     if kind not in {"quiz", "code", "task"}:
-                                                               
         return await submit_gradable(
             session,
             user_id,

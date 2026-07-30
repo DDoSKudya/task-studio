@@ -593,8 +593,30 @@
 }
 
 .lib-tag.is-broken{
-  border-color: color-mix(in srgb, var(--color-warning) 55%, rgb(255 255 255 / 0.22));
-  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--danger, #f87171) 45%, transparent);
+  color: #fca5a5;
+}
+.lib-tag.is-enrolled{
+  border-color: color-mix(in srgb, var(--op-violet) 55%, transparent);
+  color: var(--op-violet);
+}
+.lib-tag.is-remote{
+  border-color: rgb(255 255 255 / 0.18);
+  color: rgb(160 160 168 / 0.95);
+}
+.lib-tag.is-paid{
+  border-color: color-mix(in srgb, var(--op-gold) 55%, transparent);
+  color: var(--op-gold);
+}
+.lib-tag.is-free{
+  border-color: color-mix(in srgb, var(--op-violet) 40%, transparent);
+  color: color-mix(in srgb, var(--op-violet) 75%, #fff);
+}
+.lib-card-note{
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted, #a0a0a8);
 }
 
 .lib-card-time{

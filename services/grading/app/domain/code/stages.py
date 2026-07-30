@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.domain.check.cascade import GradeContext
+from app.domain.check.outcome import CheckOutcome
 from app.domain.code.harness import stage_local_harness
 from app.domain.code.stepik import stage_stepik
-from app.domain.check.outcome import CheckOutcome
 
 __all__ = [
     "stage_require_source",

@@ -1,8 +1,8 @@
-# Integration adapter authoring
+# Написание адаптера интеграции
 
-Task Studio loads course importers from `integration_modules/` at runtime. Each adapter is a folder with `integration.json`, `importer.py`, and golden fixtures for CI.
+Task Studio подгружает импортёры курсов из `integration_modules/` во время работы. Каждый адаптер — папка с `integration.json`, `importer.py` и golden-фикстурами для CI.
 
-## Layout
+## Структура
 
 ```
 integration_modules/
@@ -13,20 +13,20 @@ integration_modules/
       course_<external_id>.json
 ```
 
-Copy an existing adapter (`stepik`, `exercism`, …) or start from the fields below.
+Скопируйте существующий адаптер (`stepik`, `exercism`, …) или соберите по полям ниже.
 
 ## integration.json
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `id` | yes | Stable slug used in API and search (`stepik`) |
-| `version` | yes | Adapter semver (`1.0.0`) |
-| `display_name` | yes | Human label in UI |
-| `capabilities` | yes | Feature flags (see below) |
-| `auth` | no | Auth type and settings field names |
-| `entrypoints` | yes | `module:callable` map |
+| Поле | Обязательно | Описание |
+|------|-------------|----------|
+| `id` | да | Стабильный slug в API и поиске (`stepik`) |
+| `version` | да | Semver адаптера (`1.0.0`) |
+| `display_name` | да | Подпись в интерфейсе |
+| `capabilities` | да | Флаги возможностей (см. ниже) |
+| `auth` | нет | Тип аутентификации и имена полей настроек |
+| `entrypoints` | да | Карта `module:callable` |
 
-Example:
+Пример:
 
 ```json
 {
@@ -49,34 +49,34 @@ Example:
 }
 ```
 
-### Capabilities
+### Возможности (capabilities)
 
-- `import_course` — adapter can build a normalized pack from a remote course id
-- `search_catalog` — adapter exposes `search_remote`
-- `requires_auth` — user must store credentials in Settings before import
-- `content_types` — hints for UI badges
+- `import_course` — адаптер собирает нормализованный пакет по id удалённого курса
+- `search_catalog` — есть `search_remote`
+- `requires_auth` — перед импортом пользователь сохраняет учётные данные в настройках
+- `content_types` — подсказки для бейджей в UI
 
-## importer.py entrypoints
+## Точки входа importer.py
 
-All callables live in `importer.py`. Signatures are conventions enforced by the integrations service.
+Все вызываемые функции живут в `importer.py`. Сигнатуры — соглашения, которые проверяет сервис integrations.
 
 ### `health() -> dict[str, object]`
 
-Cheap readiness check. Return `{"status": "ok", "platform": "<id>"}`.
+Лёгкая проверка готовности. Верните `{"status": "ok", "platform": "<id>"}`.
 
 ### `list_catalog(**ctx) -> list[dict[str, object]]`
 
-Optional browse list when `list_catalog` entrypoint is set. Items: `{id, title, description?}`.
+Необязательный список для обзора, если задан entrypoint `list_catalog`. Элементы: `{id, title, description?}`.
 
 ### `search_remote(*, query: str, **ctx) -> list[dict[str, object]]`
 
-Remote search hits with the same shape as `list_catalog`.
+Результаты удалённого поиска в том же виде, что и `list_catalog`.
 
 ### `import_course(*, course_id: str, **ctx) -> tuple[dict, dict]`
 
-Returns `(pack_raw, report_raw)`:
+Возвращает `(pack_raw, report_raw)`:
 
-**pack_raw** — normalized adapter payload:
+**pack_raw** — нормализованная нагрузка адаптера:
 
 ```python
 {
@@ -92,36 +92,36 @@ Returns `(pack_raw, report_raw)`:
 }
 ```
 
-**report_raw** — ImportReport fields: `total_items`, `imported_full`, `imported_partial`, `skipped`, `warnings`.
+**report_raw** — поля ImportReport: `total_items`, `imported_full`, `imported_partial`, `skipped`, `warnings`.
 
-Mark steps with `"fidelity": "partial"` when content is lossy. The pack builder turns this into manifest v1 and runs JSON Schema validation.
+Помечайте шаги `"fidelity": "partial"`, если контент потерян частично. Сборщик пакета превращает это в manifest v1 и прогоняет JSON Schema.
 
-## Fixtures (required for CI)
+## Фикстуры (обязательны для CI)
 
-Place one JSON file per importable course:
+Один JSON-файл на импортируемый курс:
 
 ```
 fixtures/course_123.json
 ```
 
-The file must contain at least `title`, `topics`, and `steps` in the shape your `import_course` expects. CI runs `scripts/validate_integration_fixtures.py` — it calls `health`, `import_course` for every fixture, and validates the built manifest.
+В файле как минимум `title`, `topics` и `steps` в том виде, который ждёт ваш `import_course`. CI запускает `scripts/validate_integration_fixtures.py` — вызывает `health`, `import_course` для каждой фикстуры и проверяет собранный манифест.
 
-No network calls in fixtures mode: read from `fixtures/course_{id}.json` like the built-in adapters.
+В режиме фикстур без сети: читайте `fixtures/course_{id}.json`, как встроенные адаптеры.
 
-## Local validation
+## Локальная проверка
 
 ```bash
 just validate-integrations
 ```
 
-## Runtime reload
+## Перезагрузка в рантайме
 
-Adapters are discovered on integrations service startup from the mounted `integration_modules` volume. After adding a folder, restart the integrations container or call the internal reload endpoint when a system token is configured.
+Адаптеры находятся при старте сервиса integrations из смонтированного тома `integration_modules`. После добавления папки перезапустите контейнер integrations или вызовите внутренний reload, если настроен системный токен.
 
-## Checklist
+## Чеклист
 
-1. Unique `id` in `integration.json`
-2. All entrypoints resolve to callables in `importer.py`
-3. At least one `fixtures/course_*.json`
-4. `just validate-integrations` passes
-5. Optional: live import tested manually via Search → Import in the web UI
+1. Уникальный `id` в `integration.json`
+2. Все entrypoints указывают на вызываемые объекты в `importer.py`
+3. Хотя бы один `fixtures/course_*.json`
+4. `just validate-integrations` проходит
+5. По желанию: живой импорт вручную через «Поиск → Импорт» в веб-UI

@@ -15,12 +15,12 @@ from studio_contracts.studio_schemas import (
 )
 
 from .constants import (
+    _BAND_CODE,
+    _BAND_CODE_SOLO,
     _BAND_POLISH,
     _BAND_POLISH_SOLO,
     _BAND_QUIZZES,
     _BAND_QUIZZES_SOLO,
-    _BAND_CODE,
-    _BAND_CODE_SOLO,
     _BAND_THEORY,
     _BAND_THEORY_SOLO,
     _allocate_progress_bands,

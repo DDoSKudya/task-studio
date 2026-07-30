@@ -47,11 +47,6 @@ class UserSetting(Base):
 
 
 class EncryptedCredential(Base):
-\
-\
-\
-       
-
     __tablename__ = "encrypted_credentials"
     __table_args__ = {"schema": "auth"}
 

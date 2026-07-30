@@ -25,7 +25,7 @@ async def get_media_asset(
     settings: Settings,
     client: MinioClient,
 ) -> StreamingResponse:
-                                                                                       
+
     require_safe_asset_id(asset_id)
     object_key = user_object_key(user_id, asset_id)
     if not object_exists(client, settings, object_key):

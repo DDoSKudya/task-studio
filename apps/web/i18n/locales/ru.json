@@ -68,6 +68,14 @@
     "downloadCourse": "Скачать",
     "downloadingCourse": "Скачивание",
     "redownloadCourse": "Перекачать",
+    "onAccount": "На аккаунте",
+    "notOnAccount": "Не на аккаунте",
+    "paidCourse": "Платный",
+    "freeCourse": "Бесплатный",
+    "stepikEnrollHint": "Бесплатный курс не на аккаунте: при скачивании сначала привяжем его к Stepik, затем скачаем.",
+    "stepikPaidHint": "Платный курс: купите на Stepik. После покупки карточка обновится и появится «Скачать».",
+    "openOnStepikPaid": "Купить",
+    "enrollingOnStepik": "Привязка к Stepik…",
     "integrityBroken": "Повреждён",
     "integrityBrokenMeta": "Файлы курса на диске неполные или отсутствуют. Перекачайте курс.",
     "redownloadConfirm": "Перекачать «{title}»? Повреждённая копия будет заменена.",
@@ -88,7 +96,7 @@
       "unavailable": "Недоступно"
     },
     "platformHints": {
-      "stepik": "Нужны email, пароль и OAuth Client ID. Показываются только курсы вашего аккаунта.",
+      "stepik": "Нужны email, пароль и OAuth Client ID. Бесплатные курсы без записи привязываем к аккаунту при скачивании; платные — кнопка «Купить» на Stepik.",
       "exercism": "Публичный каталог треков. Скачивание создаёт локальный пак с упражнениями.",
       "freecodecamp": "Публичные certification-пути freeCodeCamp. Скачивание создаёт локальный пак-scaffold."
     },

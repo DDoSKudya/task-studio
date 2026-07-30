@@ -4,7 +4,7 @@ import httpx
 
 
 def enrich_provider_hint(detail: str) -> str:
-                                                                               
+
     text = detail.strip()
     if not text:
         return text
@@ -26,7 +26,7 @@ def enrich_provider_hint(detail: str) -> str:
 
 
 def llm_http_error_message(exc: BaseException) -> str:
-                                                                                
+
     if isinstance(exc, httpx.HTTPStatusError):
         response = exc.response
         try:

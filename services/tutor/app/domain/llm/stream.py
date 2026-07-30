@@ -18,7 +18,7 @@ async def stream_chat_completion(
     conversation_id: str | None = None,
 ) -> AsyncIterator[str]:
     url = f"{target.base_url}/chat/completions"
-                                                                                  
+
     timeout = httpx.Timeout(connect=10.0, read=600.0, write=120.0, pool=10.0)
     async with client.stream(
         "POST",
@@ -42,7 +42,6 @@ async def stream_chat_completion(
             )
         async for line in response.aiter_lines():
             if line.startswith(":"):
-                                                                                         
                 yield ""
                 continue
             if stream_error := parse_sse_error(line):

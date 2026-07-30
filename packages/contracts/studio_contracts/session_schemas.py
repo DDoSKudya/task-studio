@@ -13,7 +13,6 @@ SessionStatus = Literal["active", "completed", "abandoned"]
 
 
 class StartSessionRequest(BaseModel):
-                                                                                            
     model_config = ConfigDict(strict=False)
 
     pack_version_id: uuid.UUID
@@ -25,7 +24,7 @@ class NavigateRequest(BaseModel):
     topic: str = Field(min_length=1)
     phase: PhaseName
     step: str = Field(min_length=1)
-                                                                                     
+
     complete_current: bool = False
 
 
@@ -36,7 +35,6 @@ class SubmitRequest(BaseModel):
 
 
 class AbandonSessionsRequest(BaseModel):
-                                                                                            
     model_config = ConfigDict(strict=False)
 
     pack_version_ids: list[uuid.UUID] = Field(default_factory=list)

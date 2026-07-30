@@ -15,7 +15,6 @@ router = APIRouter(prefix="/internal/v1/search", tags=["search"])
 
 
 class UnindexPackRequest(BaseModel):
-                                                                                            
     model_config = ConfigDict(strict=False)
 
     pack_id: uuid.UUID

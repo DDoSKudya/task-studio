@@ -129,9 +129,7 @@ def _normalize_open_tasks(raw: object, *, count: int) -> list[dict[str, object]]
             "rubric": rubric,
             "checker": "llm",
         }
-        if exemplar := _as_str(item.get("exemplar")) or _as_str(
-            item.get("answer")
-        ):
+        if exemplar := _as_str(item.get("exemplar")) or _as_str(item.get("answer")):
             task["exemplar"] = exemplar
         tasks.append(task)
         if len(tasks) >= count:

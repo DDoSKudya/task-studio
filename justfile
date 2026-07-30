@@ -142,6 +142,9 @@ lint:
     uv run ruff check packages/python-common packages/contracts services scripts
     uv run ruff format --check packages/python-common packages/contracts services scripts
     uv run mypy packages/python-common/src
+    bash scripts/ci/check-launcher.sh
+    bash scripts/ci/check-compose.sh
+    bash scripts/ci/check-tracked-modules.sh
     @if [ -d apps/web/node_modules ]; then cd apps/web && npm run lint; fi
 
 fmt:

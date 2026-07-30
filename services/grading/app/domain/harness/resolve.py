@@ -8,7 +8,7 @@ __all__ = ["HarnessJob", "HarnessBlocked", "resolve_harness"]
 
 
 def resolve_harness(step: dict[str, object], source: str) -> HarnessJob | HarnessBlocked | None:
-                                                                                
+
     if step_checker_mode(step) == "llm":
         return None
 
@@ -19,9 +19,7 @@ def resolve_harness(step: dict[str, object], source: str) -> HarnessJob | Harnes
     fcc_tests = step.get("fcc_tests")
     has_fcc_tests = isinstance(fcc_tests, list) and bool(fcc_tests)
 
-    if can_run := (
-        has_test_source or has_fcc_tests or (has_tests and step_tests_are_executable(step))
-    ):
+    if has_test_source or has_fcc_tests or (has_tests and step_tests_are_executable(step)):
         return pick_harness_job(
             step,
             source,

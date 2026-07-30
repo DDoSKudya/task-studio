@@ -6,9 +6,9 @@ from uuid import uuid4
 import httpx
 import pytest
 from app.config import GradingSettings
+from app.domain.check import CheckOutcome, grade_code, grade_task
 from app.domain.code import grade as code_grade_mod
 from app.domain.llm import grade as llm_grade_mod
-from app.domain.check import CheckOutcome, grade_code, grade_task
 
 
 def _settings(*, llm: bool = True) -> GradingSettings:

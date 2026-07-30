@@ -64,7 +64,6 @@ class CourseArticleInput(BaseModel):
 class CourseFromArticleRequest(BaseModel):
     model_config = ConfigDict(strict=False)
 
-                                                                                    
     article: str | None = Field(default=None, max_length=120_000)
     articles: list[CourseArticleInput] | None = None
     title: str | None = None

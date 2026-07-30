@@ -62,7 +62,7 @@ async def test_logout_clears_cookie_with_204(jwt_env: None, build_app) -> None:
         response = await client.post("/v1/auth/logout")
 
     assert response.status_code == 204
-                                                                           
+
     assert "studio_access_token" not in response.cookies or response.cookies.get(
         "studio_access_token"
     ) in {"", None}

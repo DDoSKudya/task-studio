@@ -7,6 +7,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+from collections.abc import Mapping, Sequence
 from urllib.parse import urljoin
 
 import httpx
@@ -100,11 +101,6 @@ def list_catalog(
     client_secret: str = "",
     **_ctx: object,
 ) -> list[dict[str, object]]:
-\
-\
-\
-\
-       
     token = _maybe_access_token(
         username=username,
         password=password,
@@ -112,7 +108,6 @@ def list_catalog(
         client_secret=client_secret,
     )
     if not token:
-                                                                                       
         if username.strip() and password.strip():
             raise ValueError(
                 "stepik Client ID required "
@@ -127,7 +122,7 @@ def list_catalog(
                 token=token,
                 params={"enrolled": "true"},
             )
-            return _courses_to_catalog(enrolled.get("courses", []))
+            return _courses_to_catalog(enrolled.get("courses", []), enrolled=True)
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         detail = str(exc).strip() or exc.__class__.__name__
         raise ValueError(f"stepik enrolled catalog failed: {detail}") from exc
@@ -147,6 +142,7 @@ def search_remote(
         return []
 
     by_id: dict[str, dict[str, object]] = {}
+    enrolled_ids: set[str] = set()
     try:
         enrolled = list_catalog(
             username=username,
@@ -158,16 +154,21 @@ def search_remote(
         enrolled = []
     for item in enrolled:
         external_id = str(item.get("external_id") or item.get("id") or "")
-        if external_id and (
+        if not external_id:
+            continue
+        enrolled_ids.add(external_id)
+        raw_tags = item.get("tags")
+        tag_list = raw_tags if isinstance(raw_tags, list) else []
+        if (
             needle in str(item.get("title", "")).casefold()
             or needle in str(item.get("description", "")).casefold()
             or any(
                 needle in str(tag).casefold()
-                for tag in (item.get("tags") or [])
+                for tag in tag_list
                 if isinstance(tag, str)
             )
         ):
-            by_id[external_id] = item
+            by_id[external_id] = {**item, "enrolled": True}
 
     try:
         with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
@@ -186,10 +187,18 @@ def search_remote(
                 token=token,
                 params={"page": "1", "search": query.strip()},
             )
-            for item in _courses_to_catalog(payload.get("courses", [])):
+            for item in _courses_to_catalog(payload.get("courses", []), enrolled=False):
                 external_id = str(item.get("external_id") or item.get("id") or "")
-                if external_id:
-                    by_id[external_id] = item
+                if not external_id:
+                    continue
+                if external_id in enrolled_ids:
+                    existing = by_id.get(external_id)
+                    if existing is None:
+                        by_id[external_id] = {**item, "enrolled": True}
+                    elif item.get("is_paid") is not None:
+                        existing["is_paid"] = item["is_paid"]
+                    continue
+                by_id[external_id] = {**item, "enrolled": False}
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
         pass
 
@@ -239,6 +248,55 @@ def import_course(
             raise ValueError(msg) from exc
         msg = f"stepik import failed for course {course_id}: {detail}"
         raise ValueError(msg) from exc
+
+
+def enroll_course(
+    *,
+    course_id: str,
+    username: str = "",
+    password: str = "",
+    client_id: str = "",
+    client_secret: str = "",
+    **_ctx: object,
+) -> dict[str, object]:
+    token = _maybe_access_token(
+        username=username,
+        password=password,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    if not token:
+        msg = (
+            "stepik login required: save email/password, Client ID and Client secret "
+            "in Settings → Stepik"
+        )
+        raise ValueError(msg)
+
+    course_ref: int | str = int(course_id) if course_id.isdigit() else course_id
+    with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
+        if _enrollment_exists(client, course_id, token=token):
+            return {"enrolled": True, "already": True}
+
+        _ensure_stepik_csrf(client)
+        try:
+            _api_post(
+                client,
+                "enrollments",
+                token=token,
+                body={"enrollment": {"course": course_ref}},
+            )
+        except httpx.HTTPStatusError as exc:
+            if _enrollment_exists(client, course_id, token=token):
+                return {"enrolled": True, "already": True}
+            detail = _http_error_detail(exc)
+            msg = f"stepik enroll failed for course {course_id}: {detail}"
+            raise ValueError(msg) from exc
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            detail = str(exc).strip() or exc.__class__.__name__
+            msg = f"stepik enroll failed for course {course_id}: {detail}"
+            raise ValueError(msg) from exc
+
+    return {"enrolled": True, "already": False}
 
 
 def _import_fixture(course_id: str) -> tuple[dict[str, object], dict[str, object]]:
@@ -1427,12 +1485,18 @@ def _api_get(
     path: str,
     *,
     token: str | None = None,
-    params: dict[str, str] | list[tuple[str, str]] | None = None,
+    params: Mapping[str, str] | Sequence[tuple[str, str]] | None = None,
 ) -> dict[str, Any]:
     headers: dict[str, str] = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    response = client.get(f"{_API}/{path}", headers=headers, params=params)
+    if params is None:
+        query: httpx.QueryParams | None = None
+    elif isinstance(params, Mapping):
+        query = httpx.QueryParams(params)
+    else:
+        query = httpx.QueryParams(list(params))
+    response = client.get(f"{_API}/{path}", headers=headers, params=query)
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):
@@ -1441,7 +1505,67 @@ def _api_get(
     return payload
 
 
-def _courses_to_catalog(courses: object) -> list[dict[str, object]]:
+def _api_post(
+    client: httpx.Client,
+    path: str,
+    *,
+    token: str | None = None,
+    body: Mapping[str, object],
+) -> dict[str, Any]:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Referer": _STEPIK_ORIGIN + "/",
+        "Origin": _STEPIK_ORIGIN,
+    }
+    csrf = client.cookies.get("csrftoken")
+    if csrf:
+        headers["X-CSRFToken"] = csrf
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    response = client.post(f"{_API}/{path}", headers=headers, json=dict(body))
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        msg = f"unexpected stepik response for {path}"
+        raise ValueError(msg)
+    return payload
+
+
+def _enrollment_exists(client: httpx.Client, course_id: str, *, token: str) -> bool:
+    try:
+        payload = _api_get(
+            client,
+            "enrollments",
+            token=token,
+            params={"course": course_id},
+        )
+    except (httpx.HTTPError, ValueError, TypeError):
+        return False
+    rows = payload.get("enrollments")
+    return isinstance(rows, list) and bool(rows)
+
+
+def _http_error_detail(exc: httpx.HTTPStatusError) -> str:
+    try:
+        payload = exc.response.json()
+    except (ValueError, TypeError):
+        text = exc.response.text.strip()[:200]
+        return text or f"HTTP {exc.response.status_code}"
+    if isinstance(payload, dict):
+        for key in ("detail", "error", "message"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return str(payload)[:200]
+    return f"HTTP {exc.response.status_code}"
+
+
+def _courses_to_catalog(
+    courses: object,
+    *,
+    enrolled: bool | None = None,
+) -> list[dict[str, object]]:
     if not isinstance(courses, list):
         return []
     items: list[dict[str, object]] = []
@@ -1456,18 +1580,21 @@ def _courses_to_catalog(courses: object) -> list[dict[str, object]]:
         author = _course_author(course)
         language = _course_language(course)
         tags = _infer_tags(title, str(summary), language)
-        items.append(
-            {
-                "id": str(course_id),
-                "external_id": str(course_id),
-                "platform": "stepik",
-                "title": title.strip(),
-                "description": _plain_text(str(summary), limit=_CATALOG_TEXT_LIMIT),
-                "author": author,
-                "language": language,
-                "tags": tags,
-            }
-        )
+        is_paid = course.get("is_paid")
+        item: dict[str, object] = {
+            "id": str(course_id),
+            "external_id": str(course_id),
+            "platform": "stepik",
+            "title": title.strip(),
+            "description": _plain_text(str(summary), limit=_CATALOG_TEXT_LIMIT),
+            "author": author,
+            "language": language,
+            "tags": tags,
+            "is_paid": is_paid if isinstance(is_paid, bool) else None,
+        }
+        if enrolled is not None:
+            item["enrolled"] = enrolled
+        items.append(item)
     return items
 
 

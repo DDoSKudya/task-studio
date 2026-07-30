@@ -35,7 +35,6 @@ async def handle_import_payload(
         if job.status == "pending" and not await claim_import_job(session, job):
             return
         if job.status != "fetching":
-                                                                              
             return
         updated = await run_import_job(
             session,

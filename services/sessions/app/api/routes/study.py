@@ -61,7 +61,6 @@ async def navigate(
     )
     events = []
     if body.complete_current:
-                                                                                 
         prev_topic, prev_phase, prev_step = previous
         events.append(
             analytics_event(

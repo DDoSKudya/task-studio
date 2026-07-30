@@ -27,7 +27,7 @@ async def repair_json_completion(
     max_tokens: int = 1200,
     num_ctx: int | None = None,
 ) -> str:
-                                                                 
+
     from app.domain.llm import LlmTarget, complete_json_chat_completion
 
     assert isinstance(target, LlmTarget)

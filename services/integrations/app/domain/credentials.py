@@ -15,11 +15,7 @@ async def fetch_platform_credentials(
     platform_id: str,
     secrets_master_key: str | None = None,
 ) -> dict[str, str]:
-\
-\
-\
-\
-       
+
     if not auth_service_url:
         return {}
     try:

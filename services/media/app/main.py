@@ -20,7 +20,7 @@ from app.storage import build_client, ensure_bucket
 def _wait_for_bucket(
     client, bucket: str, *, log, attempts: int = 30, delay_sec: float = 1.0
 ) -> None:
-                                                                                            
+
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:

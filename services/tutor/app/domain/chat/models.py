@@ -28,11 +28,11 @@ _OLLAMA_DRAFT_TEMPERATURE = 0.35
 _OLLAMA_DRAFT_TOP_P = 0.9
 _OLLAMA_POLISH_TEMPERATURE = 0.2
 _OLLAMA_POLISH_TOP_P = 0.85
-                                                                           
+
 _OLLAMA_DRAFT_MAX_TOKENS = 512
 _OLLAMA_POLISH_MAX_TOKENS = 512
 
-                                                                                            
+
 _PACKAGE = None
 
 

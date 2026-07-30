@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from app.domain.check.outcome import optional_str
 from app.domain.harness.exercism import build_exercism_job
 from app.domain.harness.fcc import build_fcc_job
 from app.domain.harness.io import build_io_job
 from app.domain.harness.resolve_types import HarnessBlocked, HarnessJob
-from app.domain.check.outcome import optional_str
 
 
 def pick_harness_job(

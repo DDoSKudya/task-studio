@@ -58,7 +58,6 @@ const {
   fieldPlaceholder,
   platformHelp,
   authTypeLabel,
-  isConnected,
   platformStatusLabel,
   integrationDirty,
   draftFor,

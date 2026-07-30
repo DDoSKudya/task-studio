@@ -36,7 +36,6 @@ async def get_progress(
         for row in rows
     }
 
-                                                                                       
     if clickhouse is not None and clickhouse_database:
         try:
             ch_rows = await asyncio.to_thread(
