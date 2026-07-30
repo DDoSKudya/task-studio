@@ -22,6 +22,9 @@ function Convert-TsPsTreeToUtf8Bom([string]$Root) {
     if (-not (Test-Path $path)) { continue }
     $bytes = [System.IO.File]::ReadAllBytes($path)
     $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+      $text = $text.Substring(1)
+    }
     [System.IO.File]::WriteAllText($path, $text, $utf8Bom)
   }
 }
