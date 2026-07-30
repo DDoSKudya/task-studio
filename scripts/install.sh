@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Public bootstrap — URL must stay stable (README / screenshot).
+# Downloads Task Studio Launcher (studio console), creates a desktop shortcut,
+# removes this install script from the install folder, then starts studio
+# in the same terminal.
 set -euo pipefail
 
 REPO_SSH="${TASK_STUDIO_REPO_SSH:-git@github.com:DDoSKudya/task-studio.git}"
@@ -6,228 +10,133 @@ REPO_HTTPS="${TASK_STUDIO_REPO_HTTPS:-https://github.com/DDoSKudya/task-studio.g
 REPO_BRANCH="${TASK_STUDIO_BRANCH:-develop}"
 INSTALL_DIR="${TASK_STUDIO_DIR:-$HOME/task-studio}"
 COMPOSE_FILE="deploy/docker-compose.yml"
-MIN_RAM_GB="${TASK_STUDIO_MIN_RAM_GB:-8}"
-OLLAMA_MODEL_DEFAULT="${OLLAMA_MODEL:-qwen2.5:3b}"
 
-log() { printf '%s\n' "$*"; }
-die() { printf 'Ошибка: %s\n' "$*" >&2; exit 1; }
-
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "Не найдена команда «$1». Установите Docker Desktop (или Docker Engine + Compose v2) и повторите."
-}
-
-detect_ram_gb() {
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    local bytes
-    bytes="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
-    echo $((bytes / 1024 / 1024 / 1024))
-    return
-  fi
-  if [[ -r /proc/meminfo ]]; then
-    awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo
-    return
-  fi
-  echo 0
-}
-
-ensure_repo() {
-  if [[ -f "$COMPOSE_FILE" && -f ".env.example" ]]; then
-    ROOT="$(pwd -P)"
-    return
-  fi
-  if [[ -f "$INSTALL_DIR/$COMPOSE_FILE" ]]; then
-    cd "$INSTALL_DIR"
-    ROOT="$(pwd -P)"
-    return
-  fi
-  log "Репозиторий не найден — клонирую в $INSTALL_DIR …"
-  need_cmd git
-  mkdir -p "$(dirname "$INSTALL_DIR")"
-  if git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_HTTPS" "$INSTALL_DIR" 2>/dev/null; then
-    :
-  else
-    git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_SSH" "$INSTALL_DIR"
-  fi
-  cd "$INSTALL_DIR"
-  ROOT="$(pwd -P)"
-}
-
-ensure_env() {
-  if [[ ! -f .env ]]; then
-    cp .env.example .env
-    log "Создан файл .env из .env.example"
-  fi
-
-  local key jwt gid cur
-
-  if command -v python3 >/dev/null 2>&1; then
-    key="$(python3 - <<'PY'
-import base64, os, re, pathlib
-text = pathlib.Path(".env").read_text(encoding="utf-8")
-m = re.search(r"^SECRETS_MASTER_KEY=(.*)$", text, re.M)
-raw = (m.group(1).strip().strip('"').strip("'") if m else "")
-ok = False
-if raw and "change-me" not in raw.lower():
-    try:
-        ok = len(base64.b64decode(raw, validate=True)) == 32
-    except Exception:
-        ok = False
-if not ok:
-    print(base64.b64encode(os.urandom(32)).decode("ascii"))
-PY
-)"
-    jwt="$(python3 - <<'PY'
-import re, pathlib, secrets
-text = pathlib.Path(".env").read_text(encoding="utf-8")
-m = re.search(r"^JWT_SECRET=(.*)$", text, re.M)
-raw = (m.group(1).strip().strip('"').strip("'") if m else "")
-if not raw or "change-me" in raw.lower() or len(raw) < 16:
-    print(secrets.token_urlsafe(48))
-PY
-)"
-  else
-    need_cmd openssl
-    cur="$(grep -E '^SECRETS_MASTER_KEY=' .env | head -1 | cut -d= -f2- || true)"
-    if [[ -z "$cur" || "$cur" == *change-me* ]]; then
-      key="$(openssl rand -base64 32 | tr -d '\n')"
-    fi
-    cur="$(grep -E '^JWT_SECRET=' .env | head -1 | cut -d= -f2- || true)"
-    if [[ -z "$cur" || "$cur" == *change-me* || ${#cur} -lt 16 ]]; then
-      jwt="$(openssl rand -base64 48 | tr -d '\n')"
+# Locale: Russian OS → Cyrillic; otherwise English (no switches).
+TS_UI_LANG=en
+_ts_boot_detect_lang() {
+  local loc="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+  if [[ -z "$loc" || "$loc" == "C" || "$loc" == "POSIX" ]]; then
+    if [[ "$(uname -s 2>/dev/null || true)" == "Darwin" ]] && command -v defaults >/dev/null 2>&1; then
+      loc="$(defaults read -g AppleLocale 2>/dev/null || true)"
     fi
   fi
+  loc="$(printf '%s' "$loc" | tr '[:upper:]' '[:lower:]')"
+  case "$loc" in
+    ru|ru_*|ru.*|*.ru|ru@*|*"ru_ru"*) TS_UI_LANG=ru ;;
+    *) TS_UI_LANG=en ;;
+  esac
+}
+_ts_boot_detect_lang
 
-  if [[ -n "${key:-}" ]]; then
-    if grep -q '^SECRETS_MASTER_KEY=' .env; then
-      sed -i.bak "s|^SECRETS_MASTER_KEY=.*|SECRETS_MASTER_KEY=$key|" .env
-    else
-      printf '\nSECRETS_MASTER_KEY=%s\n' "$key" >> .env
-    fi
-    rm -f .env.bak
-    log "Сгенерирован SECRETS_MASTER_KEY"
-  fi
-
-  if [[ -n "${jwt:-}" ]]; then
-    if grep -q '^JWT_SECRET=' .env; then
-      sed -i.bak "s|^JWT_SECRET=.*|JWT_SECRET=$jwt|" .env
-    else
-      printf '\nJWT_SECRET=%s\n' "$jwt" >> .env
-    fi
-    rm -f .env.bak
-    log "Сгенерирован JWT_SECRET"
-  fi
-
-  if grep -q '^OLLAMA_MODEL=' .env; then
-    if grep -qE '^OLLAMA_MODEL=\s*$|^OLLAMA_MODEL=llama3\.2\s*$' .env; then
-      sed -i.bak "s|^OLLAMA_MODEL=.*|OLLAMA_MODEL=$OLLAMA_MODEL_DEFAULT|" .env
-      rm -f .env.bak
-    fi
-  else
-    printf '\nOLLAMA_MODEL=%s\n' "$OLLAMA_MODEL_DEFAULT" >> .env
-  fi
-
-  if [[ "$(uname -s)" == "Linux" ]] && command -v getent >/dev/null 2>&1; then
-    gid="$(getent group docker 2>/dev/null | cut -d: -f3 || true)"
-    if [[ -n "${gid:-}" ]]; then
-      if grep -q '^DOCKER_GID=' .env; then
-        sed -i.bak "s|^DOCKER_GID=.*|DOCKER_GID=$gid|" .env
-      else
-        printf '\nDOCKER_GID=%s\n' "$gid" >> .env
-      fi
-      rm -f .env.bak
-    fi
-  fi
+_t() {
+  local key="$1"; shift || true
+  local en="" ru=""
+  case "$key" in
+    err) en="Error: %s"; ru="Ошибка: %s" ;;
+    downloading) en="Downloading Task Studio Launcher into %s …"; ru="Скачивание Task Studio Launcher в %s …" ;;
+    git_missing) en="git not found."; ru="git не найден." ;;
+    updating) en="Updating existing install…"; ru="Обновление существующей установки…" ;;
+    studio_missing) en="studio.sh not found under %s/scripts"; ru="studio.sh не найден в %s/scripts" ;;
+    shortcuts) en="Installing console and desktop shortcut…"; ru="Установка консоли и ярлыка на рабочий стол…" ;;
+    shortcut_warn) en="Warning: could not create desktop shortcut (you can still run: bash %s/scripts/studio.sh)."; ru="Предупреждение: не удалось создать ярлык (можно запустить: bash %s/scripts/studio.sh)." ;;
+    starting) en="Starting Task Studio Launcher…"; ru="Запуск Task Studio Launcher…" ;;
+    *) en="$key"; ru="$key" ;;
+  esac
+  local text="$en"
+  [[ "$TS_UI_LANG" == "ru" ]] && text="$ru"
+  # shellcheck disable=SC2059
+  printf "$text\n" "$@"
 }
 
-prepare_dirs() {
-  mkdir -p \
-    data/postgres data/redis data/rabbitmq data/packs \
-    data/meilisearch data/clickhouse data/minio data/ollama \
-    data/grafana data/prometheus data/piston/packages
-  chmod -R a+rwX data/packs 2>/dev/null || true
-}
+die() { printf '%s\n' "$*" >&2; exit 1; }
+info() { printf '%s\n' "$*"; }
 
-compose_cmd() {
-  docker compose -f "$COMPOSE_FILE" --env-file .env "$@"
-}
-
-profiles_args() {
-  local mode="${ORCHESTRATOR_MODE:-balancing}"
-  local args=(--profile full)
-  if [[ "$mode" != "power_saving" ]]; then
-    args+=(--profile editor)
-  fi
-  printf '%s\n' "${args[@]}"
-}
-
-wait_http() {
-  local url="${1:-http://127.0.0.1}"
-  local tries="${2:-90}"
-  local i
-  for ((i = 1; i <= tries; i++)); do
-    if curl -fsS -o /dev/null --max-time 3 "$url" 2>/dev/null; then
+resolve_install_root() {
+  local self="${BASH_SOURCE[0]:-}"
+  if [[ -n "$self" && -f "$self" ]]; then
+    local here
+    here="$(cd "$(dirname "$self")" && pwd)"
+    if [[ -f "$here/studio.sh" ]]; then
+      printf '%s\n' "$(cd "$here/.." && pwd -P)"
       return 0
     fi
-    sleep 5
-  done
+  fi
+  if [[ -f "$COMPOSE_FILE" && -f "scripts/studio.sh" ]]; then
+    pwd -P
+    return 0
+  fi
+  if [[ -f "$INSTALL_DIR/scripts/studio.sh" ]]; then
+    cd "$INSTALL_DIR" && pwd -P
+    return 0
+  fi
   return 1
 }
 
-pull_ollama_model() {
-  local model
-  model="$(grep -E '^OLLAMA_MODEL=' .env | head -1 | cut -d= -f2- | tr -d '[:space:]')"
-  model="${model:-$OLLAMA_MODEL_DEFAULT}"
-  log "Загружаю модель Ollama: $model (может занять время)…"
-  compose_cmd --profile full exec -T ollama ollama pull "$model" || log "Предупреждение: не удалось скачать модель сейчас. Позже: docker compose -f $COMPOSE_FILE --env-file .env --profile full exec ollama ollama pull $model"
+clone_studio() {
+  info "$(_t downloading "$INSTALL_DIR")"
+  command -v git >/dev/null 2>&1 || die "$(_t git_missing)"
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+  if [[ -d "$INSTALL_DIR/.git" ]]; then
+    info "$(_t updating)"
+    git -C "$INSTALL_DIR" fetch --depth 1 origin "$REPO_BRANCH" 2>/dev/null || true
+    git -C "$INSTALL_DIR" checkout "$REPO_BRANCH" 2>/dev/null || true
+    git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH" 2>/dev/null || true
+  elif ! git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_HTTPS" "$INSTALL_DIR" 2>/dev/null; then
+    git clone --branch "$REPO_BRANCH" --depth 1 "$REPO_SSH" "$INSTALL_DIR"
+  fi
+  cd "$INSTALL_DIR" && pwd -P
 }
 
-main() {
-  export DOCKER_BUILDKIT=1
-  export COMPOSE_DOCKER_CLI_BUILD=1
-
-  need_cmd docker
-  docker info >/dev/null 2>&1 || die "Docker не запущен. Откройте Docker Desktop и дождитесь готовности."
-  docker compose version >/dev/null 2>&1 || die "Нужен Docker Compose v2 (команда: docker compose)."
-
-  local ram
-  ram="$(detect_ram_gb)"
-  if [[ "$ram" -gt 0 && "$ram" -lt "$MIN_RAM_GB" ]]; then
-    die "Обнаружено ≈${ram} ГБ RAM, минимум для запуска — ${MIN_RAM_GB} ГБ (рекомендуется 16 ГБ)."
-  fi
-  if [[ "$ram" -gt 0 && "$ram" -lt 16 ]]; then
-    export ORCHESTRATOR_MODE="${ORCHESTRATOR_MODE:-power_saving}"
-    log "RAM ≈${ram} ГБ — режим ORCHESTRATOR_MODE=power_saving (без профиля editor)."
-  fi
-
-  ensure_repo
-  cd "$ROOT"
-  ensure_env
-  prepare_dirs
-
-  local profile_args
-  profile_args="$(profiles_args | tr '\n' ' ')"
-  # shellcheck disable=SC2086
-  log "Собираю и запускаю контейнеры (первый запуск долгий)…"
-  # shellcheck disable=SC2086
-  compose_cmd $profile_args build
-  # shellcheck disable=SC2086
-  compose_cmd $profile_args up -d --remove-orphans
-
-  log "Жду готовности http://localhost …"
-  if wait_http "http://127.0.0.1" 90; then
-    log "Стек отвечает на http://localhost"
-  else
-    log "Предупреждение: http://localhost пока не отвечает. Проверьте: docker compose -f $COMPOSE_FILE --env-file .env ps"
-  fi
-
-  pull_ollama_model
-
-  log ""
-  log "Готово."
-  log "  Каталог:  $ROOT"
-  log "  UI:        http://localhost"
-  log "  Остановка: ./scripts/stop.sh"
-  log "  Зарегистрируйте пользователя на странице входа."
+is_consumer_install_dir() {
+  local root="$1"
+  local want
+  want="$(cd "$INSTALL_DIR" 2>/dev/null && pwd -P || printf '%s' "$INSTALL_DIR")"
+  [[ "$root" == "$want" ]]
 }
 
-main "$@"
+remove_bootstrap_scripts() {
+  local root="$1"
+  is_consumer_install_dir "$root" || return 0
+  rm -f "$root/scripts/install.sh" "$root/scripts/install.ps1" 2>/dev/null || true
+}
+
+root="$(resolve_install_root || true)"
+if [[ -z "${root:-}" ]]; then
+  root="$(clone_studio)"
+fi
+
+[[ -f "$root/scripts/studio.sh" ]] || die "$(_t studio_missing "$root")"
+
+cd "$root"
+# Prefer full catalog from the repo once available.
+# shellcheck source=lib/i18n.sh
+if [[ -f "$root/scripts/lib/i18n.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "$root/scripts/lib/i18n.sh"
+  ts_detect_lang
+fi
+# shellcheck source=lib/desktop.sh
+source "$root/scripts/lib/desktop.sh"
+
+info "$(ts_t boot_shortcuts 2>/dev/null || _t shortcuts)"
+ensure_script_permissions "$root"
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  /bin/chmod u+rwx,go+rx "$root/scripts/studio.sh" 2>/dev/null || true
+fi
+create_desktop_shortcuts "$root" || info "$(ts_t boot_shortcut_warn "$root" 2>/dev/null || _t shortcut_warn "$root")"
+
+remove_bootstrap_scripts "$root"
+
+if is_consumer_install_dir "$root"; then
+  : >"$root/.studio-consumer"
+  if [[ -f "$root/studio-version.json" ]] && command -v python3 >/dev/null 2>&1; then
+    ver="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8")).get("version",""))' "$root/studio-version.json" 2>/dev/null || true)"
+    if [[ -n "${ver:-}" ]]; then
+      printf '{\n  "version": "%s",\n  "content_sha256": ""\n}\n' "$ver" >"$root/.studio-state.json"
+    fi
+  fi
+fi
+
+info "$(ts_t boot_starting 2>/dev/null || _t starting)"
+export TS_UI_LANG
+exec bash "$root/scripts/studio.sh" "$@"

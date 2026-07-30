@@ -37,6 +37,9 @@ export function downloadProgressPercent(input: {
     return 12
   }
   const status = input.status
+  if (status === 'enrolling') {
+    return 18
+  }
   if (status === 'starting') {
     return 22
   }

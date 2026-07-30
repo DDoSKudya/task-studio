@@ -17,7 +17,6 @@ from app.domain.stepik_quiz import (
     is_stepik_quiz,
 )
 
-                                                                               
 _stage_answer_key = stage_answer_key
 _stage_stepik = stage_stepik
 

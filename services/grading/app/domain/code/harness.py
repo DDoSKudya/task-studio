@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.domain.check.cascade import GradeContext
+from app.domain.check.outcome import CheckOutcome, GradingError
 from app.domain.executable import step_checker_mode
 from app.domain.harness.resolve import HarnessBlocked, resolve_harness
-from app.domain.check.outcome import CheckOutcome, GradingError
 
 
 async def stage_local_harness(ctx: GradeContext) -> CheckOutcome | None:

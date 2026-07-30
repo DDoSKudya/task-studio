@@ -19,9 +19,7 @@ def resolve_harness(step: dict[str, object], source: str) -> HarnessJob | Harnes
     fcc_tests = step.get("fcc_tests")
     has_fcc_tests = isinstance(fcc_tests, list) and bool(fcc_tests)
 
-    if can_run := (
-        has_test_source or has_fcc_tests or (has_tests and step_tests_are_executable(step))
-    ):
+    if has_test_source or has_fcc_tests or (has_tests and step_tests_are_executable(step)):
         return pick_harness_job(
             step,
             source,

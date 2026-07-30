@@ -42,7 +42,7 @@ export function useAuth() {
     try {
       await request('/v1/auth/logout', { method: 'POST' })
     } catch {
-
+      // clear local session even if logout request fails
     }
     user.value = null
     settings.value = {}

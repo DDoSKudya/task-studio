@@ -156,7 +156,8 @@ pnpm-debug.log*
 # Runtime data volumes (Postgres, MinIO, packs, CH, Redis, Ollama, …)
 # ---------------------------------------------------------------------------
 data/
-cache/
+# Runtime cache at repo root only — do not ignore Python packages named cache/
+/cache/
 
 # Local course / media dumps outside data/ (safety net)
 packs/
@@ -202,3 +203,12 @@ compose.override.yml
 docker-compose.override.yml
 **/compose.override.yml
 **/docker-compose.override.yml
+
+# Studio console local state (update check + installed version)
+.studio-update-check
+.studio-update-cache.json
+.studio-state.json
+.studio-consumer
+
+# Optional local Charm gum binary for studio console menus
+scripts/.bin/

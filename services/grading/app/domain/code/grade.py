@@ -13,12 +13,12 @@ import uuid
 import httpx
 from app.config import GradingSettings
 from app.domain.check.cascade import GradeContext, run_chain, stage_llm, stage_ungradable
+from app.domain.check.outcome import CheckOutcome
 from app.domain.code.stages import (
     stage_local_harness,
     stage_require_source,
     stage_stepik,
 )
-from app.domain.check.outcome import CheckOutcome
 from app.domain.piston.client import execute_piston_job, piston_outcome
 from app.domain.sql.grade import stage_sql_local
 from app.domain.stepik_quiz import (
@@ -27,7 +27,6 @@ from app.domain.stepik_quiz import (
     grade_code_via_stepik,
 )
 
-                                                                      
 __all__ = [
     "grade_code",
     "StepikQuizError",

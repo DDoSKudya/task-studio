@@ -1,1 +1,1 @@
-Python 3.12 runtime module for Piston-backed code steps.
+Модуль рантайма Python 3.12 для шагов с кодом на базе Piston.

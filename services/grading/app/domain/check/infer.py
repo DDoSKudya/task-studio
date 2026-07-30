@@ -5,9 +5,9 @@ import uuid
 import httpx
 from app.config import GradingSettings
 from app.domain.check.outcome import CheckOutcome
+from app.domain.check.task import extract_text_submission, grade_task
 from app.domain.code.grade import grade_code
 from app.domain.quiz.grade import grade_quiz
-from app.domain.check.task import extract_text_submission, grade_task
 
 
 def has_choice(submission: dict[str, object]) -> bool:

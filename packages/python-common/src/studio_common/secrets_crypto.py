@@ -4,7 +4,6 @@ import base64
 
 from studio_common.crypto import decrypt_bytes, encrypt_bytes
 
-                                                               
 INTEGRATION_SECRET_FIELDS = frozenset(
     {
         "password",

@@ -140,7 +140,7 @@ export function consumeCourseSseBuffer(
       onEvent(event)
       applyCourseStageEvent(event, state)
     } catch {
-
+      // skip malformed SSE payloads
     }
   }
   return rest

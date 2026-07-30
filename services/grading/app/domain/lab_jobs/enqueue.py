@@ -4,8 +4,8 @@ import uuid
 
 import structlog
 from app.config import GradingSettings
-from app.domain.lab_jobs.persist import get_lab_result
 from app.domain.check.outcome import GradingError
+from app.domain.lab_jobs.persist import get_lab_result
 from app.infra.models import GradingResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_common.rabbitmq import declare_queue, publish_json, rabbit_connection

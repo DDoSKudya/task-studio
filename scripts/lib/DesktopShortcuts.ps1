@@ -1,0 +1,208 @@
+#Requires -Version 5.1
+# Create Windows desktop shortcuts. Dot-source from install.ps1 / studio.
+
+function Get-DesktopPath {
+  $p = [Environment]::GetFolderPath("Desktop")
+  if ($p -and (Test-Path $p)) { return $p }
+  $fallback = Join-Path $HOME "Desktop"
+  if (-not (Test-Path $fallback)) { New-Item -ItemType Directory -Path $fallback | Out-Null }
+  return $fallback
+}
+
+function Remove-TsZoneIdentifier {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  if (-not (Test-Path $Path)) { return }
+  try { Unblock-File -Path $Path -ErrorAction SilentlyContinue } catch { }
+  # Extra: strip Mark of the Web ADS if Unblock-File is unavailable / incomplete.
+  try {
+    $ads = $Path + ":Zone.Identifier"
+    if (Test-Path $ads) { Remove-Item -Force $ads -ErrorAction SilentlyContinue }
+  } catch { }
+  try {
+    & cmd.exe /c "echo.>`"$Path`:Zone.Identifier`" 2>nul" | Out-Null
+    Remove-Item -LiteralPath ($Path + ":Zone.Identifier") -Force -ErrorAction SilentlyContinue
+  } catch { }
+}
+
+function Unlock-TaskStudioScripts {
+  param([Parameter(Mandatory = $true)][string]$Root)
+  $scriptDir = Join-Path $Root "scripts"
+  if (-not (Test-Path $scriptDir)) { return }
+  Get-ChildItem -Path $scriptDir -Recurse -Include *.ps1, *.cmd, *.bat -ErrorAction SilentlyContinue | ForEach-Object {
+    Remove-TsZoneIdentifier -Path $_.FullName
+  }
+  # Brand icons / assets sometimes blocked too when cloned via some tools
+  $brand = Join-Path $Root "docs\assets\brand"
+  if (Test-Path $brand) {
+    Get-ChildItem -Path $brand -File -ErrorAction SilentlyContinue | ForEach-Object {
+      Remove-TsZoneIdentifier -Path $_.FullName
+    }
+  }
+}
+
+function Enable-TsScriptExecution {
+  <#
+    Best-effort so studio.ps1 / shortcuts can run after irm|iex bootstrap.
+    Order: CurrentUser RemoteSigned → Bypass → Process Bypass → Unblock files.
+    Machine/User GPO cannot always be overridden; we still prefer studio.cmd (-ExecutionPolicy Bypass).
+  #>
+  $notes = @()
+  try {
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop
+    $notes += "Process=Bypass"
+  } catch {
+    $notes += "Process policy locked"
+  }
+  foreach ($scope in @("CurrentUser")) {
+    foreach ($pol in @("RemoteSigned", "Bypass", "Unrestricted")) {
+      try {
+        Set-ExecutionPolicy -Scope $scope -ExecutionPolicy $pol -Force -ErrorAction Stop
+        $notes += "$scope=$pol"
+        break
+      } catch { }
+    }
+  }
+  return ($notes -join "; ")
+}
+
+function Test-PowerShellRunnable {
+  try {
+    $machine = Get-ExecutionPolicy -Scope MachinePolicy -ErrorAction SilentlyContinue
+    $user = Get-ExecutionPolicy -Scope UserPolicy -ErrorAction SilentlyContinue
+    foreach ($p in @($machine, $user)) {
+      if ($p -and $p -ne "Undefined" -and $p -ne "Bypass" -and $p -ne "Unrestricted" -and $p -ne "RemoteSigned") {
+        Write-Host "Warning: Group Policy ExecutionPolicy is '$p'."
+        Write-Host "  Desktop shortcut uses studio.cmd with -ExecutionPolicy Bypass."
+        Write-Host "  If that is also blocked, open PowerShell and run:"
+        Write-Host "    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+        Write-Host "  or ask IT to allow local scripts / Bypass for this folder."
+        return $false
+      }
+    }
+  } catch { }
+  return $true
+}
+
+function New-TaskStudioShortcut {
+  param(
+    [Parameter(Mandatory = $true)][string]$Root,
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$CmdPath,
+    [string]$Arguments = ""
+  )
+  $desktop = Get-DesktopPath
+  $icon = Join-Path $Root "docs\assets\brand\task-studio.ico"
+  if (-not (Test-Path $icon)) {
+    $icon = Join-Path $Root "docs\assets\logo.png"
+  }
+  $lnkPath = Join-Path $desktop "$Name.lnk"
+  $wsh = New-Object -ComObject WScript.Shell
+  $sc = $wsh.CreateShortcut($lnkPath)
+  # Always point at .cmd so -ExecutionPolicy Bypass is applied.
+  $sc.TargetPath = $CmdPath
+  if ($Arguments) { $sc.Arguments = $Arguments }
+  $sc.WorkingDirectory = $Root
+  $sc.WindowStyle = 1
+  $sc.Description = $Name
+  if (Test-Path $icon) {
+    $sc.IconLocation = "$icon,0"
+  }
+  $sc.Save()
+  Remove-TsZoneIdentifier -Path $lnkPath
+  return $lnkPath
+}
+
+function Install-TaskStudioDesktopShortcuts {
+  param([Parameter(Mandatory = $true)][string]$Root)
+  $policyNote = Enable-TsScriptExecution
+  Unlock-TaskStudioScripts -Root $Root
+  [void](Test-PowerShellRunnable)
+  if ($policyNote) {
+    Write-Host "Execution policy: $policyNote"
+  }
+
+  $studioCmd = Join-Path $Root "scripts\studio.cmd"
+  if (-not (Test-Path $studioCmd)) {
+    throw "Missing studio.cmd under scripts\"
+  }
+  Remove-TsZoneIdentifier -Path $studioCmd
+
+  $desktop = Get-DesktopPath
+  $mainName = if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    Get-TsText shortcut_main
+  } else {
+    "Task Studio Launcher"
+  }
+  $a = New-TaskStudioShortcut -Root $Root -Name $mainName -CmdPath $studioCmd
+  foreach ($legacy in @(
+      "Task Studio.lnk",
+      "Task Studio — Uninstall.lnk",
+      "Task Studio — Start.lnk",
+      "Task Studio — Stop.lnk",
+      "Task Studio Launcher — Uninstall.lnk",
+      "Task Studio Launcher — Удаление.lnk"
+    )) {
+    if ($legacy -eq ($mainName + ".lnk")) { continue }
+    $p = Join-Path $desktop $legacy
+    if (Test-Path $p) { Remove-Item -Force $p -ErrorAction SilentlyContinue }
+  }
+  # Drop obsolete Uninstall shortcut if present under localized name.
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    $unName = Get-TsText shortcut_uninstall
+    if ($unName -and $unName -ne $mainName) {
+      $p = Join-Path $desktop ($unName + ".lnk")
+      if (Test-Path $p) { Remove-Item -Force $p -ErrorAction SilentlyContinue }
+    }
+  }
+  Write-Host ((Get-TsText shortcuts_created $desktop))
+  Write-Host "  $a"
+}
+
+function Remove-TaskStudioDesktopShortcuts {
+  $desktop = Get-DesktopPath
+  $names = @(
+    "Task Studio.lnk",
+    "Task Studio Launcher.lnk",
+    "Task Studio — Start.lnk",
+    "Task Studio — Stop.lnk",
+    "Task Studio — Uninstall.lnk",
+    "Task Studio Launcher — Uninstall.lnk",
+    "Task Studio Launcher — Удаление.lnk"
+  )
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    $names += ((Get-TsText shortcut_main) + ".lnk")
+    $names += ((Get-TsText shortcut_uninstall) + ".lnk")
+  }
+  foreach ($name in ($names | Select-Object -Unique)) {
+    $path = Join-Path $desktop $name
+    if (Test-Path $path) {
+      Remove-Item -Force $path
+    }
+  }
+}
+
+function Start-TsStudioConsole {
+  param(
+    [Parameter(Mandatory = $true)][string]$Root,
+    [object[]]$Arguments = @()
+  )
+  Enable-TsScriptExecution | Out-Null
+  Unlock-TaskStudioScripts -Root $Root
+  Set-Location $Root
+  $studioCmd = Join-Path $Root "scripts\studio.cmd"
+  $studioPs1 = Join-Path $Root "scripts\studio.ps1"
+  if (Test-Path $studioCmd) {
+    # Same console / TTY so the dialog manager stays interactive.
+    if ($Arguments -and $Arguments.Count -gt 0) {
+      & cmd.exe /c "`"$studioCmd`" $($Arguments -join ' ')"
+    } else {
+      & cmd.exe /c "`"$studioCmd`""
+    }
+    return $LASTEXITCODE
+  }
+  if (Test-Path $studioPs1) {
+    & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $studioPs1 @Arguments
+    return $LASTEXITCODE
+  }
+  throw "studio.cmd / studio.ps1 not found under $Root\scripts"
+}

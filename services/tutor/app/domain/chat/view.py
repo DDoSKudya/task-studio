@@ -17,7 +17,6 @@ from .models import TutorView
 from .provider_errors import provider_error_message
 from .sse import sse_event
 
-                                                                  
 _provider_error_message = provider_error_message
 _sse_event = sse_event
 

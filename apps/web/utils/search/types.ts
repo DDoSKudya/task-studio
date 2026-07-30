@@ -43,6 +43,8 @@ export type ExternalCourseSummary = {
   author?: string
   language?: string
   tags?: string[]
+  enrolled?: boolean | null
+  is_paid?: boolean | null
 }
 
 export type PlatformCatalogStatus =
@@ -77,4 +79,9 @@ export type ImportJobResponse = {
   pack_version_id: string | null
   error: string | null
   created_at: string
+}
+
+export type EnrollCourseResponse = {
+  enrolled: boolean
+  already: boolean
 }

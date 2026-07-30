@@ -18,6 +18,7 @@
     "health": "importer:health",
     "import": "importer:import_course",
     "search": "importer:search_remote",
-    "list_catalog": "importer:list_catalog"
+    "list_catalog": "importer:list_catalog",
+    "enroll": "importer:enroll_course"
   }
 }

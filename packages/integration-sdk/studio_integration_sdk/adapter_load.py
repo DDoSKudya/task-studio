@@ -12,6 +12,7 @@ from .adapter_load_helpers import (
     parse_auth,
     required_str,
     resolve_callable,
+    resolve_optional_callable,
 )
 from .registry_types import AdapterModule
 
@@ -47,6 +48,7 @@ def load_adapter(module_dir: Path, manifest_path: Path) -> AdapterModule:
         capabilities=AdapterCapabilities.model_validate(capabilities_body),
         auth=auth,
     )
+    enroll_fn = resolve_optional_callable(importer, entrypoints, "enroll")
     return AdapterModule(
         info=info,
         health=cast(
@@ -65,4 +67,5 @@ def load_adapter(module_dir: Path, manifest_path: Path) -> AdapterModule:
             Callable[..., list[dict[str, object]]],
             resolve_callable(importer, entrypoints, "search"),
         ),
+        enroll=cast(Callable[..., dict[str, object]], enroll_fn) if enroll_fn else None,
     )

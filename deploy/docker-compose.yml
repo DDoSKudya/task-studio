@@ -541,7 +541,7 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.9.0
-    profiles: [full]
+    profiles: [host-metrics]
     restart: unless-stopped
     networks: [internal]
     command:
@@ -552,7 +552,7 @@ services:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
-    profiles: [full]
+    profiles: [host-metrics]
     restart: unless-stopped
     networks: [internal]
     volumes:

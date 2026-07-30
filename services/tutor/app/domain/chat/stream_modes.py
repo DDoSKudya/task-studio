@@ -7,7 +7,12 @@ from collections.abc import AsyncIterator
 import httpx
 from app.domain.prompt_compose import format_learner_turn
 
-from .models import ChatContext, _complete_chat_completion, _iter_stream_tokens, _stream_ping_seconds
+from .models import (
+    ChatContext,
+    _complete_chat_completion,
+    _iter_stream_tokens,
+    _stream_ping_seconds,
+)
 from .ollama_polish import ollama_draft_and_polish
 from .view import _sse_event
 

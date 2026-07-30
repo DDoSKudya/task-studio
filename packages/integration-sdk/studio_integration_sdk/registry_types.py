@@ -13,3 +13,4 @@ class AdapterModule:
     list_catalog: Callable[..., list[dict[str, object]]]
     import_course: Callable[..., tuple[dict[str, object], dict[str, object]]]
     search_remote: Callable[..., list[dict[str, object]]]
+    enroll: Callable[..., dict[str, object]] | None = None

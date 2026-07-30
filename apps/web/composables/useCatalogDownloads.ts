@@ -11,7 +11,7 @@ import {
 } from '~/utils/catalog'
 
 type ImportUiState = {
-  status: ImportJobResponse['status'] | 'starting'
+  status: ImportJobResponse['status'] | 'starting' | 'enrolling'
 }
 
 const POLL_MS = 900
@@ -25,9 +25,10 @@ export function useCatalogDownloads(options: {
   isHealthyInstall: (platform: string, externalId: string) => boolean
   findInstalledTitle: (platform: string, externalId: string) => string | null
   refreshPacks: () => Promise<void>
+  onEnrolled?: (platform: string, externalId: string) => void | Promise<void>
 }) {
   const { t } = useI18n()
-  const { importFromSearch, getImportJob } = useSearch()
+  const { importFromSearch, enrollCourse, getImportJob } = useSearch()
   const toasts = useToasts()
 
   const importStates = ref<Record<string, ImportUiState>>({})
@@ -70,15 +71,28 @@ export function useCatalogDownloads(options: {
     throw new Error('timeout')
   }
 
-  async function runDownload(platform: string, externalId: string, force = false) {
+  async function runDownload(
+    platform: string,
+    externalId: string,
+    force = false,
+    enrollFirst = false,
+  ) {
     const key = courseKey(platform, externalId)
     if (!force && options.isHealthyInstall(platform, externalId)) {
       return
     }
 
-    importStates.value = { ...importStates.value, [key]: { status: 'starting' } }
+    importStates.value = {
+      ...importStates.value,
+      [key]: { status: enrollFirst ? 'enrolling' : 'starting' },
+    }
 
     try {
+      if (enrollFirst) {
+        await enrollCourse(platform, externalId)
+        await options.onEnrolled?.(platform, externalId)
+      }
+      importStates.value = { ...importStates.value, [key]: { status: 'starting' } }
       const accepted = await importFromSearch(platform, externalId, { force })
       await waitForImportJob(accepted.id, key)
       await options.refreshPacks()
@@ -115,7 +129,7 @@ export function useCatalogDownloads(options: {
         ) {
           continue
         }
-        await runDownload(next.platform, next.externalId, next.force)
+        await runDownload(next.platform, next.externalId, next.force, Boolean(next.enrollFirst))
       }
     } finally {
       drainRunning = false
@@ -125,7 +139,12 @@ export function useCatalogDownloads(options: {
     }
   }
 
-  function enqueueDownload(platform: string, externalId: string, force = false) {
+  function enqueueDownload(
+    platform: string,
+    externalId: string,
+    force = false,
+    optionsExtra: { enrollFirst?: boolean } = {},
+  ) {
     const key = courseKey(platform, externalId)
     if (
       !canEnqueueDownload({
@@ -136,7 +155,16 @@ export function useCatalogDownloads(options: {
     ) {
       return
     }
-    downloadQueue.value = [...downloadQueue.value, { key, platform, externalId, force }]
+    downloadQueue.value = [
+      ...downloadQueue.value,
+      {
+        key,
+        platform,
+        externalId,
+        force,
+        enrollFirst: Boolean(optionsExtra.enrollFirst),
+      },
+    ]
     void drainDownloadQueue()
   }
 

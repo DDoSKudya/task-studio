@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { PackSummary } from './types'
-import { buildCatalogCourseRows, groupCatalogCourseRows } from './courseRows'
+import { buildCatalogCourseRows, canDownloadExternalCourse, groupCatalogCourseRows, stepikCardAction } from './courseRows'
 
 function pack(partial: Partial<PackSummary> & Pick<PackSummary, 'id' | 'title' | 'slug' | 'source'>): PackSummary {
   return {
@@ -34,6 +34,8 @@ describe('catalog courseRows', () => {
           author: 'x',
           language: 'en',
           tags: [],
+          enrolled: true,
+          is_paid: false,
         },
       ],
       packs: [
@@ -56,6 +58,22 @@ describe('catalog courseRows', () => {
     })
     expect(rows).toHaveLength(2)
     expect(rows.find((row) => row.externalId === '1')?.packId).toBe('p1')
+    expect(rows.find((row) => row.externalId === '1')?.enrolled).toBe(true)
+    expect(rows.find((row) => row.externalId === '1')?.isPaid).toBe(false)
     expect(groupCatalogCourseRows(rows).map(([platform]) => platform)).toEqual(['fcc', 'stepik'])
+  })
+
+  it('blocks Stepik download when not enrolled', () => {
+    expect(canDownloadExternalCourse({ platform: 'stepik', enrolled: false })).toBe(false)
+    expect(canDownloadExternalCourse({ platform: 'stepik', enrolled: null })).toBe(false)
+    expect(canDownloadExternalCourse({ platform: 'stepik', enrolled: true })).toBe(true)
+    expect(canDownloadExternalCourse({ platform: 'exercism', enrolled: false })).toBe(true)
+  })
+
+  it('picks Stepik card action by paid and enrollment', () => {
+    expect(stepikCardAction({ platform: 'stepik', enrolled: true, isPaid: true })).toBe('download')
+    expect(stepikCardAction({ platform: 'stepik', enrolled: false, isPaid: true })).toBe('goto')
+    expect(stepikCardAction({ platform: 'stepik', enrolled: false, isPaid: false })).toBe('enroll')
+    expect(stepikCardAction({ platform: 'stepik', enrolled: false, isPaid: null })).toBe('enroll')
   })
 })

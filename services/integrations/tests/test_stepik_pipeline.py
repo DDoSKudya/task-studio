@@ -64,6 +64,112 @@ def test_stepik_search_remote_returns_empty_when_offline(
     assert hits == []
 
 
+def test_stepik_search_keeps_enrolled_and_marks_public(
+    modules_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_enroll", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    monkeypatch.setattr(
+        importer,
+        "list_catalog",
+        lambda **_kwargs: [
+            {
+                "id": "10",
+                "external_id": "10",
+                "platform": "stepik",
+                "title": "Python Basics",
+                "description": "intro",
+                "author": "",
+                "language": "ru",
+                "tags": [],
+                "enrolled": True,
+                "is_paid": False,
+            }
+        ],
+    )
+    monkeypatch.setattr(importer, "_maybe_access_token", lambda **_kwargs: "token")
+
+    def _fake_get(_client: object, path: str, **kwargs: object) -> dict[str, object]:
+        assert path == "courses"
+        return {
+            "courses": [
+                {
+                    "id": 10,
+                    "title": "Python Basics",
+                    "summary": "intro",
+                    "is_paid": False,
+                },
+                {
+                    "id": 99,
+                    "title": "Python Pro Paid",
+                    "summary": "advanced",
+                    "is_paid": True,
+                },
+            ]
+        }
+
+    monkeypatch.setattr(importer, "_api_get", _fake_get)
+    hits = importer.search_remote(query="Python", username="u", password="p", client_id="c")
+    by_id = {str(item["external_id"]): item for item in hits}
+    assert by_id["10"]["enrolled"] is True
+    assert by_id["99"]["enrolled"] is False
+    assert by_id["99"]["is_paid"] is True
+
+
+def test_stepik_enroll_course_posts_enrollment(modules_root: Path, monkeypatch) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_enroll_api", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    monkeypatch.setattr(importer, "_maybe_access_token", lambda **_kwargs: "token")
+    monkeypatch.setattr(importer, "_ensure_stepik_csrf", lambda _client: None)
+    monkeypatch.setattr(importer, "_enrollment_exists", lambda *_args, **_kwargs: False)
+
+    posted: dict[str, object] = {}
+
+    def _fake_post(_client: object, path: str, **kwargs: object) -> dict[str, object]:
+        posted["path"] = path
+        posted["body"] = kwargs.get("body")
+        return {"enrollments": [{"id": 1, "course": 42}]}
+
+    monkeypatch.setattr(importer, "_api_post", _fake_post)
+    result = importer.enroll_course(course_id="42", username="u", password="p", client_id="c")
+    assert result == {"enrolled": True, "already": False}
+    assert posted["path"] == "enrollments"
+    assert posted["body"] == {"enrollment": {"course": 42}}
+
+
+def test_stepik_enroll_course_already_enrolled(modules_root: Path, monkeypatch) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_enroll_already", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    monkeypatch.setattr(importer, "_maybe_access_token", lambda **_kwargs: "token")
+    monkeypatch.setattr(importer, "_enrollment_exists", lambda *_args, **_kwargs: True)
+
+    def _fail_post(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise AssertionError("should not post when already enrolled")
+
+    monkeypatch.setattr(importer, "_api_post", _fail_post)
+    result = importer.enroll_course(course_id="42", username="u", password="p", client_id="c")
+    assert result == {"enrolled": True, "already": True}
+
+
 def test_stepik_manifest_uses_password_auth(modules_root: Path) -> None:
     adapter = discover_adapters(modules_root)["stepik"]
     assert adapter.info.auth is not None
@@ -76,6 +182,7 @@ def test_stepik_manifest_uses_password_auth(modules_root: Path) -> None:
         "client_id",
         "client_secret",
     ]
+    assert adapter.enroll is not None
 
 
 def test_stepik_map_step_source_keeps_full_text_and_choice_options(

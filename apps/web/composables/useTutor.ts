@@ -76,7 +76,7 @@ export function useTutor() {
         try {
           onEvent(JSON.parse(payload) as TutorStreamEvent)
         } catch {
-
+          // skip malformed SSE payloads
         }
       }
     }

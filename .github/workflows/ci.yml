@@ -25,6 +25,14 @@ jobs:
         run: uv run ruff format --check packages/python-common packages/contracts services scripts
       - name: Mypy
         run: uv run mypy packages/python-common/src
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Launcher checks
+        run: bash scripts/ci/check-launcher.sh
+      - name: Compose config
+        run: bash scripts/ci/check-compose.sh
+      - name: Tracked modules
+        run: bash scripts/ci/check-tracked-modules.sh
 
   test:
     runs-on: ubuntu-latest
@@ -39,6 +47,8 @@ jobs:
         run: uv run python scripts/validate_pack_schema.py
       - name: Validate integration fixtures
         run: uv run python scripts/validate_integration_fixtures.py
+      - name: Tracked modules
+        run: bash scripts/ci/check-tracked-modules.sh
       - name: Pytest
         run: |
           set -eo pipefail
@@ -59,7 +69,7 @@ jobs:
             PYTHONPATH="${root}:${root}/tests:${shared_path}" uv run pytest -q "${root}/tests"
           done
 
-  vitest:
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,8 +78,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - name: Install and test
+      - name: Install, lint, test
         working-directory: apps/web
         run: |
           npm ci
+          npm run lint
           npm run test

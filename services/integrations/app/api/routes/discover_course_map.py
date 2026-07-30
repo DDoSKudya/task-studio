@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.domain.cache.parse import optional_bool
 from app.infra.models import ExternalCourseCache
 from studio_contracts.integration_schemas import ExternalCourseSummary
 
@@ -20,6 +21,8 @@ def to_course_summary(row: ExternalCourseCache) -> ExternalCourseSummary:
         author=str(meta.get("author", "") or ""),
         language=str(meta.get("language", "") or ""),
         tags=coerce_tag_list(meta.get("tags")),
+        enrolled=optional_bool(meta.get("enrolled")),
+        is_paid=optional_bool(meta.get("is_paid")),
     )
 
 
@@ -37,6 +40,8 @@ def course_summary_from_raw(
         author=str(raw.get("author") or ""),
         language=str(raw.get("language") or ""),
         tags=coerce_tag_list(raw.get("tags")),
+        enrolled=optional_bool(raw.get("enrolled")),
+        is_paid=optional_bool(raw.get("is_paid")),
     )
     if not summary.external_id or not summary.title:
         return None

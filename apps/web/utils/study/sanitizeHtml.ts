@@ -14,8 +14,22 @@ export function sanitizeStudyHtml(dirty: string): string {
     return ''
   }
   let html = repairMojibake(dirty)
+
+  // Keep fenced examples intact: decodeLiteralEntities must not turn &lt;h1&gt; back into real tags
+  // inside <pre>/<code>, or the browser (and later strippers) will eat the sample markup.
+  const preBlocks: string[] = []
+  html = html.replace(/<pre\b[\s\S]*?<\/pre>/gi, (block) => {
+    const index = preBlocks.length
+    preBlocks.push(block)
+    return `\uE010PRE${index}\uE011`
+  })
+
   html = decodeLiteralEntities(html)
   html = html.replace(SCRIPTISH, '').replace(ON_ATTR, '').replace(JS_HREF, '')
+
+  html = html.replace(/\uE010PRE(\d+)\uE011/g, (_m, index: string) => {
+    return normalizePreCodeBlock(preBlocks[Number(index)] ?? '')
+  })
 
   html = html.replace(
     /<table(\b[^>]*)>\s*(?:<tbody[^>]*>)?\s*<tr>([\s\S]*?)<\/tr>/gi,
@@ -52,6 +66,41 @@ export function sanitizeStudyHtml(dirty: string): string {
     return `<div class="table-wrap">${table}</div>`
   })
   return html
+}
+
+/** Ensure sample HTML inside <pre><code> is escaped text, not live DOM tags. */
+export function normalizePreCodeBlock(block: string): string {
+  if (!block) {
+    return block
+  }
+  return block.replace(
+    /<pre(\b[^>]*)>([\s\S]*?)<\/pre>/i,
+    (_full, attrs: string, inner: string) => {
+      const codeMatch = inner.match(/^(\s*<code(\b[^>]*)>)([\s\S]*?)(<\/code>\s*)$/i)
+      if (codeMatch) {
+        const [, open, , body, close] = codeMatch
+        return `<pre${attrs}>${open}${escapePreCodeBody(body)}${close}</pre>`
+      }
+      return `<pre${attrs}>${escapePreCodeBody(inner)}</pre>`
+    },
+  )
+}
+
+function escapePreCodeBody(body: string): string {
+  const normalized = body.replace(/<br\s*\/?>/gi, '\n')
+  const hasRawTags = /<\/?[a-zA-Z][!?\w:-]*\b[^>]*>/.test(normalized)
+  if (!hasRawTags) {
+    return normalized
+  }
+  // Real tags leaked into the sample (entity-decode or LLM HTML body) — show them as text.
+  const plain = normalized
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+  return escapeHtml(plain)
 }
 
 function stripTablePresentation(html: string): string {
@@ -437,7 +486,12 @@ export function markdownToStudyHtml(markdown: string): string {
         codeBody = repairMermaidSource(codeBody)
       }
       const code = escapeHtml(codeBody)
-      const langAttr = lang || isMermaidBlock(codeBody) ? ` class="language-${escapeHtml(lang || 'mermaid')}"` : ''
+      const asMermaid = /^mermaid$/i.test(lang) || isMermaidBlock(codeBody, lang)
+      const langAttr = asMermaid
+        ? ` class="language-${escapeHtml(lang && lang !== 'text' ? lang : 'mermaid')}"`
+        : lang
+          ? ` class="language-${escapeHtml(lang)}"`
+          : ''
       parts.push(`<pre><code${langAttr}>${code}</code></pre>`)
       i += 1
       continue

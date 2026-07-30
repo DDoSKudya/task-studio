@@ -12,7 +12,6 @@ from .run_status import (
     run_status,
 )
 
-                                                 
 _run_status = run_status
 _result_text_from_payload = result_text_from_payload
 

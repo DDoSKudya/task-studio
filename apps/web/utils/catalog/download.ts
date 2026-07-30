@@ -3,6 +3,7 @@ export type DownloadQueueItem = {
   platform: string
   externalId: string
   force: boolean
+  enrollFirst?: boolean
 }
 
 export function canEnqueueDownload(input: {

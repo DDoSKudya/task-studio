@@ -64,6 +64,17 @@ def resolve_callable(
     return cast(Callable[..., object], fn)
 
 
+def resolve_optional_callable(
+    module: ModuleType,
+    entrypoints: dict[str, object],
+    key: str,
+) -> Callable[..., object] | None:
+    target = entrypoints.get(key)
+    if target is None or target == "":
+        return None
+    return resolve_callable(module, entrypoints, key)
+
+
 def required_str(payload: dict[str, object], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():

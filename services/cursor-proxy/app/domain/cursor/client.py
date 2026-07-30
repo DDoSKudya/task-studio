@@ -11,7 +11,6 @@ from app.domain.cursor.http import (
     model_ids_from_payload,
 )
 
-                                                          
 from .run_poll import (  # noqa: E402
     _result_text_from_payload,
     _run_status,

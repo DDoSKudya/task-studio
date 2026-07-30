@@ -13,6 +13,31 @@ export type CatalogCourseRow = {
   language: string
   tags: string[]
   packId: string | null
+  enrolled: boolean | null
+  isPaid: boolean | null
+}
+
+export function canDownloadExternalCourse(row: Pick<CatalogCourseRow, 'platform' | 'enrolled'>): boolean {
+  if (row.platform !== 'stepik') {
+    return true
+  }
+  // Only enrolled courses are downloadable; unknown/null must not look like "Скачать".
+  return row.enrolled === true
+}
+
+export type StepikCardAction = 'download' | 'enroll' | 'goto'
+
+export function stepikCardAction(
+  row: Pick<CatalogCourseRow, 'platform' | 'enrolled' | 'isPaid'>,
+): StepikCardAction {
+  if (row.platform !== 'stepik' || row.enrolled === true) {
+    return 'download'
+  }
+  return row.isPaid === true ? 'goto' : 'enroll'
+}
+
+export function stepikCourseUrl(externalId: string): string {
+  return `https://stepik.org/course/${encodeURIComponent(externalId)}`
 }
 
 export function buildCatalogCourseRows(input: {
@@ -46,6 +71,8 @@ export function buildCatalogCourseRows(input: {
       language: course.language ?? '',
       tags,
       packId: pack?.id ?? null,
+      enrolled: course.enrolled ?? null,
+      isPaid: course.is_paid ?? null,
     })
   }
 
@@ -81,6 +108,8 @@ export function buildCatalogCourseRows(input: {
       language: '',
       tags,
       packId: pack.id,
+      enrolled: null,
+      isPaid: null,
     })
   }
 
