@@ -78,6 +78,7 @@ ts_t() {
     prog_failed) en="Failed"; ru="Ошибка" ;;
     prog_finished_ok) en="Finished successfully"; ru="Успешно завершено" ;;
     cmd_failed) en="Command failed (exit %s)"; ru="Команда завершилась с ошибкой (код %s)" ;;
+    err_progress_empty_log) en="Command failed before writing a log (exit early). Often data/logs is not writable (Docker owns data/). Log path: %s"; ru="Команда упала до записи лога. Часто data/logs недоступен для записи (каталог data/ создал Docker). Путь лога: %s" ;;
 
     # menu
     menu_install) en="Install - first-time setup"; ru="Установка — первый запуск" ;;

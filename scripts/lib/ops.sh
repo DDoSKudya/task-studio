@@ -193,6 +193,11 @@ ops_prepare_dirs() {
     data/grafana data/prometheus data/piston/packages \
     data/logs
   chmod -R a+rwX data/packs 2>/dev/null || true
+  # Launcher must append studio-last.log; Docker bind mounts often leave data/ as root/nobody.
+  chmod a+rwX data/logs 2>/dev/null || true
+  if [[ ! -w data/logs ]]; then
+    mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/task-studio/logs" 2>/dev/null || true
+  fi
 }
 
 ops_compose() {

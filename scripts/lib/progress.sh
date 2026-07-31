@@ -53,7 +53,7 @@ ts_prog_begin() {
   if ts_prog_active; then
     ts_prog_write \
       "title=$title" \
-      "group=$(ts_t prog_starting 2>/dev/null || echo Starting)" \
+      "group=$title" \
       "status=" \
       "pct_lo=0" \
       "pct_hi=2" \
@@ -336,9 +336,26 @@ ts_prog_extract_error() {
   printf '%s\n' "$line"
 }
 
-# Persistent launcher log under the install root (survives progress UI close).
+# Persistent launcher log under the install root when writable; otherwise cache/tmp.
 ts_progress_log_path() {
   local root="${1:-${ROOT:-$(pwd -P 2>/dev/null || pwd)}}"
-  mkdir -p "$root/data/logs" 2>/dev/null || true
-  printf '%s\n' "$root/data/logs/studio-last.log"
+  local preferred="$root/data/logs"
+  local fallback log
+  if mkdir -p "$preferred" 2>/dev/null && [[ -w "$preferred" ]]; then
+    # Docker often creates data/ as root/nobody — keep logs writable for the launcher user.
+    chmod a+rwX "$preferred" 2>/dev/null || true
+    log="$preferred/studio-last.log"
+    if : >"$log" 2>/dev/null; then
+      printf '%s\n' "$log"
+      return 0
+    fi
+  fi
+  fallback="${XDG_CACHE_HOME:-$HOME/.cache}/task-studio/logs"
+  if ! mkdir -p "$fallback" 2>/dev/null || [[ ! -w "$fallback" ]]; then
+    fallback="${TMPDIR:-/tmp}/task-studio-logs"
+    mkdir -p "$fallback" 2>/dev/null || true
+  fi
+  log="$fallback/studio-last.log"
+  : >"$log" 2>/dev/null || log="$(mktemp "${TMPDIR:-/tmp}/ts-studio.XXXXXX.log")"
+  printf '%s\n' "$log"
 }

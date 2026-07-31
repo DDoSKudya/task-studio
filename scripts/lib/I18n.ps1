@@ -76,6 +76,9 @@ function Get-TsText {
     'cmd_failed' {
       $en = 'Command failed (exit %s)'; $ru = 'Команда завершилась с ошибкой (код %s)'
     }
+    'err_progress_empty_log' {
+      $en = 'Command failed before writing a log (exit early). Often data/logs is not writable (Docker owns data/). Log path: %s'; $ru = 'Команда упала до записи лога. Часто data/logs недоступен для записи (каталог data/ создал Docker). Путь лога: %s'
+    }
     'cmd_failed_short' {
       $en = 'Command failed'; $ru = 'Команда завершилась с ошибкой'
     }

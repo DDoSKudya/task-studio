@@ -715,9 +715,13 @@ ui_run_progress() {
   fi
   TS_PROGRESS_LOG="$(ts_progress_log_path "${ROOT:-$(pwd -P 2>/dev/null || pwd)}")"
   : >"$TS_PROGRESS_FILE"
-  : >"$TS_PROGRESS_LOG"
+  if ! : >"$TS_PROGRESS_LOG" 2>/dev/null; then
+    TS_PROGRESS_LOG="$(mktemp "${TMPDIR:-/tmp}/ts-studio.XXXXXX.log")"
+    : >"$TS_PROGRESS_LOG"
+  fi
   TS_UI_PROG_FP=""
-  ts_prog_write "title=$title" "phase=run" "group=$(ts_t prog_starting 2>/dev/null || echo Starting)" "status=" "pct_lo=0" "pct_hi=5" \
+  # Use action title as the first group — "Starting" looked like a wrong action (Stop → Старт).
+  ts_prog_write "title=$title" "phase=run" "group=$title" "status=" "pct_lo=0" "pct_hi=5" \
     "stage_t0=$(date +%s)" "stage_est=10" "stages_left_est=0" "error=" "pct=0"
 
   read -r cols rows < <(ui_term_size)
@@ -736,6 +740,10 @@ ui_run_progress() {
   fi
 
   set +e
+  # Redirect must succeed: an unwritable log path aborts the job with exit 1 and no progress update.
+  if ! : >>"$TS_PROGRESS_LOG" 2>/dev/null; then
+    TS_PROGRESS_LOG="$(mktemp "${TMPDIR:-/tmp}/ts-studio.XXXXXX.log")"
+  fi
   (
     "$@"
   ) >"$TS_PROGRESS_LOG" 2>&1 &
@@ -763,7 +771,13 @@ ui_run_progress() {
       if [[ -z "$err" ]]; then
         err="$(ts_prog_extract_error "$TS_PROGRESS_LOG" || true)"
       fi
-      [[ -z "$err" ]] && err="$(ts_t cmd_failed "$rc" 2>/dev/null || echo "Command failed (exit $rc)")"
+      if [[ -z "$err" ]]; then
+        if [[ ! -s "$TS_PROGRESS_LOG" ]]; then
+          err="$(ts_t err_progress_empty_log "$TS_PROGRESS_LOG" 2>/dev/null || echo "Command failed before writing a log (exit $rc). Check Docker and permissions on data/.")"
+        else
+          err="$(ts_t cmd_failed "$rc" 2>/dev/null || echo "Command failed (exit $rc)")"
+        fi
+      fi
       ts_prog_write "phase=error" "error=$err" "status=$(ts_t prog_failed 2>/dev/null || echo Failed)"
     else
       local phase

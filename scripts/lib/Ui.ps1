@@ -454,10 +454,24 @@ function Fail-TsProgress([string]$Message) {
 function Get-TsProgressLogPath {
   param([string]$Root = (Get-Location).Path)
   $dir = Join-Path $Root "data\logs"
-  if (-not (Test-Path $dir)) {
-    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+  try {
+    if (-not (Test-Path $dir)) {
+      New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $probe = Join-Path $dir "studio-last.log"
+    # Touch to verify write access (Docker bind mounts often leave data/ non-writable).
+    [System.IO.File]::OpenWrite($probe).Close()
+    return $probe
+  } catch {
+    $fallback = Join-Path $env:LOCALAPPDATA "task-studio\logs"
+    if (-not $env:LOCALAPPDATA) {
+      $fallback = Join-Path $env:TEMP "task-studio-logs"
+    }
+    if (-not (Test-Path $fallback)) {
+      New-Item -ItemType Directory -Path $fallback -Force | Out-Null
+    }
+    return (Join-Path $fallback "studio-last.log")
   }
-  return (Join-Path $dir "studio-last.log")
 }
 
 function Test-TsProgressLogNoise([string]$Line) {
