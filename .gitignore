@@ -159,8 +159,8 @@ data/
 # Runtime cache at repo root only — do not ignore Python packages named cache/
 /cache/
 
-# Local course / media dumps outside data/ (safety net)
-packs/
+# Local course / media dumps at repo root only — never ignore app packages named packs/
+/packs/
 **/user-uploads/
 **/*.studio-pack
 !fixtures/**/*.studio-pack
