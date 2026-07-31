@@ -26,11 +26,16 @@ def build_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Packs dir + alembic are handled in docker-entrypoint.sh before uvicorn.
+        # Keep a cheap ensure/upgrade here for non-Docker local runs.
         try:
             catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            log.error("packs_root_unusable", path=str(catalog_settings.packs_root), error=str(exc))
-            raise
+            log.warning(
+                "packs_root_unusable",
+                path=str(catalog_settings.packs_root),
+                error=str(exc),
+            )
         engine = create_engine()
         if engine is not None:
             await ensure_schema(engine, "catalog")

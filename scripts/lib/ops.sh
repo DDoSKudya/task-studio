@@ -324,7 +324,14 @@ ops_dump_compose_failure() {
   local log="${TS_PROGRESS_LOG:-}"
   local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
   local names name status
-  if [[ -z "$log" ]] || [[ ! -w "$log" ]]; then
+  if [[ -z "$log" ]]; then
+    if [[ -n "${TS_LOG_FILE:-}" ]]; then
+      log="$TS_LOG_FILE"
+    elif [[ -w data/logs/studio-last.log ]]; then
+      log="data/logs/studio-last.log"
+    fi
+  fi
+  if [[ -z "$log" ]]; then
     return 0
   fi
   {
@@ -334,6 +341,16 @@ ops_dump_compose_failure() {
     printf '\n'
   } >>"$log" 2>/dev/null || true
 
+  for name in task-studio-catalog-1 task-studio-auth-1 task-studio-postgres-1 task-studio-grading-1; do
+    if docker inspect "$name" >/dev/null 2>&1; then
+      status="$(docker inspect --format '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$name" 2>/dev/null || true)"
+      {
+        printf '\n----- logs: %s (%s) -----\n' "$name" "$status"
+        docker logs --tail 200 "$name" 2>&1 || true
+      } >>"$log" 2>/dev/null || true
+    fi
+  done
+
   names="$(
     docker ps -a --filter "label=com.docker.compose.project=${pname}" \
       --format '{{.Names}}\t{{.Status}}' 2>/dev/null || true
@@ -342,6 +359,9 @@ ops_dump_compose_failure() {
     [[ -z "$name" ]] && continue
     case "$status" in
       *unhealthy*|*Exited*|*Dead*|*Restarting*)
+        case "$name" in
+          task-studio-catalog-1|task-studio-auth-1|task-studio-postgres-1|task-studio-grading-1) continue ;;
+        esac
         {
           printf '\n----- logs: %s (%s) -----\n' "$name" "$status"
           docker logs --tail 150 "$name" 2>&1 || true
@@ -351,8 +371,34 @@ ops_dump_compose_failure() {
   done <<<"$names"
 }
 
-# Warm the data plane, then bring the full stack. One retry covers Compose aborting
-# when a backend crashes once during the migration thundering herd.
+ops_wait_catalog_healthy() {
+  local timeout="${1:-180}"
+  local name="task-studio-catalog-1"
+  local i=0 health status
+  while ((i < timeout)); do
+    if docker inspect "$name" >/dev/null 2>&1; then
+      health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || true)"
+      if [[ "$health" == "healthy" ]]; then
+        return 0
+      fi
+      if [[ "$health" == "unhealthy" ]]; then
+        ops_dump_compose_failure
+        return 1
+      fi
+      status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+      if [[ "$status" == "exited" || "$status" == "dead" ]]; then
+        ops_dump_compose_failure
+        return 1
+      fi
+    fi
+    sleep 3
+    i=$((i + 3))
+  done
+  ops_dump_compose_failure
+  return 1
+}
+
+# Warm the data plane, start catalog alone, then bring the full stack.
 ops_compose_up() {
   # shellcheck disable=SC2086
   local profile_args="$*"
@@ -367,13 +413,24 @@ ops_compose_up() {
     return 1
   fi
   if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
+    ts_prog_status "$(ts_t status_starting_catalog 2>/dev/null || echo "Starting catalog…")"
+  fi
+  # shellcheck disable=SC2086
+  ops_compose $profile_args up -d --no-deps catalog || true
+  if ! ops_wait_catalog_healthy 180; then
+    # shellcheck disable=SC2086
+    ops_compose $profile_args up -d --build --force-recreate --no-deps catalog || true
+    if ! ops_wait_catalog_healthy 180; then
+      return 1
+    fi
+  fi
+  if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
     ts_prog_status "$(ts_t status_starting_containers)"
   fi
   # shellcheck disable=SC2086
   if ops_compose $profile_args up -d --remove-orphans; then
     return 0
   fi
-  # First wave often races migrations; give backends a moment and retry once.
   sleep 10
   # shellcheck disable=SC2086
   if ops_compose $profile_args up -d --remove-orphans; then

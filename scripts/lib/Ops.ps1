@@ -368,10 +368,14 @@ function Prepare-TsDirs {
 
 function Write-TsComposeFailureDiagnostics {
   $log = $null
-  if ($script:TsProg -and $script:TsProg.LogPath) {
-    $log = [string]$script:TsProg.LogPath
+  if ($script:TsLogFile) {
+    $log = [string]$script:TsLogFile
+  } elseif ($script:TsProgressLogPath) {
+    $log = [string]$script:TsProgressLogPath
   } elseif ($env:TS_PROGRESS_LOG) {
     $log = $env:TS_PROGRESS_LOG
+  } elseif (Test-Path "data/logs") {
+    $log = (Join-Path (Get-Location).Path "data/logs/studio-last.log")
   }
   if (-not $log) { return }
   try {
@@ -386,6 +390,12 @@ function Write-TsComposeFailureDiagnostics {
     } catch {
       [void]$sb.AppendLine(("compose ps failed: {0}" -f $_.Exception.Message))
     }
+    $priority = @("catalog", "auth", "postgres", "grading", "media")
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($svc in $priority) {
+      $n = "task-studio-${svc}-1"
+      [void]$names.Add($n)
+    }
     $rows = @(docker ps -a --filter "label=com.docker.compose.project=$pname" --format "{{.Names}}`t{{.Status}}" 2>$null)
     foreach ($row in $rows) {
       if (-not $row) { continue }
@@ -393,17 +403,61 @@ function Write-TsComposeFailureDiagnostics {
       $name = $parts[0]
       $status = if ($parts.Count -gt 1) { $parts[1] } else { "" }
       if ($status -notmatch '(?i)unhealthy|Exited|Dead|Restarting') { continue }
+      if (-not $names.Contains($name)) { [void]$names.Add($name) }
+    }
+    foreach ($name in $names) {
+      $exists = docker inspect $name 2>$null
+      if (-not $exists) { continue }
+      $status = ""
+      try { $status = [string](docker inspect --format "{{.State.Status}}/{{.State.Health.Status}}" $name 2>$null) } catch { }
       [void]$sb.AppendLine("")
       [void]$sb.AppendLine(("----- logs: {0} ({1}) -----" -f $name, $status))
       try {
-        $logs = @(docker logs --tail 150 $name 2>&1)
+        $logs = @(docker logs --tail 200 $name 2>&1)
         foreach ($line in $logs) { [void]$sb.AppendLine([string]$line) }
       } catch {
         [void]$sb.AppendLine(("docker logs failed: {0}" -f $_.Exception.Message))
       }
     }
-    Add-Content -LiteralPath $log -Value $sb.ToString() -Encoding utf8 -ErrorAction SilentlyContinue
+    $payload = $sb.ToString()
+    # Prefer .NET append — works while the worker still has the file open for redirect.
+    try {
+      [System.IO.File]::AppendAllText($log, $payload, (New-Object System.Text.UTF8Encoding $false))
+    } catch {
+      Add-Content -LiteralPath $log -Value $payload -Encoding utf8 -ErrorAction SilentlyContinue
+    }
   } catch { }
+}
+
+function Wait-TsCatalogHealthy {
+  param([int]$TimeoutSec = 180)
+  $name = "task-studio-catalog-1"
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+  while ([DateTime]::UtcNow -lt $deadline) {
+    $exists = $false
+    try {
+      $null = docker inspect $name 2>$null
+      if ($LASTEXITCODE -eq 0) { $exists = $true }
+    } catch { }
+    if ($exists) {
+      $health = ""
+      try { $health = [string](docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $name 2>$null) } catch { }
+      if ($health -eq "healthy") { return $true }
+      if ($health -eq "unhealthy") {
+        Write-TsComposeFailureDiagnostics
+        return $false
+      }
+      $status = ""
+      try { $status = [string](docker inspect --format "{{.State.Status}}" $name 2>$null) } catch { }
+      if ($status -eq "exited" -or $status -eq "dead") {
+        Write-TsComposeFailureDiagnostics
+        return $false
+      }
+    }
+    Start-Sleep -Seconds 3
+  }
+  Write-TsComposeFailureDiagnostics
+  return $false
 }
 
 function Invoke-TsComposeUp {
@@ -421,6 +475,22 @@ function Invoke-TsComposeUp {
     Write-TsComposeFailureDiagnostics
     return $false
   }
+
+  # Bring catalog up alone first — avoids losing its crash in the thundering herd.
+  $catMsg = Get-TsText status_starting_catalog
+  if ($script:TsProg) {
+    $script:TsProg.Status = $catMsg
+    if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
+  }
+  Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--no-deps", "catalog"))
+  if (-not (Wait-TsCatalogHealthy -TimeoutSec 180)) {
+    # One rebuild+restart of catalog alone, then dump.
+    [void](Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--build", "--force-recreate", "--no-deps", "catalog")))
+    if (-not (Wait-TsCatalogHealthy -TimeoutSec 180)) {
+      return $false
+    }
+  }
+
   $startMsg = Get-TsText status_starting_containers
   if ($script:TsProg) {
     $script:TsProg.Status = $startMsg

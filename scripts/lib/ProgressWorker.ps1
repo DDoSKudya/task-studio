@@ -21,6 +21,8 @@ $scriptDir = Join-Path $Root "scripts"
 
 $script:TsLogQuiet = $true
 $script:TsLogFile = $LogPath
+$env:TS_PROGRESS_LOG = $LogPath
+$script:TsProgressLogPath = $LogPath
 $script:UpdateReexec = $false
 $exitCode = 0
 

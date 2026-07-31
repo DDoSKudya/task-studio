@@ -9,6 +9,7 @@ x-backend-env: &backend-env
   RABBITMQ_URL: ${RABBITMQ_URL}
   LOG_FORMAT: ${LOG_FORMAT:-json}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  HOST: "0.0.0.0"
 
 x-backend: &backend
   restart: unless-stopped
@@ -168,23 +169,26 @@ services:
   catalog:
     <<: *backend
     profiles: [full]
+    # Docker Desktop (Windows/macOS): bind-mounted data/packs is often not writable as uid 10001.
+    user: "0:0"
     build:
       context: ..
       dockerfile: services/catalog/Dockerfile
     environment:
       <<: *backend-env
       PORT: "8002"
+      HOST: "0.0.0.0"
       PACKS_ROOT: /data/packs
       PACK_MAX_UPLOAD_MB: ${PACK_MAX_UPLOAD_MB:-500}
       MEDIA_SERVICE_URL: http://media:8009
     volumes:
       - ../data/packs:/data/packs
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=4)"]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 60s
+      retries: 18
+      start_period: 120s
 
   sessions:
     <<: *backend
@@ -209,6 +213,7 @@ services:
   grading:
     <<: *backend
     profiles: [full]
+    user: "0:0"
     build:
       context: ..
       dockerfile: services/grading/Dockerfile
@@ -283,6 +288,7 @@ services:
   integrations:
     <<: *backend
     profiles: [full]
+    user: "0:0"
     build:
       context: ..
       dockerfile: services/integrations/Dockerfile

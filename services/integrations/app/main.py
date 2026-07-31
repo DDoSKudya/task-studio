@@ -26,7 +26,8 @@ def build_app() -> FastAPI:
     configure_logging("integrations")
     log = structlog.get_logger("integrations")
     settings = load_settings()
-    settings.packs_root.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(OSError):
+        settings.packs_root.mkdir(parents=True, exist_ok=True)
     adapters = discover_adapters(settings.integration_modules_root)
 
     @asynccontextmanager

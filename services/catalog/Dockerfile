@@ -4,7 +4,8 @@ FROM python:3.12.9-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8002
+    PORT=8002 \
+    HOST=0.0.0.0
 
 WORKDIR /app
 
@@ -18,16 +19,18 @@ COPY packages/contracts packages/contracts
 COPY services/catalog services/catalog
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --package studio-catalog --no-dev --frozen
+    uv sync --package studio-catalog --no-dev --frozen \
+ && chmod +x /app/services/catalog/docker-entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV HOST=0.0.0.0
 WORKDIR /app/services/catalog
-USER appuser
+# Root: Docker Desktop bind-mounts for data/packs are often not writable by uid 10001.
+# Local PET stack — prefer a starting service over a locked volume.
+USER root
 
 EXPOSE 8002
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=12 --start-period=60s \
-    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"
+HEALTHCHECK --interval=10s --timeout=5s --retries=12 --start-period=90s \
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('PORT','8002'), timeout=4)"
 
-CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]
+ENTRYPOINT ["./docker-entrypoint.sh"]

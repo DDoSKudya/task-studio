@@ -493,6 +493,9 @@ function Get-TsText {
     'status_starting_infra' {
       $en = 'Starting databases and brokers…'; $ru = 'Запуск баз и брокеров…'
     }
+    'status_starting_catalog' {
+      $en = 'Starting catalog service…'; $ru = 'Запуск сервиса catalog…'
+    }
     'status_check_ui' {
       $en = 'Checking UI (%s)'; $ru = 'Проверка UI (%s)'
     }
