@@ -23,10 +23,14 @@ def build_app() -> FastAPI:
     configure_logging("catalog")
     log = structlog.get_logger("catalog")
     catalog_settings = load_settings()
-    catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        try:
+            catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            log.error("packs_root_unusable", path=str(catalog_settings.packs_root), error=str(exc))
+            raise
         engine = create_engine()
         if engine is not None:
             await ensure_schema(engine, "catalog")

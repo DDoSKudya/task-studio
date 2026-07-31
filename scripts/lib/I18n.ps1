@@ -490,6 +490,9 @@ function Get-TsText {
     'status_docker_waiting' {
       $en = 'Waiting for Docker… %ss / %ss'; $ru = 'Ожидание Docker… %s с / %s с'
     }
+    'status_starting_infra' {
+      $en = 'Starting databases and brokers…'; $ru = 'Запуск баз и брокеров…'
+    }
     'status_check_ui' {
       $en = 'Checking UI (%s)'; $ru = 'Проверка UI (%s)'
     }

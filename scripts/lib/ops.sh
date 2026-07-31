@@ -260,6 +260,15 @@ PY
     printf '\nOLLAMA_MODEL=%s\n' "$OLLAMA_MODEL_DEFAULT" >> .env
   fi
 
+  if grep -q '^PACK_MAX_UPLOAD_MB=' .env; then
+    if grep -qE '^PACK_MAX_UPLOAD_MB=\s*$' .env; then
+      sed -i.bak "s|^PACK_MAX_UPLOAD_MB=.*|PACK_MAX_UPLOAD_MB=500|" .env
+      rm -f .env.bak
+    fi
+  else
+    printf '\nPACK_MAX_UPLOAD_MB=500\n' >> .env
+  fi
+
   if [[ "$(uname -s)" == "Linux" ]]; then
     gid=""
     if command -v getent >/dev/null 2>&1; then
@@ -308,6 +317,70 @@ ops_compose() {
   export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
   export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" --env-file .env "$@"
+}
+
+# After compose up failure: append ps + logs of unhealthy/exited services into the progress log.
+ops_dump_compose_failure() {
+  local log="${TS_PROGRESS_LOG:-}"
+  local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
+  local names name status
+  if [[ -z "$log" ]] || [[ ! -w "$log" ]]; then
+    return 0
+  fi
+  {
+    printf '\n===== compose failure diagnostics =====\n'
+    printf 'project=%s time=%s\n' "$pname" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+    ops_compose ps -a 2>&1 || true
+    printf '\n'
+  } >>"$log" 2>/dev/null || true
+
+  names="$(
+    docker ps -a --filter "label=com.docker.compose.project=${pname}" \
+      --format '{{.Names}}\t{{.Status}}' 2>/dev/null || true
+  )"
+  while IFS=$'\t' read -r name status; do
+    [[ -z "$name" ]] && continue
+    case "$status" in
+      *unhealthy*|*Exited*|*Dead*|*Restarting*)
+        {
+          printf '\n----- logs: %s (%s) -----\n' "$name" "$status"
+          docker logs --tail 150 "$name" 2>&1 || true
+        } >>"$log" 2>/dev/null || true
+        ;;
+    esac
+  done <<<"$names"
+}
+
+# Warm the data plane, then bring the full stack. One retry covers Compose aborting
+# when a backend crashes once during the migration thundering herd.
+ops_compose_up() {
+  # shellcheck disable=SC2086
+  local profile_args="$*"
+  if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
+    ts_prog_status "$(ts_t status_starting_infra 2>/dev/null || echo "Starting data services…")"
+  fi
+  # shellcheck disable=SC2086
+  ops_compose $profile_args up -d postgres redis rabbitmq minio meilisearch 2>/dev/null || true
+  # shellcheck disable=SC2086
+  if ! ops_compose $profile_args up -d --wait --wait-timeout 180 postgres redis rabbitmq; then
+    ops_dump_compose_failure
+    return 1
+  fi
+  if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
+    ts_prog_status "$(ts_t status_starting_containers)"
+  fi
+  # shellcheck disable=SC2086
+  if ops_compose $profile_args up -d --remove-orphans; then
+    return 0
+  fi
+  # First wave often races migrations; give backends a moment and retry once.
+  sleep 10
+  # shellcheck disable=SC2086
+  if ops_compose $profile_args up -d --remove-orphans; then
+    return 0
+  fi
+  ops_dump_compose_failure
+  return 1
 }
 
 # Soft root lookup (no die). Sets ROOT and cd when found.
@@ -490,7 +563,7 @@ ops_install() {
 
   ts_prog_enter start "$(ts_t status_starting_containers)"
   # shellcheck disable=SC2086
-  if ! ops_compose $profile_args up -d --remove-orphans; then
+  if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up)"
   fi
 
@@ -553,7 +626,7 @@ ops_start() {
 
   ts_prog_enter start "$(ts_t status_starting_ts)"
   # shellcheck disable=SC2086
-  if ! ops_compose $profile_args up -d --remove-orphans; then
+  if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_short)"
   fi
 
@@ -609,7 +682,7 @@ ops_restart() {
 
   ts_prog_enter start "$(ts_t status_starting_containers)"
   # shellcheck disable=SC2086
-  if ! ops_compose $profile_args up -d --remove-orphans; then
+  if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_after_restart)"
   fi
 
@@ -1279,7 +1352,7 @@ ops_update_apply() {
     ui_die "$(ts_t err_build_update)"
   fi
   # shellcheck disable=SC2086
-  if ! ops_compose $profile_args up -d --remove-orphans; then
+  if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_update)"
   fi
   if wait_app_ready 90 5; then

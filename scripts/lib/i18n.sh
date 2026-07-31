@@ -173,6 +173,7 @@ ts_t() {
     status_check_docker) en="Checking Docker and environment"; ru="Проверка Docker и окружения" ;;
     status_docker_starting) en="Docker is not ready — starting it…"; ru="Docker не готов — запускаю…" ;;
     status_docker_waiting) en="Waiting for Docker… %ss / %ss"; ru="Ожидание Docker… %s с / %s с" ;;
+    status_starting_infra) en="Starting databases and brokers…"; ru="Запуск баз и брокеров…" ;;
     status_ensure_repo) en="Ensuring repository and .env"; ru="Проверка репозитория и .env" ;;
     status_build_slow) en="Building container images (first run is slow)"; ru="Сборка образов контейнеров (первый запуск долгий)" ;;
     status_starting_containers) en="Starting containers"; ru="Запуск контейнеров" ;;

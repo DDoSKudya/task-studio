@@ -303,6 +303,10 @@ function Ensure-TsEnv {
   if (-not $model -or $model -eq "llama3.2") {
     Set-TsEnvValue "OLLAMA_MODEL" $script:OllamaModel
   }
+  $packMax = Get-TsEnvValue "PACK_MAX_UPLOAD_MB"
+  if (-not $packMax) {
+    Set-TsEnvValue "PACK_MAX_UPLOAD_MB" "500"
+  }
   # Only probe the socket when GID is missing or still the .env.example placeholder.
   $curGid = Get-TsEnvValue "DOCKER_GID"
   if (-not $curGid -or $curGid -eq "988") {
@@ -362,6 +366,75 @@ function Prepare-TsDirs {
   ) | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ | Out-Null }
 }
 
+function Write-TsComposeFailureDiagnostics {
+  $log = $null
+  if ($script:TsProg -and $script:TsProg.LogPath) {
+    $log = [string]$script:TsProg.LogPath
+  } elseif ($env:TS_PROGRESS_LOG) {
+    $log = $env:TS_PROGRESS_LOG
+  }
+  if (-not $log) { return }
+  try {
+    $pname = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { "task-studio" }
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("===== compose failure diagnostics =====")
+    [void]$sb.AppendLine(("project={0} time={1:u}" -f $pname, (Get-Date).ToUniversalTime()))
+    try {
+      $psOut = @(Invoke-TsComposeCaptured @("ps", "-a"))
+      foreach ($line in $psOut) { [void]$sb.AppendLine([string]$line) }
+    } catch {
+      [void]$sb.AppendLine(("compose ps failed: {0}" -f $_.Exception.Message))
+    }
+    $rows = @(docker ps -a --filter "label=com.docker.compose.project=$pname" --format "{{.Names}}`t{{.Status}}" 2>$null)
+    foreach ($row in $rows) {
+      if (-not $row) { continue }
+      $parts = ([string]$row) -split "`t", 2
+      $name = $parts[0]
+      $status = if ($parts.Count -gt 1) { $parts[1] } else { "" }
+      if ($status -notmatch '(?i)unhealthy|Exited|Dead|Restarting') { continue }
+      [void]$sb.AppendLine("")
+      [void]$sb.AppendLine(("----- logs: {0} ({1}) -----" -f $name, $status))
+      try {
+        $logs = @(docker logs --tail 150 $name 2>&1)
+        foreach ($line in $logs) { [void]$sb.AppendLine([string]$line) }
+      } catch {
+        [void]$sb.AppendLine(("docker logs failed: {0}" -f $_.Exception.Message))
+      }
+    }
+    Add-Content -LiteralPath $log -Value $sb.ToString() -Encoding utf8 -ErrorAction SilentlyContinue
+  } catch { }
+}
+
+function Invoke-TsComposeUp {
+  param([object[]]$ProfileArgs)
+  $msg = Get-TsText status_starting_infra
+  if ($script:TsProg) {
+    $script:TsProg.Status = $msg
+    if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
+  } else {
+    Write-TsInfo $msg
+  }
+  [void](Invoke-TsCompose @($ProfileArgs + @("up", "-d", "postgres", "redis", "rabbitmq", "minio", "meilisearch")))
+  Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--wait", "--wait-timeout", "180", "postgres", "redis", "rabbitmq"))
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+    Write-TsComposeFailureDiagnostics
+    return $false
+  }
+  $startMsg = Get-TsText status_starting_containers
+  if ($script:TsProg) {
+    $script:TsProg.Status = $startMsg
+    if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
+  }
+  Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--remove-orphans"))
+  if (-not $LASTEXITCODE -or $LASTEXITCODE -eq 0) { return $true }
+  Start-Sleep -Seconds 10
+  Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--remove-orphans"))
+  if (-not $LASTEXITCODE -or $LASTEXITCODE -eq 0) { return $true }
+  Write-TsComposeFailureDiagnostics
+  return $false
+}
+
 function Get-TsProfileArgs {
   $mode = if ($env:ORCHESTRATOR_MODE) { $env:ORCHESTRATOR_MODE } else { "balancing" }
   if (Test-Path ".env") {
@@ -410,8 +483,9 @@ function Invoke-TsInstall {
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_build_short) }
 
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_containers)
-  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_short) }
+  if (-not (Invoke-TsComposeUp -ProfileArgs $profileArgs)) {
+    throw (Get-TsText err_up_short)
+  }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_waiting_ui $script:AppUiUrl)
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
@@ -457,8 +531,9 @@ function Invoke-TsStart {
   $profileArgs = Get-TsProfileArgs
 
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_ts)
-  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_short) }
+  if (-not (Invoke-TsComposeUp -ProfileArgs $profileArgs)) {
+    throw (Get-TsText err_up_short)
+  }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
   if (Wait-AppReady -Tries 60 -SleepSeconds 3) {
@@ -571,8 +646,9 @@ function Invoke-TsRestart {
 
   $profileArgs = Get-TsProfileArgs
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_containers)
-  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_after_restart) }
+  if (-not (Invoke-TsComposeUp -ProfileArgs $profileArgs)) {
+    throw (Get-TsText err_up_after_restart)
+  }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
   if (Wait-AppReady -Tries 60 -SleepSeconds 3) {
@@ -1101,8 +1177,9 @@ function Invoke-TsUpdate {
   $profileArgs = Get-TsProfileArgs
   Invoke-TsCompose @($profileArgs + @("build"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_build_update) }
-  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_update) }
+  if (-not (Invoke-TsComposeUp -ProfileArgs $profileArgs)) {
+    throw (Get-TsText err_up_update)
+  }
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
     Open-AppUi
   } else {
