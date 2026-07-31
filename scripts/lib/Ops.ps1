@@ -18,25 +18,51 @@ function Write-TsUtf8NoBom {
   [System.IO.File]::WriteAllText($Path, $Content, $enc)
 }
 
+# Run a native CLI under PS 5.1 without turning stderr into terminating errors
+# when $ErrorActionPreference is Stop (studio.ps1 default).
+function Invoke-TsNative {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [Parameter(ValueFromRemainingArguments = $true)][object[]]$ArgumentList
+  )
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $output = & $FilePath @ArgumentList 2>&1
+    $code = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+    return @{
+      ExitCode = $code
+      Output   = @($output | ForEach-Object { "$_" })
+      Text     = (($output | ForEach-Object { "$_" }) -join "`n").Trim()
+    }
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+}
+
 function Assert-TsDocker {
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw (Get-TsText err_docker_missing)
   }
-  $infoOut = & docker info 2>&1
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-    $detail = ($infoOut | Out-String).Trim()
+  $info = Invoke-TsNative docker info
+  if ($info.ExitCode -ne 0) {
+    $detail = $info.Text
+    if ($detail -match '(?i)dockerDesktopLinuxEngine|pipe|cannot find the file|daemon is not running|Is the docker daemon running') {
+      throw (Get-TsText err_docker_desktop_engine)
+    }
     if ($detail) {
       throw (Get-TsText err_docker_unusable $detail)
     }
     throw (Get-TsText err_docker_stopped)
   }
-  & docker compose version 2>&1 | Out-Null
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+  $compose = Invoke-TsNative docker compose version
+  if ($compose.ExitCode -ne 0) {
     throw (Get-TsText err_compose_missing)
   }
   $env:DOCKER_BUILDKIT = "1"
   $env:COMPOSE_DOCKER_CLI_BUILD = "1"
-  $ver = (& docker version --format '{{.Server.Version}}' 2>$null)
+  $verInfo = Invoke-TsNative docker version --format '{{.Server.Version}}'
+  $ver = ($verInfo.Output | Select-Object -First 1)
   if ($ver -match '^(\d+)\.') {
     $major = [int]$Matches[1]
     if ($major -lt 20) {
@@ -174,10 +200,10 @@ function Test-TsMasterKey([string]$Raw) {
 function Get-TsDockerSockGid {
   # Docker Desktop / Linux VM: read GID of the mounted socket so orchestrator group_add works.
   try {
-    $out = & docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.20 `
-      stat -c '%g' /var/run/docker.sock 2>$null
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { return "" }
-    $gid = ("$out").Trim()
+    $r = Invoke-TsNative docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.20 `
+      stat -c '%g' /var/run/docker.sock
+    if ($r.ExitCode -ne 0) { return "" }
+    $gid = ($r.Text).Trim()
     if ($gid -match '^\d+$') { return $gid }
   } catch { }
   return ""

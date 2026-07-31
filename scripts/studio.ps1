@@ -182,7 +182,12 @@ if ($Command -and ($known -notcontains $Command.ToLowerInvariant())) {
   exit 1
 }
 
-Assert-TsDocker
+try {
+  Assert-TsDocker
+} catch {
+  Write-TsErr $_.Exception.Message
+  exit 1
+}
 
 if (-not $Command) {
   Show-TsMenu

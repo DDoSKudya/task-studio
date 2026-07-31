@@ -127,6 +127,9 @@ function Get-TsText {
     'err_docker_stopped' {
       $en = 'Docker is installed but not running. Start Docker Desktop / the Docker daemon and wait until it is ready.'; $ru = 'Docker установлен, но не запущен. Запустите Docker Desktop / демон Docker и дождитесь готовности.'
     }
+    'err_docker_desktop_engine' {
+      $en = 'Docker Desktop engine is not running (named pipe missing). Open Docker Desktop, wait until it says Running / Engine running, then retry. WSL 2 backend must be enabled.'; $ru = 'Движок Docker Desktop не запущен (нет named pipe). Откройте Docker Desktop, дождитесь статуса Running, затем повторите. Нужен backend WSL 2.'
+    }
     'err_docker_unusable' {
       $en = 'Docker is installed but not usable. Start Docker Desktop / the Docker daemon and wait until it is ready. Detail: %s'; $ru = 'Docker установлен, но недоступен. Запустите Docker Desktop / демон Docker и дождитесь готовности. Подробности: %s'
     }
