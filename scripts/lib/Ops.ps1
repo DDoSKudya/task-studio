@@ -40,21 +40,90 @@ function Invoke-TsNative {
   }
 }
 
+function Test-TsDockerReady {
+  $r = Invoke-TsNative docker info
+  return ($r.ExitCode -eq 0)
+}
+
+function Start-TsDockerDesktop {
+  if ($env:TASK_STUDIO_NO_AUTO_DOCKER -eq "1") { return $false }
+
+  $running = @(Get-Process -Name "Docker Desktop","com.docker.backend" -ErrorAction SilentlyContinue)
+  if ($running.Count -eq 0) {
+    $candidates = @(
+      (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
+      (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\Docker Desktop.exe")
+    )
+    $started = $false
+    foreach ($exe in $candidates) {
+      if ($exe -and (Test-Path -LiteralPath $exe)) {
+        try {
+          Start-Process -FilePath $exe | Out-Null
+          $started = $true
+          break
+        } catch { }
+      }
+    }
+    if (-not $started) {
+      # Last resort: protocol / app user model id varies by install — ignore failures.
+      try { Start-Process "Docker Desktop" -ErrorAction SilentlyContinue | Out-Null; $started = $true } catch { }
+    }
+    return $started
+  }
+  return $true
+}
+
+function Wait-TsDockerReady {
+  param([int]$TimeoutSec = 120)
+  if ($env:TASK_STUDIO_DOCKER_WAIT_SEC -match '^\d+$') {
+    $TimeoutSec = [int]$env:TASK_STUDIO_DOCKER_WAIT_SEC
+  }
+  if ($TimeoutSec -lt 15) { $TimeoutSec = 15 }
+  $elapsed = 0
+  while ($elapsed -lt $TimeoutSec) {
+    if (Test-TsDockerReady) { return $true }
+    if (($elapsed % 10) -eq 0) {
+      $msg = Get-TsText status_docker_waiting $elapsed $TimeoutSec
+      if ($script:TsProg) {
+        $script:TsProg.Status = $msg
+        if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
+      } else {
+        Write-TsInfo $msg
+      }
+    }
+    Start-Sleep -Seconds 2
+    $elapsed += 2
+  }
+  return $false
+}
+
 function Assert-TsDocker {
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw (Get-TsText err_docker_missing)
   }
-  $info = Invoke-TsNative docker info
-  if ($info.ExitCode -ne 0) {
-    $detail = $info.Text
-    if ($detail -match '(?i)dockerDesktopLinuxEngine|pipe|cannot find the file|daemon is not running|Is the docker daemon running') {
-      throw (Get-TsText err_docker_desktop_engine)
+
+  if (-not (Test-TsDockerReady)) {
+    $msg = Get-TsText status_docker_starting
+    if ($script:TsProg) {
+      $script:TsProg.Status = $msg
+      if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
+    } else {
+      Write-TsInfo $msg
     }
-    if ($detail) {
-      throw (Get-TsText err_docker_unusable $detail)
+    [void](Start-TsDockerDesktop)
+    if (-not (Wait-TsDockerReady)) {
+      $info = Invoke-TsNative docker info
+      $detail = $info.Text
+      if ($detail -match '(?i)dockerDesktopLinuxEngine|pipe|cannot find the file|daemon is not running|Is the docker daemon running') {
+        throw (Get-TsText err_docker_desktop_engine)
+      }
+      if ($detail) {
+        throw (Get-TsText err_docker_unusable $detail)
+      }
+      throw (Get-TsText err_docker_start_failed)
     }
-    throw (Get-TsText err_docker_stopped)
   }
+
   $compose = Invoke-TsNative docker compose version
   if ($compose.ExitCode -ne 0) {
     throw (Get-TsText err_compose_missing)

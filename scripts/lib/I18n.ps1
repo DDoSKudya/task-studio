@@ -130,6 +130,9 @@ function Get-TsText {
     'err_docker_desktop_engine' {
       $en = 'Docker Desktop engine is not running (named pipe missing). Open Docker Desktop, wait until it says Running / Engine running, then retry. WSL 2 backend must be enabled.'; $ru = 'Движок Docker Desktop не запущен (нет named pipe). Откройте Docker Desktop, дождитесь статуса Running, затем повторите. Нужен backend WSL 2.'
     }
+    'err_docker_start_failed' {
+      $en = 'Could not start Docker automatically. Start Docker Desktop / enable the docker service, wait until it is ready, then retry.'; $ru = 'Не удалось запустить Docker автоматически. Запустите Docker Desktop / службу docker, дождитесь готовности и повторите.'
+    }
     'err_docker_unusable' {
       $en = 'Docker is installed but not usable. Start Docker Desktop / the Docker daemon and wait until it is ready. Detail: %s'; $ru = 'Docker установлен, но недоступен. Запустите Docker Desktop / демон Docker и дождитесь готовности. Подробности: %s'
     }
@@ -480,6 +483,12 @@ function Get-TsText {
     }
     'status_check_docker' {
       $en = 'Checking Docker and environment'; $ru = 'Проверка Docker и окружения'
+    }
+    'status_docker_starting' {
+      $en = 'Docker is not ready — starting it…'; $ru = 'Docker не готов — запускаю…'
+    }
+    'status_docker_waiting' {
+      $en = 'Waiting for Docker… %ss / %ss'; $ru = 'Ожидание Docker… %s с / %s с'
     }
     'status_check_ui' {
       $en = 'Checking UI (%s)'; $ru = 'Проверка UI (%s)'

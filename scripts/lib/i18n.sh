@@ -130,6 +130,7 @@ ts_t() {
     err_docker_unusable) en="Docker is installed but not usable. Start Docker Desktop / the Docker daemon and wait until it is ready. Detail: %s"; ru="Docker установлен, но недоступен. Запустите Docker Desktop / демон Docker и дождитесь готовности. Подробности: %s" ;;
     err_docker_stopped) en="Docker is installed but not running. Start Docker Desktop / the Docker daemon and wait until it is ready."; ru="Docker установлен, но не запущен. Запустите Docker Desktop / демон Docker и дождитесь готовности." ;;
     err_docker_desktop_engine) en="Docker Desktop engine is not running (named pipe missing). Open Docker Desktop, wait until it says Running / Engine running, then retry. WSL 2 backend must be enabled."; ru="Движок Docker Desktop не запущен (нет named pipe). Откройте Docker Desktop, дождитесь статуса Running, затем повторите. Нужен backend WSL 2." ;;
+    err_docker_start_failed) en="Could not start Docker automatically. Start Docker Desktop / enable the docker service, wait until it is ready, then retry."; ru="Не удалось запустить Docker автоматически. Запустите Docker Desktop / службу docker, дождитесь готовности и повторите." ;;
     err_compose_missing) en="Docker Compose v2 is required (command: docker compose). Update Docker Desktop or install the compose plugin."; ru="Нужен Docker Compose v2 (команда: docker compose). Обновите Docker Desktop или установите плагин compose." ;;
     err_buildkit) en="Docker Engine %s is too old. Task Studio needs Docker 20+ with BuildKit (cache mounts). Upgrade Docker Desktop / Engine."; ru="Docker Engine %s слишком старый. Нужен Docker 20+ с BuildKit (cache mounts). Обновите Docker Desktop / Engine." ;;
 
@@ -170,6 +171,8 @@ ts_t() {
     stage_rebuild) en="Rebuild stack"; ru="Пересборка стека" ;;
 
     status_check_docker) en="Checking Docker and environment"; ru="Проверка Docker и окружения" ;;
+    status_docker_starting) en="Docker is not ready — starting it…"; ru="Docker не готов — запускаю…" ;;
+    status_docker_waiting) en="Waiting for Docker… %ss / %ss"; ru="Ожидание Docker… %s с / %s с" ;;
     status_ensure_repo) en="Ensuring repository and .env"; ru="Проверка репозитория и .env" ;;
     status_build_slow) en="Building container images (first run is slow)"; ru="Сборка образов контейнеров (первый запуск долгий)" ;;
     status_starting_containers) en="Starting containers"; ru="Запуск контейнеров" ;;

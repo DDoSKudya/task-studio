@@ -8,17 +8,110 @@ INSTALL_DIR="${TASK_STUDIO_DIR:-$HOME/task-studio}"
 MIN_RAM_GB="${TASK_STUDIO_MIN_RAM_GB:-8}"
 OLLAMA_MODEL_DEFAULT="${OLLAMA_MODEL:-qwen2.5:3b}"
 
+ops_docker_ready() {
+  docker info >/dev/null 2>&1
+}
+
+# Best-effort: start Docker Engine / Docker Desktop when the daemon is down.
+# Disable with TASK_STUDIO_NO_AUTO_DOCKER=1.
+ops_try_start_docker() {
+  [[ "${TASK_STUDIO_NO_AUTO_DOCKER:-}" == "1" ]] && return 1
+  local os
+  os="$(uname -s 2>/dev/null || echo unknown)"
+
+  case "$os" in
+    Linux)
+      # Docker Engine (docker-ce) via systemd — prefer passwordless sudo.
+      if command -v systemctl >/dev/null 2>&1; then
+        if systemctl list-unit-files 2>/dev/null | grep -q '^docker\.service'; then
+          if sudo -n systemctl start docker >/dev/null 2>&1; then
+            return 0
+          fi
+          # Rootless / already permitted without sudo.
+          if systemctl start docker >/dev/null 2>&1; then
+            return 0
+          fi
+        fi
+        # Docker Desktop for Linux (user unit).
+        if systemctl --user start docker-desktop >/dev/null 2>&1; then
+          return 0
+        fi
+      fi
+      if command -v service >/dev/null 2>&1; then
+        if sudo -n service docker start >/dev/null 2>&1; then
+          return 0
+        fi
+      fi
+      # Launch Desktop UI if installed.
+      if command -v docker-desktop >/dev/null 2>&1; then
+        nohup docker-desktop >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+        return 0
+      fi
+      if [[ -x /opt/docker-desktop/bin/docker-desktop ]]; then
+        nohup /opt/docker-desktop/bin/docker-desktop >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+        return 0
+      fi
+      ;;
+    Darwin)
+      if [[ -d /Applications/Docker.app ]]; then
+        open -a Docker >/dev/null 2>&1 && return 0
+      fi
+      ;;
+  esac
+  return 1
+}
+
+ops_wait_docker() {
+  local timeout="${TASK_STUDIO_DOCKER_WAIT_SEC:-120}"
+  local i=0
+  [[ "$timeout" =~ ^[0-9]+$ ]] || timeout=120
+  ((timeout < 15)) && timeout=15
+  while ((i < timeout)); do
+    if ops_docker_ready; then
+      return 0
+    fi
+    if ((i % 10 == 0)); then
+      if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
+        ts_prog_status "$(ts_t status_docker_waiting "$i" "$timeout")"
+      elif declare -f ui_info >/dev/null 2>&1; then
+        ui_info "$(ts_t status_docker_waiting "$i" "$timeout")"
+      fi
+    fi
+    sleep 2
+    i=$((i + 2))
+  done
+  return 1
+}
+
 ops_need_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     ui_die "$(ts_t err_docker_missing)"
   fi
-  local info_err
-  if ! info_err="$(docker info 2>&1 >/dev/null)"; then
-    if [[ -n "${info_err//[[:space:]]/}" ]]; then
-      ui_die "$(ts_t err_docker_unusable "$info_err")"
+
+  if ! ops_docker_ready; then
+    if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
+      ts_prog_status "$(ts_t status_docker_starting)"
+    elif declare -f ui_info >/dev/null 2>&1; then
+      ui_info "$(ts_t status_docker_starting)"
     fi
-    ui_die "$(ts_t err_docker_stopped)"
+    if ops_try_start_docker; then
+      :
+    else
+      # Still wait a bit — user may have started Docker manually in parallel.
+      true
+    fi
+    if ! ops_wait_docker; then
+      local info_err=""
+      info_err="$(docker info 2>&1 >/dev/null || true)"
+      if [[ -n "${info_err//[[:space:]]/}" ]]; then
+        ui_die "$(ts_t err_docker_unusable "$info_err")"
+      fi
+      ui_die "$(ts_t err_docker_start_failed)"
+    fi
   fi
+
   if ! docker compose version >/dev/null 2>&1; then
     ui_die "$(ts_t err_compose_missing)"
   fi
