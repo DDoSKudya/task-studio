@@ -266,7 +266,7 @@ ts_prog_line_is_noise() {
 ts_prog_line_is_signal() {
   local line="$1"
   printf '%s' "$line" | grep -qiE \
-    'error:|ERROR|fatal:|FATAL|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|OOM|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed'
+    'error:|ERROR|fatal:|FATAL|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|OOM|heap out of memory|JavaScript heap|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed|npm error|ELIFECYCLE'
 }
 
 # Up to N meaningful lines from the end of the log for the error panel.

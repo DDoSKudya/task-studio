@@ -486,7 +486,7 @@ function Test-TsProgressLogNoise([string]$Line) {
 }
 
 function Test-TsProgressLogSignal([string]$Line) {
-  return [bool]($Line -match '(?i)error:|\bERROR\b|fatal:|\bFATAL\b|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|\bOOM\b|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed')
+  return [bool]($Line -match '(?i)error:|\bERROR\b|fatal:|\bFATAL\b|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|\bOOM\b|heap out of memory|JavaScript heap|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed|npm error|ELIFECYCLE')
 }
 
 function Get-TsProgressLogExcerpt {

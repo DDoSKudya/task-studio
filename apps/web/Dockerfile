@@ -21,7 +21,9 @@ ENV NUXT_DEVTOOLS=false
 ENV NUXT_SKIP_ESLINT=true
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_SOURCEMAP=false
-ENV NODE_OPTIONS=--max-old-space-size=2048
+# Nuxt + Monaco/Mermaid/ECharts needs a large heap; 2048 OOMs on Docker Desktop (Win).
+ARG NODE_MAX_OLD_SPACE_SIZE=4096
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}
 # Vite default cacheDir is node_modules/.vite (not .cache).
 RUN --mount=type=cache,target=/app/apps/web/node_modules/.vite \
     --mount=type=cache,target=/app/apps/web/node_modules/.cache \
