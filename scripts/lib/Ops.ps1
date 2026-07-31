@@ -335,12 +335,18 @@ function Invoke-TsCompose {
     [object[]]$ComposeArgs
   )
   $pname = Initialize-TsComposeEnv
-  $argList = @("-p", $pname, "-f", $script:ComposeFile)
+  $argList = @("compose", "-p", $pname, "-f", $script:ComposeFile)
   if (Test-Path ".env") {
     $argList += @("--env-file", ".env")
   }
   if ($ComposeArgs) { $argList += $ComposeArgs }
-  & docker compose @argList
+  # Docker prints progress on stderr; under Stop that becomes NativeCommandError.
+  $r = Invoke-TsNative docker @argList
+  foreach ($line in $r.Output) {
+    Write-Output $line
+  }
+  $global:LASTEXITCODE = $r.ExitCode
+  return $r.ExitCode
 }
 
 function Invoke-TsComposeCaptured {
@@ -349,12 +355,14 @@ function Invoke-TsComposeCaptured {
     [object[]]$ComposeArgs
   )
   $pname = Initialize-TsComposeEnv
-  $argList = @("-p", $pname, "-f", $script:ComposeFile)
+  $argList = @("compose", "-p", $pname, "-f", $script:ComposeFile)
   if (Test-Path ".env") {
     $argList += @("--env-file", ".env")
   }
   if ($ComposeArgs) { $argList += $ComposeArgs }
-  return ,@(& docker compose @argList 2>&1)
+  $r = Invoke-TsNative docker @argList
+  $global:LASTEXITCODE = $r.ExitCode
+  return ,$r.Output
 }
 
 function Prepare-TsDirs {
@@ -396,7 +404,8 @@ function Write-TsComposeFailureDiagnostics {
       $n = "task-studio-${svc}-1"
       [void]$names.Add($n)
     }
-    $rows = @(docker ps -a --filter "label=com.docker.compose.project=$pname" --format "{{.Names}}`t{{.Status}}" 2>$null)
+    $rowsR = Invoke-TsNative docker ps -a --filter "label=com.docker.compose.project=$pname" --format "{{.Names}}`t{{.Status}}"
+    $rows = @($rowsR.Output)
     foreach ($row in $rows) {
       if (-not $row) { continue }
       $parts = ([string]$row) -split "`t", 2
@@ -406,17 +415,16 @@ function Write-TsComposeFailureDiagnostics {
       if (-not $names.Contains($name)) { [void]$names.Add($name) }
     }
     foreach ($name in $names) {
-      $exists = docker inspect $name 2>$null
-      if (-not $exists) { continue }
-      $status = ""
-      try { $status = [string](docker inspect --format "{{.State.Status}}/{{.State.Health.Status}}" $name 2>$null) } catch { }
+      $insp = Invoke-TsNative docker inspect $name
+      if ($insp.ExitCode -ne 0) { continue }
+      $statusR = Invoke-TsNative docker inspect --format "{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{end}}" $name
+      $status = [string]$statusR.Text
       [void]$sb.AppendLine("")
       [void]$sb.AppendLine(("----- logs: {0} ({1}) -----" -f $name, $status))
-      try {
-        $logs = @(docker logs --tail 200 $name 2>&1)
-        foreach ($line in $logs) { [void]$sb.AppendLine([string]$line) }
-      } catch {
-        [void]$sb.AppendLine(("docker logs failed: {0}" -f $_.Exception.Message))
+      $logsR = Invoke-TsNative docker logs --tail 200 $name
+      foreach ($line in $logsR.Output) { [void]$sb.AppendLine([string]$line) }
+      if ($logsR.ExitCode -ne 0 -and $logsR.Output.Count -eq 0) {
+        [void]$sb.AppendLine(("docker logs failed: exit {0}" -f $logsR.ExitCode))
       }
     }
     $payload = $sb.ToString()
@@ -430,28 +438,31 @@ function Write-TsComposeFailureDiagnostics {
 }
 
 function Wait-TsCatalogHealthy {
-  param([int]$TimeoutSec = 180)
+  param([int]$TimeoutSec = 240)
   $name = "task-studio-catalog-1"
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+  $sawRunning = $false
   while ([DateTime]::UtcNow -lt $deadline) {
-    $exists = $false
-    try {
-      $null = docker inspect $name 2>$null
-      if ($LASTEXITCODE -eq 0) { $exists = $true }
-    } catch { }
-    if ($exists) {
-      $health = ""
-      try { $health = [string](docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $name 2>$null) } catch { }
+    $insp = Invoke-TsNative docker inspect $name
+    if ($insp.ExitCode -eq 0) {
+      $healthR = Invoke-TsNative docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{end}}" $name
+      $statusR = Invoke-TsNative docker inspect --format "{{.State.Status}}" $name
+      $health = [string]$healthR.Text
+      $status = [string]$statusR.Text
+      if ($status -eq "running") { $sawRunning = $true }
       if ($health -eq "healthy") { return $true }
       if ($health -eq "unhealthy") {
         Write-TsComposeFailureDiagnostics
         return $false
       }
-      $status = ""
-      try { $status = [string](docker inspect --format "{{.State.Status}}" $name 2>$null) } catch { }
       if ($status -eq "exited" -or $status -eq "dead") {
         Write-TsComposeFailureDiagnostics
         return $false
+      }
+      if ($script:TsProg -and $sawRunning) {
+        $left = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalSeconds)
+        $script:TsProg.Status = (Get-TsText status_waiting_catalog $left)
+        if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
       }
     }
     Start-Sleep -Seconds 3
@@ -476,19 +487,21 @@ function Invoke-TsComposeUp {
     return $false
   }
 
-  # Bring catalog up alone first — avoids losing its crash in the thundering herd.
   $catMsg = Get-TsText status_starting_catalog
   if ($script:TsProg) {
     $script:TsProg.Status = $catMsg
     if (Get-Command Write-TsProgSync -ErrorAction SilentlyContinue) { Write-TsProgSync }
   }
   Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--no-deps", "catalog"))
-  if (-not (Wait-TsCatalogHealthy -TimeoutSec 180)) {
-    # One rebuild+restart of catalog alone, then dump.
-    [void](Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--build", "--force-recreate", "--no-deps", "catalog")))
-    if (-not (Wait-TsCatalogHealthy -TimeoutSec 180)) {
-      return $false
-    }
+  $catalogOk = Wait-TsCatalogHealthy -TimeoutSec 240
+  if (-not $catalogOk) {
+    [void](Invoke-TsCompose @($ProfileArgs + @("up", "-d", "--force-recreate", "--no-deps", "catalog")))
+    $catalogOk = Wait-TsCatalogHealthy -TimeoutSec 240
+  }
+  if (-not $catalogOk) {
+    # Soft-gate: UI (nginx/web/studio-api) does not require catalog healthy.
+    Write-TsWarn (Get-TsText warn_catalog_continue)
+    Write-TsComposeFailureDiagnostics
   }
 
   $startMsg = Get-TsText status_starting_containers
@@ -506,8 +519,11 @@ function Invoke-TsComposeUp {
 }
 
 function Get-TsProfileArgs {
-  $mode = if ($env:ORCHESTRATOR_MODE) { $env:ORCHESTRATOR_MODE } else { "balancing" }
-  if (Test-Path ".env") {
+  # Prefer process env (install may force power_saving on low RAM). Fall back to .env.
+  $mode = "balancing"
+  if ($env:ORCHESTRATOR_MODE) {
+    $mode = $env:ORCHESTRATOR_MODE
+  } elseif (Test-Path ".env") {
     $line = Get-Content ".env" | Where-Object { $_ -match '^ORCHESTRATOR_MODE=' } | Select-Object -First 1
     if ($line) {
       $mode = ($line -split '=', 2)[1].Trim()
@@ -544,6 +560,9 @@ function Invoke-TsInstall {
   Set-Location $root
   Write-TsInstallPathWarning -Root $root
   Ensure-TsEnv
+  if ($ram -gt 0 -and $ram -lt 16) {
+    Set-TsEnvValue "ORCHESTRATOR_MODE" $env:ORCHESTRATOR_MODE
+  }
   Prepare-TsDirs
   $profileArgs = Get-TsProfileArgs
   Enter-TsProgressStage -Plan $plan -Id "prepare" -Status (Get-TsText status_build_parallel (Get-TsDefaultParallelLimit))

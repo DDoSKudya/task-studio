@@ -248,7 +248,7 @@ services:
       media:
         condition: service_healthy
       catalog:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health')"]
       interval: 10s
@@ -494,6 +494,7 @@ services:
   lab-runner:
     <<: *backend
     profiles: [full]
+    user: "0:0"
     build:
       context: ..
       dockerfile: services/lab-runner/Dockerfile

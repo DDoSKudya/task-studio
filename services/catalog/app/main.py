@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -26,8 +27,7 @@ def build_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        # Packs dir + alembic are handled in docker-entrypoint.sh before uvicorn.
-        # Keep a cheap ensure/upgrade here for non-Docker local runs.
+        # Entrypoint already ran alembic when CATALOG_MIGRATIONS_DONE=1.
         try:
             catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -39,7 +39,8 @@ def build_app() -> FastAPI:
         engine = create_engine()
         if engine is not None:
             await ensure_schema(engine, "catalog")
-            await upgrade_head()
+            if os.getenv("CATALOG_MIGRATIONS_DONE", "").strip() != "1":
+                await upgrade_head()
             app.state.db_session_factory = create_session_factory(engine)
         log.info("service_started")
         try:

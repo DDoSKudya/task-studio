@@ -1,5 +1,5 @@
 #!/bin/sh
-# Catalog container entrypoint: ensure packs dir, migrate, then serve.
+# Catalog container entrypoint: ensure packs dir, migrate once, then serve.
 set -eu
 
 PACKS_ROOT="${PACKS_ROOT:-/data/packs}"
@@ -14,13 +14,12 @@ if ! mkdir -p "${PACKS_ROOT}" 2>/dev/null; then
   export PACKS_ROOT
   mkdir -p "${PACKS_ROOT}"
 fi
-# Windows bind mounts often block uid 10001; make tree writable when we can.
-chmod -R a+rwX "${PACKS_ROOT}" 2>/dev/null || true
 
 i=0
 while [ "$i" -lt 12 ]; do
   if alembic upgrade head; then
     echo "catalog-entrypoint: migrations ok (attempt $((i + 1)))" >&2
+    export CATALOG_MIGRATIONS_DONE=1
     break
   fi
   i=$((i + 1))

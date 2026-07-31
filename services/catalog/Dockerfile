@@ -18,19 +18,21 @@ COPY packages/python-common packages/python-common
 COPY packages/contracts packages/contracts
 COPY services/catalog services/catalog
 
+# Strip CR so Windows checkout (core.autocrlf) cannot break the entrypoint shebang.
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --package studio-catalog --no-dev --frozen \
+ && sed -i 's/\r$//' /app/services/catalog/docker-entrypoint.sh \
  && chmod +x /app/services/catalog/docker-entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
 WORKDIR /app/services/catalog
 # Root: Docker Desktop bind-mounts for data/packs are often not writable by uid 10001.
-# Local PET stack — prefer a starting service over a locked volume.
 USER root
 
 EXPOSE 8002
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=12 --start-period=90s \
+HEALTHCHECK --interval=10s --timeout=5s --retries=18 --start-period=120s \
     CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('PORT','8002'), timeout=4)"
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Explicit sh: ignores broken +x/shebang after CRLF checkout mistakes.
+ENTRYPOINT ["/bin/sh", "/app/services/catalog/docker-entrypoint.sh"]

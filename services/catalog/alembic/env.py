@@ -6,7 +6,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from app.infra.models import Base
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
@@ -14,6 +14,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+VERSION_SCHEMA = "catalog"
 
 
 def get_url() -> str:
@@ -27,7 +28,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
-        version_table_schema="catalog",
+        version_table_schema=VERSION_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -39,7 +40,7 @@ def do_run_migrations(connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
-        version_table_schema="catalog",
+        version_table_schema=VERSION_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -56,7 +57,11 @@ async def run_async_migrations() -> None:
     )
 
     async with connectable.connect() as connection:
+        # Entrypoint runs alembic before FastAPI lifespan ensure_schema().
+        await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {VERSION_SCHEMA}"))
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
+        await connection.commit()
 
     await connectable.dispose()
 

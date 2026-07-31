@@ -417,12 +417,22 @@ ops_compose_up() {
   fi
   # shellcheck disable=SC2086
   ops_compose $profile_args up -d --no-deps catalog || true
-  if ! ops_wait_catalog_healthy 180; then
+  local catalog_ok=0
+  if ops_wait_catalog_healthy 240; then
+    catalog_ok=1
+  else
     # shellcheck disable=SC2086
-    ops_compose $profile_args up -d --build --force-recreate --no-deps catalog || true
-    if ! ops_wait_catalog_healthy 180; then
-      return 1
+    ops_compose $profile_args up -d --force-recreate --no-deps catalog || true
+    if ops_wait_catalog_healthy 240; then
+      catalog_ok=1
     fi
+  fi
+  if [[ "$catalog_ok" -ne 1 ]]; then
+    # Soft-gate: UI does not require catalog healthy in compose.
+    if declare -f ui_warn >/dev/null 2>&1; then
+      ui_warn "$(ts_t warn_catalog_continue 2>/dev/null || echo "catalog is not healthy — continuing with the rest of the stack")"
+    fi
+    ops_dump_compose_failure
   fi
   if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
     ts_prog_status "$(ts_t status_starting_containers)"
@@ -604,6 +614,14 @@ ops_install() {
   export TS_ROOT="$ROOT"
   ops_warn_install_path "$ROOT"
   ops_ensure_env
+  if [[ "$ram" -gt 0 && "$ram" -lt 16 ]]; then
+    if grep -qE '^ORCHESTRATOR_MODE=' .env; then
+      sed -i.bak "s|^ORCHESTRATOR_MODE=.*|ORCHESTRATOR_MODE=${ORCHESTRATOR_MODE}|" .env
+    else
+      printf '\nORCHESTRATOR_MODE=%s\n' "${ORCHESTRATOR_MODE}" >> .env
+    fi
+    rm -f .env.bak
+  fi
   ops_prepare_dirs
 
   local profile_args

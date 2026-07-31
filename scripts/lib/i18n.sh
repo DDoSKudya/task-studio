@@ -175,6 +175,7 @@ ts_t() {
     status_docker_waiting) en="Waiting for Docker… %ss / %ss"; ru="Ожидание Docker… %s с / %s с" ;;
     status_starting_infra) en="Starting databases and brokers…"; ru="Запуск баз и брокеров…" ;;
     status_starting_catalog) en="Starting catalog service…"; ru="Запуск сервиса catalog…" ;;
+    status_waiting_catalog) en="Waiting for catalog… %ss left"; ru="Ожидание catalog… осталось %s с" ;;
     status_ensure_repo) en="Ensuring repository and .env"; ru="Проверка репозитория и .env" ;;
     status_build_slow) en="Building container images (first run is slow)"; ru="Сборка образов контейнеров (первый запуск долгий)" ;;
     status_starting_containers) en="Starting containers"; ru="Запуск контейнеров" ;;
@@ -221,6 +222,7 @@ ts_t() {
     info_dir) en="Directory: %s"; ru="Каталог: %s" ;;
     info_ui) en="UI: %s"; ru="UI: %s" ;;
     info_opened_ui) en="Opened %s"; ru="Открыто: %s" ;;
+    warn_catalog_continue) en="catalog is not healthy — continuing with UI and the rest of the stack"; ru="catalog не healthy — продолжаем запуск UI и остальных сервисов" ;;
     warn_ui_unreachable) en="UI is not responding at %s. Use Heal, Restart, or Install/repair."; ru="UI не отвечает: %s. Используйте Починить, Перезапуск или Установка/ремонт." ;;
     info_open_manual) en="Open in browser: %s"; ru="Откройте в браузере: %s" ;;
     info_console) en="Console: bash ./scripts/studio.sh"; ru="Консоль: bash ./scripts/studio.sh" ;;

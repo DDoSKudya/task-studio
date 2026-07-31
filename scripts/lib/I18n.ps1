@@ -496,6 +496,9 @@ function Get-TsText {
     'status_starting_catalog' {
       $en = 'Starting catalog service…'; $ru = 'Запуск сервиса catalog…'
     }
+    'status_waiting_catalog' {
+      $en = 'Waiting for catalog… %ss left'; $ru = 'Ожидание catalog… осталось %s с'
+    }
     'status_check_ui' {
       $en = 'Checking UI (%s)'; $ru = 'Проверка UI (%s)'
     }
@@ -696,6 +699,10 @@ Update скачивает пакет, сверяет контрольные су
     }
     'usage_header' {
       $en = 'Task Studio Launcher'; $ru = 'Task Studio Launcher'
+    }
+    'warn_catalog_continue' {
+      $en = 'catalog is not healthy — continuing with UI and the rest of the stack'
+      $ru = 'catalog не healthy — продолжаем запуск UI и остальных сервисов'
     }
     'warn_compose_down' {
       $en = 'compose down reported an error — %s'; $ru = 'compose down сообщил об ошибке — %s'
