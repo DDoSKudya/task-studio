@@ -17,7 +17,7 @@ ENV NUXT_TYPE_CHECK=false
 ENV NUXT_DEVTOOLS=false
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_SOURCEMAP=false
-ENV NODE_OPTIONS=--max-old-space-size=3072
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN --mount=type=cache,target=/app/node_modules/.vite \
     --mount=type=cache,target=/app/node_modules/.cache \
     npm run build

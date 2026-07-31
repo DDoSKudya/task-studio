@@ -23,7 +23,15 @@ function Test-StackEdgeOk {
   )
   if (-not (Test-Path ".env")) { return $true }
   try {
-    $lines = docker compose -f $ComposeFile --env-file .env --profile full ps --format "{{.Service}} {{.State}} {{.Health}}" 2>$null
+    $pname = "task-studio"
+    foreach ($line in (Get-Content ".env" -ErrorAction SilentlyContinue)) {
+      if ($line -match '^COMPOSE_PROJECT_NAME=(.*)$') {
+        $pname = $Matches[1].Trim().Trim('"').Trim("'")
+        if (-not $pname) { $pname = "task-studio" }
+        break
+      }
+    }
+    $lines = docker compose -p $pname -f $ComposeFile --env-file .env --profile full ps --format "{{.Service}} {{.State}} {{.Health}}" 2>$null
     $nginx = $lines | Where-Object { $_ -match '^nginx\b' } | Select-Object -First 1
     if (-not $nginx) { return $true }
     return ($nginx -match 'running|healthy')

@@ -32,6 +32,8 @@ ts_t() {
   case "$key" in
     yes) en="Yes"; ru="Да" ;;
     no) en="No"; ru="Нет" ;;
+    action_delete) en="Delete"; ru="Удалить" ;;
+    action_cancel) en="Cancel"; ru="Отмена" ;;
     app_title) en="Task Studio Launcher"; ru="Task Studio Launcher" ;;
     enter_back) en="Enter = back"; ru="Enter — назад" ;;
     press_enter_close) en="Press Enter to close…"; ru="Нажмите Enter, чтобы закрыть…" ;;
@@ -57,8 +59,9 @@ ts_t() {
     prog_footer_idle) en="progress / Enter when done"; ru="прогресс / Enter — когда готово" ;;
     prog_footer_run) en="working… please wait"; ru="работаю… подождите" ;;
     prog_footer_return) en="Enter = back / auto in 5s"; ru="Enter — назад / авто через 5 с" ;;
-    prog_details) en="Details are logged quietly; this view shows stage progress."; ru="Подробности пишутся в лог; здесь только этапы." ;;
-    prog_details_ps) en="Stage progress (details logged quietly)"; ru="Ход этапов (подробности в логе)" ;;
+    prog_details) en="Log: %s"; ru="Лог: %s" ;;
+    prog_details_ps) en="Log: %s"; ru="Лог: %s" ;;
+    prog_log_hint) en="Full log: %s"; ru="Полный лог: %s" ;;
     prog_eta_sec) en="~ %ss left"; ru="~ %s с осталось" ;;
     prog_eta_min) en="~ %s min left"; ru="~ %s мин осталось" ;;
     prog_eta_hm) en="~ %sh %sm left"; ru="~ %s ч %s мин осталось" ;;
@@ -126,6 +129,7 @@ ts_t() {
     err_docker_unusable) en="Docker is installed but not usable. Start Docker Desktop / the Docker daemon and wait until it is ready. Detail: %s"; ru="Docker установлен, но недоступен. Запустите Docker Desktop / демон Docker и дождитесь готовности. Подробности: %s" ;;
     err_docker_stopped) en="Docker is installed but not running. Start Docker Desktop / the Docker daemon and wait until it is ready."; ru="Docker установлен, но не запущен. Запустите Docker Desktop / демон Docker и дождитесь готовности." ;;
     err_compose_missing) en="Docker Compose v2 is required (command: docker compose). Update Docker Desktop or install the compose plugin."; ru="Нужен Docker Compose v2 (команда: docker compose). Обновите Docker Desktop или установите плагин compose." ;;
+    err_buildkit) en="Docker Engine %s is too old. Task Studio needs Docker 20+ with BuildKit (cache mounts). Upgrade Docker Desktop / Engine."; ru="Docker Engine %s слишком старый. Нужен Docker 20+ с BuildKit (cache mounts). Обновите Docker Desktop / Engine." ;;
 
     # install bootstrap
     boot_git_missing) en="git not found."; ru="git не найден." ;;
@@ -191,6 +195,7 @@ ts_t() {
     status_up_to_date) en="Already up to date (%s)"; ru="Уже актуально (%s)" ;;
     status_read_remote) en="Reading remote version"; ru="Чтение удалённой версии" ;;
     status_ram_power) en="RAM ≈%s GB — power_saving mode"; ru="ОЗУ ≈%s ГБ — режим power_saving" ;;
+    status_build_parallel) en="Compose parallel builds limited to %s (RAM-safe)"; ru="Параллельная сборка Compose ограничена до %s (бережём ОЗУ)" ;;
     status_skip_metrics) en="Skipping host-metrics (Docker Desktop / non-Linux)"; ru="Пропуск host-metrics (Docker Desktop / не Linux)" ;;
     status_skip_metrics_short) en="Skipping host-metrics profile"; ru="Пропуск профиля host-metrics" ;;
     status_removed_data) en="Removed data/"; ru="Удалён data/" ;;
@@ -216,6 +221,8 @@ ts_t() {
 
     warn_model_pull) en="Could not pull the model now. Later: docker compose -f %s --env-file .env --profile full exec ollama ollama pull %s"; ru="Не удалось скачать модель сейчас. Позже: docker compose -f %s --env-file .env --profile full exec ollama ollama pull %s" ;;
     warn_model_pull_short) en="Could not pull the model now."; ru="Не удалось скачать модель сейчас." ;;
+    warn_path_wsl_mnt) en="Install path is on /mnt/... (%s). Prefer a Linux filesystem home (e.g. ~/task-studio) — NTFS mounts often break Postgres/ClickHouse permissions."; ru="Путь установки на /mnt/... (%s). Лучше домашний каталог Linux (например ~/task-studio) — монтирование NTFS часто ломает права Postgres/ClickHouse." ;;
+    warn_path_windows) en="Install is on a Windows drive (%s). Prefer WSL home (~/task-studio) for Docker data dirs — NTFS bind mounts often break Postgres/ClickHouse."; ru="Установка на диске Windows (%s). Для каталогов data/ лучше WSL (~/task-studio) — bind-mount NTFS часто ломает Postgres/ClickHouse." ;;
     warn_shortcuts) en="Could not create shortcuts — %s"; ru="Не удалось создать ярлыки — %s" ;;
     warn_uninstall) en="This removes containers, volumes, local images, data/, shortcuts, and .env."; ru="Будут удалены контейнеры, тома, локальные образы, data/, ярлыки и .env." ;;
     warn_purge) en="The install folder will also be deleted (including the launcher): %s"; ru="Также будет удалена папка установки (включая лаунчер): %s" ;;

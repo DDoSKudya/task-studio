@@ -1,3 +1,8 @@
+# Stable project name for launcher + just + consumer installs.
+# Without this, `-f deploy/docker-compose.yml` defaults the project to "deploy",
+# while COMPOSE_PROJECT_NAME in root `.env` is NOT applied via `--env-file`.
+name: task-studio
+
 x-backend-env: &backend-env
   DATABASE_URL: ${DATABASE_URL}
   REDIS_URL: ${REDIS_URL}
@@ -325,7 +330,8 @@ services:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/ping"]
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 40s
 
   tutor:
     <<: *backend
@@ -482,6 +488,8 @@ services:
       LAB_JOBS_QUEUE: lab.jobs
       LAB_RUNNER_DRY_RUN: ${LAB_RUNNER_DRY_RUN:-true}
       LAB_DEFAULT_TIMEOUT_SECONDS: ${LAB_DEFAULT_TIMEOUT_SECONDS:-120}
+    group_add:
+      - "${DOCKER_GID:-988}"
     volumes:
       - ../data/packs:/data/packs:ro
       - /var/run/docker.sock:/var/run/docker.sock

@@ -489,28 +489,32 @@ ui_confirm() {
   [[ "$pick" == "yes" ]]
 }
 
-# Destructive actions: user must type YES (exact).
-ui_confirm_yes() {
+# Destructive confirm: arrow keys — Delete / Cancel (no typing YES).
+ui_confirm_delete() {
   local prompt="${1:-}"
-  local tty hint
-  tty="$(ui_tty)"
+  local del_l can_l
   if [[ -z "$prompt" ]]; then
     if declare -f ts_t >/dev/null 2>&1; then
-      prompt="$(ts_t type_yes_continue)"
+      prompt="$(ts_t confirm_uninstall)"
     else
-      prompt="Type YES to continue:"
+      prompt="Delete Task Studio?"
     fi
   fi
   if declare -f ts_t >/dev/null 2>&1; then
-    hint="$(ts_t type_yes_hint)"
+    del_l="$(ts_t action_delete)"
+    can_l="$(ts_t action_cancel)"
   else
-    hint="Type YES (uppercase) to confirm, anything else cancels."
+    del_l="Delete"
+    can_l="Cancel"
   fi
-  ui_warn "$hint"
-  printf '%s%s%s ' "$(ui_c "$TS_GOLD")" "$prompt" "$(ui_c "$TS_RESET")" >"$tty"
-  local answer=""
-  IFS= read -r answer <"$tty" || true
-  [[ "$answer" == "YES" ]]
+  local pick
+  pick="$(ui_choose "$prompt" "delete|$del_l" "cancel|$can_l")" || return 1
+  [[ "$pick" == "delete" ]]
+}
+
+# Back-compat alias (was: type YES).
+ui_confirm_yes() {
+  ui_confirm_delete "$@"
 }
 
 ui_pause() {
@@ -664,13 +668,32 @@ ui_progress_panel_paint() {
 
   if [[ "$phase" == "error" ]]; then
     ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_error_label 2>/dev/null || echo Error)" danger
-    ui_draw_line_in_box $((top + 10)) "$left" "$width" "${error:-$(ts_t prog_unknown_error 2>/dev/null || echo 'Unknown error')}" danger
+    local -a excerpt_lines=()
+    local eline
+    while IFS= read -r eline || [[ -n "$eline" ]]; do
+      [[ -n "$eline" ]] && excerpt_lines+=("$eline")
+    done < <(ts_prog_error_excerpt "${TS_PROGRESS_LOG:-}" 5 2>/dev/null || true)
+    if ((${#excerpt_lines[@]} == 0)); then
+      excerpt_lines=("${error:-$(ts_t prog_unknown_error 2>/dev/null || echo 'Unknown error')}")
+    fi
+    local ei=0
+    for eline in "${excerpt_lines[@]}"; do
+      ui_draw_line_in_box $((top + 10 + ei)) "$left" "$width" "$eline" danger
+      ei=$((ei + 1))
+    done
+    while ((ei < 5)); do
+      ui_draw_line_in_box $((top + 10 + ei)) "$left" "$width" "" muted
+      ei=$((ei + 1))
+    done
+    ui_draw_line_in_box $((top + 15)) "$left" "$width" "$(ts_t prog_log_hint "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Full log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
   elif [[ "$phase" == "done" ]]; then
     ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_completed 2>/dev/null || echo 'Completed successfully')" ok
     ui_draw_line_in_box $((top + 10)) "$left" "$width" "" muted
+    ui_draw_line_in_box $((top + 11)) "$left" "$width" "$(ts_t prog_details "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
   else
-    ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_details 2>/dev/null || echo 'Details are logged quietly; this view shows stage progress.')" muted
+    ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_details "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
     ui_draw_line_in_box $((top + 10)) "$left" "$width" "" muted
+    ui_draw_line_in_box $((top + 11)) "$left" "$width" "" muted
   fi
   ui_sync_end
 }
@@ -686,7 +709,11 @@ ui_run_progress() {
   export TS_PROGRESS_FILE
   export TS_PROGRESS_LOG
   TS_PROGRESS_FILE="$(mktemp "${TMPDIR:-/tmp}/ts-prog.XXXXXX")"
-  TS_PROGRESS_LOG="$(mktemp "${TMPDIR:-/tmp}/ts-prog-log.XXXXXX")"
+  # Keep the real log under the install tree — temp files were deleted and lied in the UI.
+  if [[ -z "${ROOT:-}" ]]; then
+    ops_find_root_quiet 2>/dev/null || true
+  fi
+  TS_PROGRESS_LOG="$(ts_progress_log_path "${ROOT:-$(pwd -P 2>/dev/null || pwd)}")"
   : >"$TS_PROGRESS_FILE"
   : >"$TS_PROGRESS_LOG"
   TS_UI_PROG_FP=""
@@ -695,7 +722,7 @@ ui_run_progress() {
 
   read -r cols rows < <(ui_term_size)
   pref_w=64
-  pref_h=16
+  pref_h=20
   ((cols < 70)) && pref_w=$((cols - 4))
   read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
   geom="$top $left $height $width"
@@ -705,6 +732,7 @@ ui_run_progress() {
     ui_progress_panel_paint "$top" "$left" "$height" "$width" full
   else
     printf '\n=== %s ===\n' "$title" >&2
+    printf '%s\n' "$(ts_t prog_details "$TS_PROGRESS_LOG" 2>/dev/null || echo "Log: $TS_PROGRESS_LOG")" >&2
   fi
 
   set +e
@@ -725,7 +753,7 @@ ui_run_progress() {
       else
         ui_progress_panel_paint "$top" "$left" "$height" "$width" update
       fi
-      sleep 0.25
+      sleep 0.35
     done
     wait "$pid"
     rc=$?
@@ -772,7 +800,10 @@ ui_run_progress() {
     printf '\n' >&2
     if [[ "$rc" -ne 0 ]]; then
       ts_prog_extract_error "$TS_PROGRESS_LOG" >&2 || true
-      tail -n 20 "$TS_PROGRESS_LOG" >&2 || true
+      printf '%s\n' "$(ts_t prog_log_hint "$TS_PROGRESS_LOG" 2>/dev/null || echo "Full log: $TS_PROGRESS_LOG")" >&2
+      printf '\n--- log excerpt ---\n' >&2
+      ts_prog_error_excerpt "$TS_PROGRESS_LOG" 8 >&2 || true
+      printf '---\n' >&2
       sleep 5
     else
       printf '%s\n' "$(ts_t done_returning 2>/dev/null || echo 'Done. Returning in 5s…')" >&2
@@ -781,9 +812,10 @@ ui_run_progress() {
   fi
 
   set -e
-  local prog_file="$TS_PROGRESS_FILE" prog_log="$TS_PROGRESS_LOG"
-  unset TS_PROGRESS_FILE TS_PROGRESS_LOG
-  rm -f "$prog_file" "$prog_log" 2>/dev/null || true
+  local prog_file="$TS_PROGRESS_FILE"
+  # Keep TS_PROGRESS_LOG on disk for the user; only drop the sync tempfile.
+  unset TS_PROGRESS_FILE
+  rm -f "$prog_file" 2>/dev/null || true
   return "$rc"
 }
 

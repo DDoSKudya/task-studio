@@ -22,6 +22,39 @@ ops_need_docker() {
   if ! docker compose version >/dev/null 2>&1; then
     ui_die "$(ts_t err_compose_missing)"
   fi
+  # Cache mounts in Dockerfiles need BuildKit (Docker Engine 20+).
+  export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
+  local ver major
+  ver="$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)"
+  major="${ver%%.*}"
+  if [[ "$major" =~ ^[0-9]+$ ]] && ((major < 20)); then
+    ui_die "$(ts_t err_buildkit "$ver")"
+  fi
+}
+
+# Parallel image builds are the main OOM source on 8–16 GB hosts.
+ops_default_parallel_limit() {
+  local ram
+  ram="$(ops_detect_ram_gb 2>/dev/null || echo 0)"
+  if [[ "$ram" -gt 0 && "$ram" -le 8 ]]; then
+    printf '1\n'
+  elif [[ "$ram" -gt 0 && "$ram" -le 12 ]]; then
+    printf '2\n'
+  elif [[ "$ram" -gt 0 && "$ram" -le 16 ]]; then
+    printf '3\n'
+  else
+    printf '4\n'
+  fi
+}
+
+ops_warn_install_path() {
+  local root="${1:-$(pwd -P)}"
+  case "$root" in
+    /mnt/[a-zA-Z]/*|/mnt/[a-zA-Z])
+      ui_warn "$(ts_t warn_path_wsl_mnt "$root")"
+      ;;
+  esac
 }
 
 ops_detect_ram_gb() {
@@ -134,8 +167,14 @@ PY
     printf '\nOLLAMA_MODEL=%s\n' "$OLLAMA_MODEL_DEFAULT" >> .env
   fi
 
-  if [[ "$(uname -s)" == "Linux" ]] && command -v getent >/dev/null 2>&1; then
-    gid="$(getent group docker 2>/dev/null | cut -d: -f3 || true)"
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    gid=""
+    if command -v getent >/dev/null 2>&1; then
+      gid="$(getent group docker 2>/dev/null | cut -d: -f3 || true)"
+    fi
+    if [[ -z "${gid:-}" ]] && [[ -S /var/run/docker.sock ]] && command -v stat >/dev/null 2>&1; then
+      gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null || true)"
+    fi
     if [[ -n "${gid:-}" ]]; then
       if grep -q '^DOCKER_GID=' .env; then
         sed -i.bak "s|^DOCKER_GID=.*|DOCKER_GID=$gid|" .env
@@ -151,12 +190,26 @@ ops_prepare_dirs() {
   mkdir -p \
     data/postgres data/redis data/rabbitmq data/packs \
     data/meilisearch data/clickhouse data/minio data/ollama \
-    data/grafana data/prometheus data/piston/packages
+    data/grafana data/prometheus data/piston/packages \
+    data/logs
   chmod -R a+rwX data/packs 2>/dev/null || true
 }
 
 ops_compose() {
-  docker compose -f "$COMPOSE_FILE" --env-file .env "$@"
+  # Root `.env` has COMPOSE_PROJECT_NAME, but `--env-file` alone does not export it
+  # to the Compose CLI. Load it into the environment and pin -p for safety.
+  if [[ -f .env ]]; then
+    local pname
+    pname="$(grep -E '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/[\"'[:space:]]//g" || true)"
+    if [[ -n "$pname" ]]; then
+      export COMPOSE_PROJECT_NAME="$pname"
+    fi
+  fi
+  export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-task-studio}"
+  export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-$(ops_default_parallel_limit)}"
+  export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
+  export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
+  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" --env-file .env "$@"
 }
 
 # Soft root lookup (no die). Sets ROOT and cd when found.
@@ -190,8 +243,7 @@ ops_running_count() {
     return
   fi
   n="$(
-    docker compose -f "$COMPOSE_FILE" --env-file .env \
-      --profile full --profile editor --profile host-metrics \
+    ops_compose --profile full --profile editor --profile host-metrics \
       ps --format '{{.State}}' 2>/dev/null \
       | grep -ciE 'running|healthy' || true
   )"
@@ -234,16 +286,26 @@ ops_stack_state_label() {
 # Stop stack without removing volumes (used before uninstall / restart).
 ops_ensure_stopped() {
   [[ -f "$COMPOSE_FILE" ]] || return 0
+  local down_out=""
   if [[ -f .env ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file .env \
-      --profile full --profile editor --profile host-metrics \
-      down --remove-orphans || true
+    down_out="$(ops_compose --profile full --profile editor --profile host-metrics \
+      down --remove-orphans 2>&1)" || true
   else
-    docker compose -f "$COMPOSE_FILE" \
+    export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-task-studio}"
+    down_out="$(docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" \
       --profile full --profile editor --profile host-metrics \
-      down --remove-orphans || true
+      down --remove-orphans 2>&1)" || true
   fi
-  local n left=15
+  if [[ -n "$down_out" ]]; then
+    printf '%s\n' "$down_out" >>"${TS_PROGRESS_LOG:-/dev/null}" 2>/dev/null || true
+  fi
+  # Also tear down the legacy default project name from compose file path (`deploy`).
+  if docker compose -p deploy -f "$COMPOSE_FILE" ps -q 2>/dev/null | grep -q .; then
+    docker compose -p deploy -f "$COMPOSE_FILE" \
+      --profile full --profile editor --profile host-metrics \
+      down --remove-orphans >>"${TS_PROGRESS_LOG:-/dev/null}" 2>&1 || true
+  fi
+  local n left=30
   while ((left > 0)); do
     n="$(ops_running_count)"
     ((n == 0)) && return 0
@@ -306,11 +368,13 @@ ops_install() {
     export ORCHESTRATOR_MODE="${ORCHESTRATOR_MODE:-power_saving}"
     ts_prog_status "$(ts_t status_ram_power "$ram")"
   fi
+  ts_prog_status "$(ts_t status_build_parallel "$(ops_default_parallel_limit)")"
 
   ts_prog_status "$(ts_t status_ensure_repo)"
   ops_ensure_repo
   cd "$ROOT"
   export TS_ROOT="$ROOT"
+  ops_warn_install_path "$ROOT"
   ops_ensure_env
   ops_prepare_dirs
 
@@ -377,6 +441,7 @@ ops_start() {
   ops_resolve_root || ui_die "$(ts_t err_not_installed)"
   export TS_ROOT="$ROOT"
   ops_need_docker
+  ops_ensure_env
 
   if [[ -f .env ]] && grep -qE '^ORCHESTRATOR_MODE=' .env; then
     export ORCHESTRATOR_MODE="$(grep -E '^ORCHESTRATOR_MODE=' .env | head -1 | cut -d= -f2- | tr -d '[:space:]')"
@@ -433,6 +498,7 @@ ops_restart() {
   export TS_ROOT="$ROOT"
   ops_need_docker
   [[ -f .env ]] || ui_die "$(ts_t err_no_env_install)"
+  ops_ensure_env
   if ! ops_ensure_stopped; then
     ui_die "$(ts_t err_stop_before_restart)"
   fi
@@ -501,12 +567,22 @@ ops_schedule_delete_root() {
   ' _ "$root" >/dev/null 2>&1 &
   disown 2>/dev/null || true
   TS_UNINSTALL_EXIT=1
+  # Parent progress UI runs work in a subshell — marker must live outside the deleted tree.
+  if [[ -n "${TS_UNINSTALL_EXIT_FILE:-}" ]]; then
+    printf '1\n' >"$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true
+  fi
+  printf '1\n' >"$root/.studio-uninstall-exit" 2>/dev/null || true
+  if [[ -n "${TS_PROGRESS_FILE:-}" ]]; then
+    ts_prog_write "uninstall_exit=1"
+  fi
   ts_prog_status "$(ts_t status_delete_scheduled "$root")"
 }
 
-ops_uninstall() {
+# Interactive consent. Sets TS_UNINSTALL_PURGE=0|1. Returns 0 to proceed, 1 cancel.
+ops_uninstall_confirm() {
   local yes=0 purge=0 arg
   TS_UNINSTALL_EXIT=0
+  TS_UNINSTALL_PURGE=0
   for arg in "$@"; do
     case "$arg" in
       -y|--yes) yes=1 ;;
@@ -518,7 +594,7 @@ Usage: bash scripts/studio.sh uninstall [options]
   -y, --yes    Do not ask for confirmation
   --purge      Also delete the install directory (default ~/task-studio)
 EOF
-        return 0
+        return 2
         ;;
       *) ui_die "$(ts_t err_unknown_opt "$arg")" ;;
     esac
@@ -529,6 +605,10 @@ EOF
 
   ops_resolve_root || ui_die "$(ts_t err_install_not_found)"
   export TS_ROOT="$ROOT"
+  rm -f "$ROOT/.studio-uninstall-exit" 2>/dev/null || true
+  TS_UNINSTALL_EXIT_FILE="$(mktemp "${TMPDIR:-/tmp}/ts-uninstall-exit.XXXXXX")"
+  export TS_UNINSTALL_EXIT_FILE
+  : >"$TS_UNINSTALL_EXIT_FILE"
 
   # Consumer product install: always remove the whole folder (launcher included).
   if ops_is_consumer_root "$ROOT"; then
@@ -543,24 +623,35 @@ EOF
       else
         ui_warn "$(ts_t warn_purge "$ROOT")"
       fi
-      if ! ui_confirm_yes; then
+      if ! ui_confirm_delete "$(ts_t confirm_uninstall)"; then
         ui_info "$(ts_t info_cancelled)"
         return 1
       fi
     else
-      if ! ui_confirm "$(ts_t confirm_uninstall)"; then
+      if ! ui_confirm_delete "$(ts_t confirm_uninstall)"; then
         ui_info "$(ts_t info_cancelled)"
         return 1
       fi
       if ui_confirm "$(ts_t confirm_purge)"; then
         purge=1
         ui_warn "$(ts_t warn_purge "$ROOT")"
-        if ! ui_confirm_yes; then
-          ui_info "$(ts_t info_cancelled)"
-          return 1
-        fi
       fi
     fi
+  fi
+
+  TS_UNINSTALL_PURGE="$purge"
+  export TS_UNINSTALL_PURGE
+  return 0
+}
+
+# Work only (no prompts). Expects cwd/repo resolved; uses TS_UNINSTALL_PURGE.
+ops_uninstall_run() {
+  local purge="${TS_UNINSTALL_PURGE:-0}"
+
+  ops_resolve_root || ui_die "$(ts_t err_install_not_found)"
+  export TS_ROOT="$ROOT"
+  if ops_is_consumer_root "$ROOT"; then
+    purge=1
   fi
 
   ts_prog_begin "$(ts_t title_uninstall)"
@@ -579,11 +670,16 @@ EOF
 
   ts_prog_enter remove "$(ts_t status_remove_vol)"
   if [[ -f .env ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file .env \
-      --profile full --profile editor --profile host-metrics \
+    ops_compose --profile full --profile editor --profile host-metrics \
       down -v --rmi local --remove-orphans || true
   else
-    docker compose -f "$COMPOSE_FILE" \
+    export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-task-studio}"
+    docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" \
+      --profile full --profile editor --profile host-metrics \
+      down -v --rmi local --remove-orphans || true
+  fi
+  if docker compose -p deploy -f "$COMPOSE_FILE" ps -q 2>/dev/null | grep -q .; then
+    docker compose -p deploy -f "$COMPOSE_FILE" \
       --profile full --profile editor --profile host-metrics \
       down -v --rmi local --remove-orphans || true
   fi
@@ -608,6 +704,39 @@ EOF
     ts_prog_status "$(ts_t status_repo_kept)"
   fi
   ts_prog_done
+}
+
+ops_uninstall() {
+  local rc
+  ops_uninstall_confirm "$@"
+  rc=$?
+  [[ "$rc" -eq 2 ]] && return 0
+  [[ "$rc" -ne 0 ]] && return 1
+  ops_uninstall_run
+}
+
+ops_uninstall_should_exit() {
+  if [[ -n "${TS_UNINSTALL_EXIT_FILE:-}" && -f "$TS_UNINSTALL_EXIT_FILE" ]]; then
+    local flag
+    flag="$(tr -d '[:space:]' <"$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true)"
+    rm -f "$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true
+    unset TS_UNINSTALL_EXIT_FILE
+    if [[ "$flag" == "1" ]]; then
+      TS_UNINSTALL_EXIT=1
+      return 0
+    fi
+  fi
+  local root="${ROOT:-${TS_ROOT:-}}"
+  if [[ -z "$root" ]]; then
+    ops_find_root_quiet 2>/dev/null || true
+    root="${ROOT:-}"
+  fi
+  if [[ -n "$root" && -f "$root/.studio-uninstall-exit" ]]; then
+    rm -f "$root/.studio-uninstall-exit" 2>/dev/null || true
+    TS_UNINSTALL_EXIT=1
+    return 0
+  fi
+  [[ "${TS_UNINSTALL_EXIT:-0}" == "1" ]]
 }
 
 # --- Self-update (HTTP version + archive, no git) ----------------------------

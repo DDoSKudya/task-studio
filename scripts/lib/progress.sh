@@ -237,22 +237,108 @@ ts_prog_format_eta() {
   fi
 }
 
-# Extract a useful error line from the log file.
+# Strip CSI / noise so log lines fit the panel.
+ts_prog_clean_line() {
+  local line="$1"
+  line="$(ui_strip_ansi "$line" 2>/dev/null || printf '%s' "$line")"
+  line="${line//$'\r'/}"
+  # Collapse runs of spaces
+  line="$(printf '%s' "$line" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+  printf '%s' "$line"
+}
+
+ts_prog_line_is_noise() {
+  local line="$1"
+  [[ -z "$line" ]] && return 0
+  # Keep BuildKit "#12 ERROR: …" — only drop plain step markers.
+  if ts_prog_line_is_signal "$line"; then
+    return 1
+  fi
+  [[ "$line" =~ ^#[[:digit:]]+ ]] && return 0
+  [[ "$line" =~ ^[[:space:]]*---+$ ]] && return 0
+  [[ "$line" =~ ^[[:space:]]*\.\.\.+$ ]] && return 0
+  printf '%s' "$line" | grep -qiE \
+    'deprecated|warning:|^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\b|^exporting |^naming to |^writing image|^unpacking |^extracting |^loading layer|^transferring context|^sha256:|^CACHED$|^DONE [0-9]|^\[[0-9]+/[0-9]+\]' \
+    && return 0
+  return 1
+}
+
+ts_prog_line_is_signal() {
+  local line="$1"
+  printf '%s' "$line" | grep -qiE \
+    'error:|ERROR|fatal:|FATAL|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|OOM|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed'
+}
+
+# Up to N meaningful lines from the end of the log for the error panel.
+ts_prog_error_excerpt() {
+  local log="${1:-${TS_PROGRESS_LOG:-}}"
+  local max="${2:-5}"
+  [[ -n "$log" && -f "$log" ]] || return 1
+  if ((max < 1)); then max=5; fi
+
+  local -a cleaned=()
+  local raw line
+  while IFS= read -r raw || [[ -n "$raw" ]]; do
+    line="$(ts_prog_clean_line "$raw")"
+    if ts_prog_line_is_noise "$line"; then
+      continue
+    fi
+    cleaned+=("$line")
+  done < <(tail -n 120 "$log" 2>/dev/null || true)
+
+  if ((${#cleaned[@]} == 0)); then
+    return 1
+  fi
+
+  local -a signals=()
+  local i
+  for ((i = 0; i < ${#cleaned[@]}; i++)); do
+    if ts_prog_line_is_signal "${cleaned[$i]}"; then
+      signals+=("$i")
+    fi
+  done
+
+  local start=0
+  local end=${#cleaned[@]}
+  if ((${#signals[@]} > 0)); then
+    local last_sig="${signals[$((${#signals[@]} - 1))]}"
+    start=$((last_sig - max + 1))
+    if ((start < 0)); then start=0; fi
+    end=$((last_sig + 1))
+    if ((end - start > max)); then start=$((end - max)); fi
+  else
+    start=$((${#cleaned[@]} - max))
+    if ((start < 0)); then start=0; fi
+  fi
+
+  local count=0
+  for ((i = start; i < end && i < ${#cleaned[@]} && count < max; i++)); do
+    printf '%s\n' "${cleaned[$i]:0:120}"
+    count=$((count + 1))
+  done
+  if ((count > 0)); then
+    return 0
+  fi
+  return 1
+}
+
+# One-line summary for status / sync field.
 ts_prog_extract_error() {
   local log="${1:-${TS_PROGRESS_LOG:-}}"
-  [[ -n "$log" && -f "$log" ]] || return 1
   local line
-  line="$(
-    grep -iE 'error:|fatal:|failed|denied|cannot |no such|not found|permission|refused|timeout' "$log" 2>/dev/null \
-      | grep -viE 'deprecated|warning:' \
-      | tail -1 \
-      || true
-  )"
+  line="$(ts_prog_error_excerpt "$log" 5 2>/dev/null | tail -1 || true)"
   if [[ -z "$line" ]]; then
-    line="$(tail -n 5 "$log" 2>/dev/null | head -1 || true)"
+    line="$(tail -n 1 "$log" 2>/dev/null || true)"
+    line="$(ts_prog_clean_line "$line")"
   fi
-  line="$(ui_strip_ansi "$line" 2>/dev/null || printf '%s' "$line")"
   line="${line:0:180}"
   [[ -n "$line" ]] || return 1
   printf '%s\n' "$line"
+}
+
+# Persistent launcher log under the install root (survives progress UI close).
+ts_progress_log_path() {
+  local root="${1:-${ROOT:-$(pwd -P 2>/dev/null || pwd)}}"
+  mkdir -p "$root/data/logs" 2>/dev/null || true
+  printf '%s\n' "$root/data/logs/studio-last.log"
 }

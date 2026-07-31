@@ -43,8 +43,11 @@ try {
   $exitCode = 1
   $msg = $_.Exception.Message
   if (-not $msg) { $msg = "Command failed" }
-  # Ignore BuildKit progress lines mistaken for failures (legacy / edge hosts).
-  if ($msg -match '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\s*$') {
+  # Prefer a real log excerpt over BuildKit progress / empty throws.
+  if ((Test-Path $LogPath) -and (Get-Command Get-TsProgressLogSummary -ErrorAction SilentlyContinue)) {
+    $fromLog = Get-TsProgressLogSummary -Path $LogPath
+    if ($fromLog) { $msg = $fromLog }
+  } elseif ($msg -match '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\s*$') {
     $msg = Get-TsText cmd_failed_short
   }
   Add-Content -LiteralPath $LogPath -Value ("x " + $msg) -Encoding utf8 -ErrorAction SilentlyContinue
@@ -52,8 +55,10 @@ try {
 }
 
 $reexec = if ($script:UpdateReexec) { "1" } else { "0" }
+$uninstallExit = if ($script:UninstallExit) { "1" } else { "0" }
 @(
   "ExitCode=$exitCode"
   "Reexec=$reexec"
+  "UninstallExit=$uninstallExit"
 ) | Set-Content -LiteralPath $RcPath -Encoding utf8 -Force
 exit $exitCode

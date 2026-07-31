@@ -259,12 +259,20 @@ function Confirm-Ts {
   return ($pick -eq "yes")
 }
 
-# Destructive actions: user must type YES (exact).
+# Destructive confirm: arrows — Delete / Cancel (no typing YES).
+function Confirm-TsDelete {
+  param([string]$Prompt = (Get-TsText confirm_uninstall))
+  $pick = Read-TsChoice -Prompt $Prompt -Items @(
+    @{ Value = "delete"; Label = (Get-TsText action_delete) }
+    @{ Value = "cancel"; Label = (Get-TsText action_cancel) }
+  )
+  return ($pick -eq "delete")
+}
+
+# Back-compat alias.
 function Confirm-TsYes {
-  param([string]$Prompt = (Get-TsText type_yes_continue))
-  Write-TsWarn (Get-TsText type_yes_hint)
-  $answer = Read-Host $Prompt
-  return ($answer -eq "YES")
+  param([string]$Prompt = (Get-TsText confirm_uninstall))
+  return (Confirm-TsDelete -Prompt $Prompt)
 }
 
 function Wait-TsPause {
@@ -443,25 +451,117 @@ function Fail-TsProgress([string]$Message) {
   }
 }
 
+function Get-TsProgressLogPath {
+  param([string]$Root = (Get-Location).Path)
+  $dir = Join-Path $Root "data\logs"
+  if (-not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+  }
+  return (Join-Path $dir "studio-last.log")
+}
+
+function Test-TsProgressLogNoise([string]$Line) {
+  if ([string]::IsNullOrWhiteSpace($Line)) { return $true }
+  if (Test-TsProgressLogSignal $Line) { return $false }
+  if ($Line -match '^#\d+') { return $true }
+  if ($Line -match '^\s*-{3,}\s*$') { return $true }
+  if ($Line -match '(?i)deprecated|warning:') { return $true }
+  if ($Line -match '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\b') { return $true }
+  if ($Line -match '(?i)^exporting |^naming to |^writing image|^unpacking |^extracting |^loading layer|^transferring context|^sha256:|^CACHED$|^DONE \d') { return $true }
+  return $false
+}
+
+function Test-TsProgressLogSignal([string]$Line) {
+  return [bool]($Line -match '(?i)error:|\bERROR\b|fatal:|\bFATAL\b|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|\bOOM\b|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed')
+}
+
+function Get-TsProgressLogExcerpt {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [int]$MaxLines = 5
+  )
+  if (-not (Test-Path $Path)) { return @() }
+  if ($MaxLines -lt 1) { $MaxLines = 5 }
+
+  $cleaned = New-Object System.Collections.Generic.List[string]
+  $rawLines = Get-Content -LiteralPath $Path -Tail 120 -ErrorAction SilentlyContinue
+  if (-not $rawLines) { return @() }
+  foreach ($raw in $rawLines) {
+    $line = ([string]$raw) -replace '\x1b\[[0-9;?]*[a-zA-Z]', '' -replace '\r', ''
+    $line = ($line -replace '\s+', ' ').Trim()
+    if (Test-TsProgressLogNoise $line) { continue }
+    [void]$cleaned.Add($line)
+  }
+  if ($cleaned.Count -eq 0) { return @() }
+
+  $signalIdx = New-Object System.Collections.Generic.List[int]
+  for ($i = 0; $i -lt $cleaned.Count; $i++) {
+    if (Test-TsProgressLogSignal $cleaned[$i]) { [void]$signalIdx.Add($i) }
+  }
+
+  $start = 0
+  $end = $cleaned.Count
+  if ($signalIdx.Count -gt 0) {
+    $last = $signalIdx[$signalIdx.Count - 1]
+    $start = $last - $MaxLines + 1
+    if ($start -lt 0) { $start = 0 }
+    $end = $last + 1
+    if (($end - $start) -gt $MaxLines) { $start = $end - $MaxLines }
+  } else {
+    $start = $cleaned.Count - $MaxLines
+    if ($start -lt 0) { $start = 0 }
+  }
+
+  $out = @()
+  for ($i = $start; $i -lt $end -and $i -lt $cleaned.Count -and $out.Count -lt $MaxLines; $i++) {
+    $text = $cleaned[$i]
+    if ($text.Length -gt 120) { $text = $text.Substring(0, 120) }
+    $out += $text
+  }
+  return $out
+}
+
+function Get-TsProgressLogSummary {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $excerpt = @(Get-TsProgressLogExcerpt -Path $Path -MaxLines 5)
+  if ($excerpt.Count -gt 0) { return $excerpt[$excerpt.Count - 1] }
+  return ""
+}
+
 function Invoke-TsProgress {
   param(
     [Parameter(Mandatory = $true)][string]$Title,
     [Parameter(Mandatory = $true)][scriptblock]$Action
   )
 
+  $root = (Get-Location).Path
+  $logPath = Get-TsProgressLogPath -Root $root
+
   if (Use-TsSimpleUi) {
     Write-TsInfo ("[" + $Title + "] …")
+    Write-TsInfo (Get-TsText prog_details $logPath)
     $script:TsLogQuiet = $true
+    $script:TsLogFile = $logPath
     $ok = $true
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     try {
-      & $Action
+      & $Action > $logPath 2>&1
     } catch {
       $ok = $false
       Write-TsErr $_.Exception.Message
+      Add-Content -LiteralPath $logPath -Value ("x " + $_.Exception.Message) -Encoding utf8 -ErrorAction SilentlyContinue
     } finally {
+      $ErrorActionPreference = $prevEap
       $script:TsLogQuiet = $false
+      $script:TsLogFile = $null
     }
-    if ($ok) { Write-TsOk (Get-TsText prog_completed) } else { Write-TsErr (Get-TsText prog_failed) }
+    if ($ok) { Write-TsOk (Get-TsText prog_completed) } else {
+      Write-TsErr (Get-TsText prog_failed)
+      $excerpt = @(Get-TsProgressLogExcerpt -Path $logPath -MaxLines 5)
+      foreach ($el in $excerpt) { Write-TsErr $el }
+      Write-TsInfo (Get-TsText prog_log_hint $logPath)
+    }
     Wait-TsPause
     return
   }
@@ -469,13 +569,13 @@ function Invoke-TsProgress {
   # Same model as Linux ui_run_progress: work in a child process, UI polls a sync file.
   $work = Join-Path ([System.IO.Path]::GetTempPath()) ("ts-prog-" + [guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $work -Force | Out-Null
-  $logPath = Join-Path $work "log.txt"
   $syncPath = Join-Path $work "sync.txt"
   $rcPath = Join-Path $work "rc.txt"
   $actionPath = Join-Path $work "action.ps1"
   New-Item -ItemType File -Path $logPath -Force | Out-Null
   $enc = New-Object System.Text.UTF8Encoding $false
   [System.IO.File]::WriteAllText($actionPath, $Action.ToString(), $enc)
+  [System.IO.File]::WriteAllText($logPath, "", $enc)
   [System.IO.File]::WriteAllText(
     $syncPath,
     @(
@@ -500,6 +600,7 @@ function Invoke-TsProgress {
   $script:TsProgChromeDrawn = $false
   $script:TsLastProgressPaint = 0
   $script:TsProgBox = $null
+  $script:TsProgressLogPath = $logPath
 
   function Show-ProgressPanel {
     param([switch]$Force)
@@ -517,15 +618,26 @@ function Invoke-TsProgress {
         if ($snap.Eta -lt 60) { Format-TsEta ([int]([math]::Floor($snap.Eta / 10) * 10)) }
         else { Format-TsEta ([int]([math]::Floor($snap.Eta / 30) * 30)) }
       }
-    $fp = "$($snap.Phase)|$($snap.Group)|$statusLine|$($snap.Pct)|$($snap.Error)|$eta|$spin"
+    $logHint = if ($snap.Phase -eq "error") {
+      Get-TsText prog_log_hint $script:TsProgressLogPath
+    } else {
+      Get-TsText prog_details_ps $script:TsProgressLogPath
+    }
+    $excerpt = @()
+    if ($snap.Phase -eq "error" -and $script:TsProgressLogPath) {
+      $excerpt = @(Get-TsProgressLogExcerpt -Path $script:TsProgressLogPath -MaxLines 5)
+      if ($excerpt.Count -eq 0 -and $snap.Error) { $excerpt = @($snap.Error) }
+      if ($excerpt.Count -eq 0) { $excerpt = @((Get-TsText prog_unknown_error)) }
+    }
+    $fp = "$($snap.Phase)|$($snap.Group)|$statusLine|$($snap.Pct)|$($snap.Error)|$eta|$spin|$logHint|$($excerpt -join '`')"
     $now = [Environment]::TickCount
-    if (-not $Force -and $fp -eq $script:TsProgFp -and (($now - $script:TsLastProgressPaint) -lt 200)) {
+    if (-not $Force -and $fp -eq $script:TsProgFp -and (($now - $script:TsLastProgressPaint) -lt 400)) {
       return
     }
     $script:TsProgFp = $fp
     $script:TsLastProgressPaint = $now
 
-    $box = Get-TsCenterBox -PrefW 64 -PrefH 16
+    $box = Get-TsCenterBox -PrefW 64 -PrefH 20
     $script:TsProgBox = $box
     $inner = $box.Width - 2
     $line = ("-" * $inner)
@@ -559,12 +671,20 @@ function Invoke-TsProgress {
       )
       if ($snap.Phase -eq "error") {
         $lines += @{ T = (Get-TsText prog_error_label); S = "danger" }
-        $lines += @{ T = $(if ($snap.Error) { $snap.Error } else { Get-TsText prog_unknown_error }); S = "danger" }
+        foreach ($el in $excerpt) {
+          $lines += @{ T = $el; S = "danger" }
+        }
+        for ($padI = $excerpt.Count; $padI -lt 5; $padI++) {
+          $lines += @{ T = ""; S = "muted" }
+        }
+        $lines += @{ T = $logHint; S = "muted" }
       } elseif ($snap.Phase -eq "done") {
         $lines += @{ T = (Get-TsText prog_completed); S = "ok" }
+        $lines += @{ T = $logHint; S = "muted" }
         $lines += @{ T = ""; S = "muted" }
       } else {
-        $lines += @{ T = (Get-TsText prog_details_ps); S = "muted" }
+        $lines += @{ T = $logHint; S = "muted" }
+        $lines += @{ T = ""; S = "muted" }
         $lines += @{ T = ""; S = "muted" }
       }
       for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -572,7 +692,7 @@ function Invoke-TsProgress {
         Write-TsBoxLine -Left 0 -Width $box.Width -Text $lines[$i].T -Style $lines[$i].S
       }
       $raw.CursorPosition = New-Object System.Management.Automation.Host.Coordinates $col, ($row + $lines.Count)
-      Write-Host ($pad.Substring(0, [Math]::Min($pad.Length, 0)) + "+" + $line + "+") -ForegroundColor $script:TsViolet
+      Write-Host ("+" + $line + "+") -ForegroundColor $script:TsViolet
     } catch {
       # Fallback: rare hosts without RawUI — one clear only when forced.
       if ($Force) {
@@ -585,13 +705,19 @@ function Invoke-TsProgress {
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $statusLine -Style muted
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text ("[" + $bar + "] " + $snap.Pct + "%") -Style selected
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $eta -Style muted
+        if ($snap.Phase -eq "error") {
+          Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText prog_error_label) -Style danger
+          foreach ($el in $excerpt) {
+            Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $el -Style danger
+          }
+        }
+        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $logHint -Style muted
       }
     }
   }
 
   Show-ProgressPanel -Force
 
-  $root = (Get-Location).Path
   $worker = Join-Path $script:TsLibDir "ProgressWorker.ps1"
   if (-not (Test-Path $worker)) {
     throw "ProgressWorker.ps1 not found next to Ui.ps1"
@@ -612,6 +738,7 @@ function Invoke-TsProgress {
 
   $exitCode = $proc.ExitCode
   $reexec = $false
+  $uninstallExit = $false
   if (Test-Path $rcPath) {
     Get-Content -LiteralPath $rcPath -ErrorAction SilentlyContinue | ForEach-Object {
       if ($_ -match '^ExitCode=(.*)$') {
@@ -619,23 +746,20 @@ function Invoke-TsProgress {
         if ([int]::TryParse($Matches[1], [ref]$parsed)) { $exitCode = $parsed }
       }
       if ($_ -match '^Reexec=1$') { $reexec = $true }
+      if ($_ -match '^UninstallExit=1$') { $uninstallExit = $true }
     }
   }
   $script:UpdateReexec = $reexec
+  if ($uninstallExit) { $script:UninstallExit = $true }
+  if (Test-TsUninstallShouldExit -Root $root) { $script:UninstallExit = $true }
 
   if ($exitCode -ne 0) {
     if (-not $script:TsProg -or $script:TsProg.Phase -ne "error") {
       $errMsg = ""
-      if ($script:TsProg -and $script:TsProg.Error) { $errMsg = $script:TsProg.Error }
-      if (-not $errMsg -and (Test-Path $logPath)) {
-        $hit = Get-Content $logPath -ErrorAction SilentlyContinue |
-          Where-Object {
-            $_ -match '(?i)error:|failed|fatal|denied|cannot |not found' -and
-            $_ -notmatch '(?i)^\s*Image\s+\S+\s+(Building|Built|Pulling|Pulled)\b'
-          } |
-          Select-Object -Last 1
-        if ($hit) { $errMsg = [string]$hit }
+      if (Test-Path $logPath) {
+        $errMsg = Get-TsProgressLogSummary -Path $logPath
       }
+      if (-not $errMsg -and $script:TsProg -and $script:TsProg.Error) { $errMsg = $script:TsProg.Error }
       if (-not $errMsg) { $errMsg = (Get-TsText cmd_failed_short) }
       Fail-TsProgress $errMsg
     }
@@ -661,9 +785,11 @@ function Invoke-TsProgress {
     }
     Start-Sleep -Milliseconds 250
   }
+  # Keep studio-last.log; only drop ephemeral sync/worker files.
   Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
   $script:TsProg = $null
   $script:TsProgChromeDrawn = $false
+  $script:TsProgressLogPath = $null
 }
 
 # Back-compat

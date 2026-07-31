@@ -25,6 +25,12 @@ function Get-TsText {
     'app_title' {
       $en = 'Task Studio Launcher'; $ru = 'Task Studio Launcher'
     }
+    'action_cancel' {
+      $en = 'Cancel'; $ru = 'Отмена'
+    }
+    'action_delete' {
+      $en = 'Delete'; $ru = 'Удалить'
+    }
     'boot_downloading' {
       $en = 'Downloading Task Studio Launcher into %s …'; $ru = 'Скачивание Task Studio Launcher в %s …'
     }
@@ -99,6 +105,9 @@ function Get-TsText {
     }
     'err_build_update' {
       $en = 'Docker build failed after update.'; $ru = 'Сборка Docker не удалась после обновления.'
+    }
+    'err_buildkit' {
+      $en = 'Docker Engine %s is too old. Task Studio needs Docker 20+ with BuildKit (cache mounts). Upgrade Docker Desktop / Engine.'; $ru = 'Docker Engine %s слишком старый. Нужен Docker 20+ с BuildKit (cache mounts). Обновите Docker Desktop / Engine.'
     }
     'err_compose_missing' {
       $en = 'Docker Compose v2 is required (command: docker compose). Update Docker Desktop or install the compose plugin.'; $ru = 'Нужен Docker Compose v2 (команда: docker compose). Обновите Docker Desktop или установите плагин compose.'
@@ -326,10 +335,13 @@ function Get-TsText {
       $en = 'Completed successfully'; $ru = 'Успешно завершено'
     }
     'prog_details' {
-      $en = 'Details are logged quietly; this view shows stage progress.'; $ru = 'Подробности пишутся в лог; здесь только этапы.'
+      $en = 'Log: %s'; $ru = 'Лог: %s'
     }
     'prog_details_ps' {
-      $en = 'Stage progress (details logged quietly)'; $ru = 'Ход этапов (подробности в логе)'
+      $en = 'Log: %s'; $ru = 'Лог: %s'
+    }
+    'prog_log_hint' {
+      $en = 'Full log: %s'; $ru = 'Полный лог: %s'
     }
     'prog_done' {
       $en = 'Done'; $ru = 'Готово'
@@ -514,6 +526,9 @@ function Get-TsText {
     'status_ram_power' {
       $en = 'RAM ≈%s GB — power_saving mode'; $ru = 'ОЗУ ≈%s ГБ — режим power_saving'
     }
+    'status_build_parallel' {
+      $en = 'Compose parallel builds limited to %s (RAM-safe)'; $ru = 'Параллельная сборка Compose ограничена до %s (бережём ОЗУ)'
+    }
     'status_read_remote' {
       $en = 'Reading remote version'; $ru = 'Чтение удалённой версии'
     }
@@ -672,6 +687,12 @@ Update скачивает пакет, сверяет контрольные су
     }
     'warn_model_pull_short' {
       $en = 'Could not pull the model now.'; $ru = 'Не удалось скачать модель сейчас.'
+    }
+    'warn_path_windows' {
+      $en = 'Install is on a Windows drive (%s). Prefer WSL home (~/task-studio) for Docker data dirs — NTFS bind mounts often break Postgres/ClickHouse.'; $ru = 'Установка на диске Windows (%s). Для каталогов data/ лучше WSL (~/task-studio) — bind-mount NTFS часто ломает Postgres/ClickHouse.'
+    }
+    'warn_path_wsl_mnt' {
+      $en = 'Install path is on /mnt/... (%s). Prefer a Linux filesystem home (e.g. ~/task-studio) — NTFS mounts often break Postgres/ClickHouse permissions.'; $ru = 'Путь установки на /mnt/... (%s). Лучше домашний каталог Linux (например ~/task-studio) — монтирование NTFS часто ломает права Postgres/ClickHouse.'
     }
     'warn_purge' {
       $en = 'The install folder will also be deleted (including the launcher): %s'; $ru = 'Также будет удалена папка установки (включая лаунчер): %s'

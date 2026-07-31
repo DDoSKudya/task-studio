@@ -34,6 +34,32 @@ function Assert-TsDocker {
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
     throw (Get-TsText err_compose_missing)
   }
+  $env:DOCKER_BUILDKIT = "1"
+  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
+  $ver = (& docker version --format '{{.Server.Version}}' 2>$null)
+  if ($ver -match '^(\d+)\.') {
+    $major = [int]$Matches[1]
+    if ($major -lt 20) {
+      throw (Get-TsText err_buildkit $ver)
+    }
+  }
+}
+
+function Get-TsDefaultParallelLimit {
+  $ram = Get-TsRamGb
+  if ($ram -gt 0 -and $ram -le 8) { return "1" }
+  if ($ram -gt 0 -and $ram -le 12) { return "2" }
+  if ($ram -gt 0 -and $ram -le 16) { return "3" }
+  return "4"
+}
+
+function Write-TsInstallPathWarning {
+  param([string]$Root = (Get-Location).Path)
+  if (-not $Root) { return }
+  # Docker Desktop bind-mounts from NTFS (C:\) often break Postgres/ClickHouse permissions.
+  if ($Root -match '^[A-Za-z]:\\') {
+    Write-TsWarn (Get-TsText warn_path_windows $Root)
+  }
 }
 
 function Get-TsRamGb {
@@ -145,6 +171,18 @@ function Test-TsMasterKey([string]$Raw) {
   }
 }
 
+function Get-TsDockerSockGid {
+  # Docker Desktop / Linux VM: read GID of the mounted socket so orchestrator group_add works.
+  try {
+    $out = & docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.20 `
+      stat -c '%g' /var/run/docker.sock 2>$null
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { return "" }
+    $gid = ("$out").Trim()
+    if ($gid -match '^\d+$') { return $gid }
+  } catch { }
+  return ""
+}
+
 function Ensure-TsEnv {
   if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
@@ -170,13 +208,62 @@ function Ensure-TsEnv {
   if (-not $model -or $model -eq "llama3.2") {
     Set-TsEnvValue "OLLAMA_MODEL" $script:OllamaModel
   }
+  # Only probe the socket when GID is missing or still the .env.example placeholder.
+  $curGid = Get-TsEnvValue "DOCKER_GID"
+  if (-not $curGid -or $curGid -eq "988") {
+    $gid = Get-TsDockerSockGid
+    if ($gid) {
+      Set-TsEnvValue "DOCKER_GID" $gid
+    }
+  }
+}
+
+function Initialize-TsComposeEnv {
+  $pname = Get-TsEnvValue "COMPOSE_PROJECT_NAME"
+  if (-not $pname) { $pname = "task-studio" }
+  $env:COMPOSE_PROJECT_NAME = $pname
+  if (-not $env:COMPOSE_PARALLEL_LIMIT) {
+    $env:COMPOSE_PARALLEL_LIMIT = (Get-TsDefaultParallelLimit)
+  }
+  $env:DOCKER_BUILDKIT = "1"
+  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
+  return $pname
+}
+
+function Invoke-TsCompose {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$ComposeArgs
+  )
+  $pname = Initialize-TsComposeEnv
+  $argList = @("-p", $pname, "-f", $script:ComposeFile)
+  if (Test-Path ".env") {
+    $argList += @("--env-file", ".env")
+  }
+  if ($ComposeArgs) { $argList += $ComposeArgs }
+  & docker compose @argList
+}
+
+function Invoke-TsComposeCaptured {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$ComposeArgs
+  )
+  $pname = Initialize-TsComposeEnv
+  $argList = @("-p", $pname, "-f", $script:ComposeFile)
+  if (Test-Path ".env") {
+    $argList += @("--env-file", ".env")
+  }
+  if ($ComposeArgs) { $argList += $ComposeArgs }
+  return ,@(& docker compose @argList 2>&1)
 }
 
 function Prepare-TsDirs {
   @(
     "data/postgres", "data/redis", "data/rabbitmq", "data/packs",
     "data/meilisearch", "data/clickhouse", "data/minio", "data/ollama",
-    "data/grafana", "data/prometheus", "data/piston/packages"
+    "data/grafana", "data/prometheus", "data/piston/packages",
+    "data/logs"
   ) | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ | Out-Null }
 }
 
@@ -212,22 +299,23 @@ function Invoke-TsInstall {
   }
   if ($ram -gt 0 -and $ram -lt 16) {
     $env:ORCHESTRATOR_MODE = if ($env:ORCHESTRATOR_MODE) { $env:ORCHESTRATOR_MODE } else { "power_saving" }
+    Enter-TsProgressStage -Plan $plan -Id "prepare" -Status (Get-TsText status_ram_power $ram)
   }
 
   $root = Ensure-TsRepo
   Set-Location $root
+  Write-TsInstallPathWarning -Root $root
   Ensure-TsEnv
   Prepare-TsDirs
   $profileArgs = Get-TsProfileArgs
+  Enter-TsProgressStage -Plan $plan -Id "prepare" -Status (Get-TsText status_build_parallel (Get-TsDefaultParallelLimit))
 
-  $env:DOCKER_BUILDKIT = "1"
-  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
   Enter-TsProgressStage -Plan $plan -Id "build" -Status (Get-TsText status_build_slow)
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs build
+  Invoke-TsCompose @($profileArgs + @("build"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_build_short) }
 
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_containers)
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs up -d --remove-orphans
+  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_short) }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_waiting_ui $script:AppUiUrl)
@@ -241,7 +329,7 @@ function Invoke-TsInstall {
   $modelLine = (Get-Content .env | Where-Object { $_ -match '^OLLAMA_MODEL=' } | Select-Object -First 1)
   $model = if ($modelLine) { ($modelLine -split '=', 2)[1].Trim() } else { $script:OllamaModel }
   try {
-    docker compose -f $script:ComposeFile --env-file .env --profile full exec -T ollama ollama pull $model
+    Invoke-TsCompose @("--profile", "full", "exec", "-T", "ollama", "ollama", "pull", $model)
   } catch {
     Write-TsWarn (Get-TsText warn_model_pull_short)
   }
@@ -270,12 +358,11 @@ function Invoke-TsStart {
   $root = Resolve-TsRoot
   if (-not $root) { throw (Get-TsText err_not_installed_ps) }
   Set-Location $root
+  Ensure-TsEnv
   $profileArgs = Get-TsProfileArgs
-  $env:DOCKER_BUILDKIT = "1"
-  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
 
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_ts)
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs up -d --remove-orphans
+  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_short) }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
@@ -291,11 +378,12 @@ function Get-TsRunningCount {
   if (-not (Test-Path $script:ComposeFile) -or -not (Test-Path ".env")) { return 0 }
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { return 0 }
   try {
-    $lines = docker compose -f $script:ComposeFile --env-file .env `
-      --profile full --profile editor --profile host-metrics `
-      ps --format "{{.State}}" 2>$null
+    $lines = Invoke-TsComposeCaptured @(
+      "--profile", "full", "--profile", "editor", "--profile", "host-metrics",
+      "ps", "--format", "{{.State}}"
+    )
     if (-not $lines) { return 0 }
-    return @($lines | Where-Object { $_ -match '(?i)running|healthy' }).Count
+    return @($lines | ForEach-Object { "$_" } | Where-Object { $_ -match '(?i)running|healthy' }).Count
   } catch {
     return 0
   }
@@ -320,14 +408,33 @@ function Get-TsStackState {
 
 function Ensure-TsStopped {
   $profiles = @("--profile", "full", "--profile", "editor", "--profile", "host-metrics")
+  $logPath = $null
+  if ($script:TsProg -and $script:TsProg.LogPath) { $logPath = $script:TsProg.LogPath }
   try {
+    $downOut = @()
     if (Test-Path ".env") {
-      docker compose -f $script:ComposeFile --env-file .env @profiles down --remove-orphans | Out-Null
+      $downOut = @(Invoke-TsComposeCaptured @($profiles + @("down", "--remove-orphans")))
     } elseif (Test-Path $script:ComposeFile) {
-      docker compose -f $script:ComposeFile @profiles down --remove-orphans | Out-Null
+      $pname = Initialize-TsComposeEnv
+      $downOut = @(docker compose -p $pname -f $script:ComposeFile @profiles down --remove-orphans 2>&1)
     }
-  } catch { }
-  for ($i = 0; $i -lt 15; $i++) {
+    if ($logPath -and $downOut) {
+      Add-Content -Path $logPath -Value (($downOut | ForEach-Object { "$_" }) -join "`n") -Encoding utf8 -ErrorAction SilentlyContinue
+    }
+    # Legacy installs used project name from compose path (`deploy`).
+    $legacy = @(docker compose -p deploy -f $script:ComposeFile ps -q 2>$null)
+    if ($legacy) {
+      $legacyOut = @(docker compose -p deploy -f $script:ComposeFile @profiles down --remove-orphans 2>&1)
+      if ($logPath -and $legacyOut) {
+        Add-Content -Path $logPath -Value (($legacyOut | ForEach-Object { "$_" }) -join "`n") -Encoding utf8 -ErrorAction SilentlyContinue
+      }
+    }
+  } catch {
+    if ($logPath) {
+      Add-Content -Path $logPath -Value $_.Exception.Message -Encoding utf8 -ErrorAction SilentlyContinue
+    }
+  }
+  for ($i = 0; $i -lt 30; $i++) {
     if ((Get-TsRunningCount) -eq 0) { return $true }
     Start-Sleep -Seconds 1
   }
@@ -364,13 +471,12 @@ function Invoke-TsRestart {
   if (-not $root) { throw (Get-TsText err_not_installed_ps) }
   Set-Location $root
   if (-not (Test-Path ".env")) { throw (Get-TsText err_no_env_install) }
+  Ensure-TsEnv
   if (-not (Ensure-TsStopped)) { throw (Get-TsText err_stop_before_restart) }
 
   $profileArgs = Get-TsProfileArgs
-  $env:DOCKER_BUILDKIT = "1"
-  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
   Enter-TsProgressStage -Plan $plan -Id "start" -Status (Get-TsText status_starting_containers)
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs up -d --remove-orphans
+  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_after_restart) }
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
@@ -423,20 +529,27 @@ exit 1
     "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd
   ) | Out-Null
   $script:UninstallExit = $true
+  # Parent progress UI runs work in a child process — sticky marker for menu exit.
+  try {
+    Set-Content -LiteralPath (Join-Path $Root ".studio-uninstall-exit") -Value "1" -Encoding ascii -Force
+  } catch { }
   if ($script:TsProg) {
     $script:TsProg.Status = (Get-TsText status_delete_scheduled $Root)
+    Write-TsProgSync
   } else {
     Write-TsInfo (Get-TsText status_delete_scheduled $Root)
   }
 }
 
-function Invoke-TsUninstall {
+# Returns $null on cancel, otherwise @{ Purge = $bool }.
+function Confirm-TsUninstallConsent {
   param([switch]$Yes, [switch]$Purge)
-  $script:UninstallExit = $false
   if ($env:TASK_STUDIO_UNINSTALL_YES -eq "1") { $Yes = $true }
+
   $root = Resolve-TsRoot
   if (-not $root) { throw (Get-TsText err_install_not_found) }
   Set-Location $root
+  Remove-Item -LiteralPath (Join-Path $root ".studio-uninstall-exit") -Force -ErrorAction SilentlyContinue
 
   if (Test-TsConsumerRoot -Root $root) { $Purge = $true }
 
@@ -448,25 +561,52 @@ function Invoke-TsUninstall {
       } else {
         Write-TsWarn (Get-TsText warn_purge_ps $root)
       }
-      if (-not (Confirm-TsYes)) {
+      if (-not (Confirm-TsDelete (Get-TsText confirm_uninstall))) {
         Write-TsInfo (Get-TsText info_cancelled)
-        return
+        return $null
       }
     } else {
-      if (-not (Confirm-Ts (Get-TsText confirm_uninstall))) {
+      if (-not (Confirm-TsDelete (Get-TsText confirm_uninstall))) {
         Write-TsInfo (Get-TsText info_cancelled)
-        return
+        return $null
       }
       if (Confirm-Ts (Get-TsText confirm_purge)) {
         $Purge = $true
         Write-TsWarn (Get-TsText warn_purge_ps $root)
-        if (-not (Confirm-TsYes)) {
-          Write-TsInfo (Get-TsText info_cancelled)
-          return
-        }
       }
     }
   }
+
+  return @{ Purge = [bool]$Purge }
+}
+
+function Test-TsUninstallShouldExit {
+  param([string]$Root = (Get-Location).Path)
+  $marker = Join-Path $Root ".studio-uninstall-exit"
+  if (Test-Path -LiteralPath $marker) {
+    Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+    $script:UninstallExit = $true
+    return $true
+  }
+  return [bool]$script:UninstallExit
+}
+
+function Invoke-TsUninstall {
+  param([switch]$Yes, [switch]$Purge)
+  $script:UninstallExit = $false
+  if ($env:TASK_STUDIO_UNINSTALL_YES -eq "1") { $Yes = $true }
+  if ($env:TASK_STUDIO_UNINSTALL_PURGE -eq "1") { $Purge = $true }
+
+  if (-not $Yes) {
+    $consent = Confirm-TsUninstallConsent -Yes:$Yes -Purge:$Purge
+    if (-not $consent) { return }
+    $Purge = $consent.Purge
+  }
+
+  $root = Resolve-TsRoot
+  if (-not $root) { throw (Get-TsText err_install_not_found) }
+  Set-Location $root
+  if (Test-TsConsumerRoot -Root $root) { $Purge = $true }
 
   $plan = @(
     @{ Id = "stop"; Label = (Get-TsText stage_stop); Est = 30 }
@@ -484,9 +624,14 @@ function Invoke-TsUninstall {
   $profiles = @("--profile", "full", "--profile", "editor", "--profile", "host-metrics")
   try {
     if (Test-Path ".env") {
-      docker compose -f $script:ComposeFile --env-file .env @profiles down -v --rmi local --remove-orphans
+      Invoke-TsCompose @($profiles + @("down", "-v", "--rmi", "local", "--remove-orphans"))
     } else {
-      docker compose -f $script:ComposeFile @profiles down -v --rmi local --remove-orphans
+      $pname = Initialize-TsComposeEnv
+      docker compose -p $pname -f $script:ComposeFile @profiles down -v --rmi local --remove-orphans
+    }
+    $legacy = @(docker compose -p deploy -f $script:ComposeFile ps -q 2>$null)
+    if ($legacy) {
+      docker compose -p deploy -f $script:ComposeFile @profiles down -v --rmi local --remove-orphans
     }
   } catch {
     Write-TsWarn (Get-TsText warn_compose_down $_.Exception.Message)
@@ -859,11 +1004,9 @@ function Invoke-TsUpdate {
   }
   Assert-TsDocker
   $profileArgs = Get-TsProfileArgs
-  $env:DOCKER_BUILDKIT = "1"
-  $env:COMPOSE_DOCKER_CLI_BUILD = "1"
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs build
+  Invoke-TsCompose @($profileArgs + @("build"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_build_update) }
-  docker compose -f $script:ComposeFile --env-file .env @profileArgs up -d --remove-orphans
+  Invoke-TsCompose @($profileArgs + @("up", "-d", "--remove-orphans"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_up_update) }
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
     Open-AppUi

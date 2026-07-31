@@ -110,9 +110,13 @@ studio_run_action() {
       fi
       ;;
     uninstall)
-      ops_uninstall || true
-      if [[ "${TS_UNINSTALL_EXIT:-0}" == "1" ]]; then
-        return 1
+      if ops_uninstall_confirm; then
+        ui_run_progress "$(ts_t title_uninstall)" ops_uninstall_run || true
+        if ops_uninstall_should_exit; then
+          return 1
+        fi
+      else
+        [[ -n "${TS_UNINSTALL_EXIT_FILE:-}" ]] && rm -f "$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true
       fi
       ;;
     help)
@@ -260,15 +264,21 @@ main() {
       fi
       ;;
     uninstall|remove)
-      if { [[ -t 2 ]] || [[ -r /dev/tty ]]; } && ui_supports_color && [[ "$*" != *"--yes"* && "$*" != *"-y"* ]]; then
+      if { [[ -t 2 ]] || [[ -r /dev/tty ]]; } && ui_supports_color; then
         ui_session_start
         trap 'ui_session_end' EXIT
-        ops_uninstall "$@" || true
+        if ops_uninstall_confirm "$@"; then
+          ui_run_progress "$(ts_t title_uninstall)" ops_uninstall_run || true
+          if ops_uninstall_should_exit; then
+            trap - EXIT
+            ui_session_end
+            return 0
+          fi
+        else
+          [[ -n "${TS_UNINSTALL_EXIT_FILE:-}" ]] && rm -f "$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true
+        fi
         trap - EXIT
         ui_session_end
-        if [[ "${TS_UNINSTALL_EXIT:-0}" == "1" ]]; then
-          return 0
-        fi
       else
         ops_uninstall "$@"
       fi

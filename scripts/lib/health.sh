@@ -21,12 +21,17 @@ wait_http_ok() {
 # Best-effort: compose reports the edge proxy as running/healthy.
 stack_edge_ok() {
   local compose="${COMPOSE_FILE:-deploy/docker-compose.yml}"
+  local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
   local line
   if [[ ! -f .env ]]; then
     return 0
   fi
+  if [[ -z "${COMPOSE_PROJECT_NAME:-}" ]] && grep -qE '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null; then
+    pname="$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2- | sed "s/[\"'[:space:]]//g")"
+    pname="${pname:-task-studio}"
+  fi
   line="$(
-    docker compose -f "$compose" --env-file .env --profile full ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null \
+    docker compose -p "$pname" -f "$compose" --env-file .env --profile full ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null \
       | awk '$1 == "nginx" { print; exit }'
   )" || true
   if [[ -z "$line" ]]; then

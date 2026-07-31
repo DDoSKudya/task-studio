@@ -128,10 +128,19 @@ function Show-TsMenu {
         }
       }
       "uninstall" {
-        Invoke-TsUninstall
-        if ($script:UninstallExit) {
-          Write-TsInfo (Get-TsText bye)
-          return
+        $consent = Confirm-TsUninstallConsent
+        if ($consent) {
+          if ($consent.Purge) { $env:TASK_STUDIO_UNINSTALL_PURGE = "1" } else { $env:TASK_STUDIO_UNINSTALL_PURGE = "0" }
+          $env:TASK_STUDIO_UNINSTALL_YES = "1"
+          Invoke-TsProgress -Title (Get-TsText title_uninstall) -Action {
+            Invoke-TsUninstall -Yes -Purge:($env:TASK_STUDIO_UNINSTALL_PURGE -eq "1")
+          }
+          Remove-Item Env:TASK_STUDIO_UNINSTALL_YES -ErrorAction SilentlyContinue
+          Remove-Item Env:TASK_STUDIO_UNINSTALL_PURGE -ErrorAction SilentlyContinue
+          if ($script:UninstallExit -or (Test-TsUninstallShouldExit)) {
+            Write-TsInfo (Get-TsText bye)
+            return
+          }
         }
       }
       "help" {
@@ -194,8 +203,38 @@ switch ($Command.ToLowerInvariant()) {
       exit 0
     }
   }
-  "uninstall" { Invoke-TsUninstall -Yes:$Yes -Purge:$Purge }
-  "remove" { Invoke-TsUninstall -Yes:$Yes -Purge:$Purge }
+  "uninstall" {
+    $consent = Confirm-TsUninstallConsent -Yes:$Yes -Purge:$Purge
+    if (-not $consent) { exit 0 }
+    if ($consent.Purge) { $env:TASK_STUDIO_UNINSTALL_PURGE = "1" } else { $env:TASK_STUDIO_UNINSTALL_PURGE = "0" }
+    $env:TASK_STUDIO_UNINSTALL_YES = "1"
+    if (-not (Use-TsSimpleUi)) {
+      Invoke-TsProgress -Title (Get-TsText title_uninstall) -Action {
+        Invoke-TsUninstall -Yes -Purge:($env:TASK_STUDIO_UNINSTALL_PURGE -eq "1")
+      }
+    } else {
+      Invoke-TsUninstall -Yes -Purge:$consent.Purge
+    }
+    Remove-Item Env:TASK_STUDIO_UNINSTALL_YES -ErrorAction SilentlyContinue
+    Remove-Item Env:TASK_STUDIO_UNINSTALL_PURGE -ErrorAction SilentlyContinue
+    if ($script:UninstallExit -or (Test-TsUninstallShouldExit)) { exit 0 }
+  }
+  "remove" {
+    $consent = Confirm-TsUninstallConsent -Yes:$Yes -Purge:$Purge
+    if (-not $consent) { exit 0 }
+    if ($consent.Purge) { $env:TASK_STUDIO_UNINSTALL_PURGE = "1" } else { $env:TASK_STUDIO_UNINSTALL_PURGE = "0" }
+    $env:TASK_STUDIO_UNINSTALL_YES = "1"
+    if (-not (Use-TsSimpleUi)) {
+      Invoke-TsProgress -Title (Get-TsText title_uninstall) -Action {
+        Invoke-TsUninstall -Yes -Purge:($env:TASK_STUDIO_UNINSTALL_PURGE -eq "1")
+      }
+    } else {
+      Invoke-TsUninstall -Yes -Purge:$consent.Purge
+    }
+    Remove-Item Env:TASK_STUDIO_UNINSTALL_YES -ErrorAction SilentlyContinue
+    Remove-Item Env:TASK_STUDIO_UNINSTALL_PURGE -ErrorAction SilentlyContinue
+    if ($script:UninstallExit -or (Test-TsUninstallShouldExit)) { exit 0 }
+  }
   "menu" { Show-TsMenu }
   default {
     Write-TsErr (Get-TsText unknown_command $Command)

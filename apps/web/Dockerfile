@@ -21,7 +21,7 @@ ENV NUXT_DEVTOOLS=false
 ENV NUXT_SKIP_ESLINT=true
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_SOURCEMAP=false
-ENV NODE_OPTIONS=--max-old-space-size=8192
+ENV NODE_OPTIONS=--max-old-space-size=2048
 # Vite default cacheDir is node_modules/.vite (not .cache).
 RUN --mount=type=cache,target=/app/apps/web/node_modules/.vite \
     --mount=type=cache,target=/app/apps/web/node_modules/.cache \
