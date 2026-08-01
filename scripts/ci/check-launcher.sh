@@ -100,6 +100,37 @@ if not sh_keys:
 print(f"ok {len(sh_keys)} keys match")
 PY
 
+echo "==> PowerShell block comments balanced"
+python3 - <<'PY' || fail "unbalanced <# #> in PowerShell scripts"
+from pathlib import Path
+import re
+import sys
+
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths += sorted(Path("scripts/lib").glob("*.ps1"))
+bad = []
+for path in paths:
+    if not path.is_file():
+        continue
+    text = path.read_text(encoding="utf-8-sig")
+    # rough: count markers outside strings is hard; flag orphan openers left as code
+    if re.search(r"^\s*<#", text, re.M) and not re.search(r"^\s*#>", text, re.M):
+        # opener without any closer line
+        opens = len(re.findall(r"<#", text))
+        closes = len(re.findall(r"#>", text))
+        if opens != closes:
+            bad.append(f"{path}: <#={opens} #>={closes}")
+    else:
+        opens = len(re.findall(r"<#", text))
+        closes = len(re.findall(r"#>", text))
+        if opens != closes:
+            bad.append(f"{path}: <#={opens} #>={closes}")
+if bad:
+    print("\n".join(bad), file=sys.stderr)
+    raise SystemExit(1)
+print(f"ok {sum(1 for p in paths if p.is_file())} files")
+PY
+
 if command -v pwsh >/dev/null 2>&1; then
   echo "==> PowerShell parse"
   pwsh -NoProfile -NonInteractive -Command '

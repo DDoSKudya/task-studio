@@ -85,6 +85,41 @@ def strip_python_comments(text: str) -> str:
     return out
 
 
+def strip_ps_block_comments(text: str) -> str:
+    """Remove PowerShell <# ... #> blocks (not inside strings)."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if ch in "\"'":
+            quote = ch
+            out.append(ch)
+            i += 1
+            while i < n:
+                c = text[i]
+                out.append(c)
+                if c == "`" and i + 1 < n:
+                    out.append(text[i + 1])
+                    i += 2
+                    continue
+                if c == quote:
+                    i += 1
+                    break
+                i += 1
+            continue
+        if ch == "<" and nxt == "#":
+            j = text.find("#>", i + 2)
+            if j < 0:
+                break
+            i = j + 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def strip_full_hash_lines(text: str, keep: re.Pattern[str], *, allow_shebang: bool) -> str:
     out: list[str] = []
     for i, line in enumerate(text.splitlines(keepends=True)):
@@ -201,7 +236,7 @@ def process_file(path: Path) -> bool:
     if suf == ".py":
         new = strip_python_comments(text)
     elif suf == ".ps1":
-        new = strip_full_hash_lines(text, KEEP_PS, allow_shebang=False)
+        new = strip_full_hash_lines(strip_ps_block_comments(text), KEEP_PS, allow_shebang=False)
     elif suf == ".sh":
         new = strip_full_hash_lines(text, KEEP_SH, allow_shebang=True)
     elif suf in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}:

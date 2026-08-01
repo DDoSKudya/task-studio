@@ -38,10 +38,6 @@ function Unlock-TaskStudioScripts {
 }
 
 function Enable-TsScriptExecution {
-  <#
-    Best-effort so studio.ps1 / shortcuts can run after irm|iex bootstrap.
-    Order: CurrentUser RemoteSigned → Bypass → Process Bypass → Unblock files.
-    Machine/User GPO cannot always be overridden; we still prefer studio.cmd (-ExecutionPolicy Bypass).
   $notes = @()
   try {
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop
