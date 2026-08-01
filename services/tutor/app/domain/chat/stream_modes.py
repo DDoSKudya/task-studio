@@ -24,7 +24,6 @@ async def buffered_chat(
     message: str,
     history: list[dict[str, str]] | None,
 ) -> AsyncIterator[bytes]:
-
     pending = asyncio.create_task(
         ollama_draft_and_polish(
             client,
@@ -56,7 +55,6 @@ async def cursor_buffered_chat(
     message: str,
     history: list[dict[str, str]] | None,
 ) -> AsyncIterator[bytes]:
-
     pending = asyncio.create_task(
         _complete_chat_completion(
             client,

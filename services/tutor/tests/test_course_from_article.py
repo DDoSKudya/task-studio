@@ -570,7 +570,6 @@ async def test_generate_course_from_article_mocked_stages() -> None:
 
 @pytest.mark.asyncio
 async def test_external_theory_mid_chapters_preserve_order() -> None:
-
     import uuid
 
     course = load_service_module("app.domain.course_from_article")

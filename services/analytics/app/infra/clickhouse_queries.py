@@ -48,7 +48,6 @@ def fetch_daily_progress(
     user_id: object,
     since_day: object,
 ) -> list[tuple[object, int, int]]:
-
     result = client.query(
         f"""
         SELECT

@@ -33,7 +33,6 @@ async def _iter_quizzes_and_code_parallel(
     code_steps_out: list[dict[str, object]],
     domain: str = "code",
 ) -> AsyncIterator[dict[str, object]]:
-
     practice_is_open = domain in {"language", "general"}
     practice_stage = "tasks" if practice_is_open else "code"
     yield _stage_event(

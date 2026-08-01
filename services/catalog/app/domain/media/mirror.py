@@ -27,7 +27,6 @@ async def mirror_pack_archive(
     version: str,
     disk_path: Path,
 ) -> str | None:
-
     if not media_service_url:
         return None
     return await asyncio.to_thread(

@@ -15,7 +15,7 @@ _TRANSIENT_WAIT_SEC = (0.5, 1.0, 2.0, 4.0, 8.0)
 
 
 def _is_transient_db_error(exc: BaseException) -> bool:
-    if isinstance(exc, (ConnectionError, TimeoutError, OSError, OperationalError, DBAPIError)):
+    if isinstance(exc, ConnectionError | TimeoutError | OSError | OperationalError | DBAPIError):
         return True
     if isinstance(exc, SQLAlchemyError):
         msg = str(exc).lower()

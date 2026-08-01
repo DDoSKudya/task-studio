@@ -38,7 +38,6 @@ async def _execute_import(
     adapter: AdapterModule,
     job: ImportJob,
 ) -> ImportJob:
-
     if job.status == "pending":
         await _set_status(session, job, "fetching")
     credentials = await fetch_platform_credentials(

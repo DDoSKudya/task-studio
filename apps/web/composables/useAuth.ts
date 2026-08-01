@@ -42,7 +42,7 @@ export function useAuth() {
     try {
       await request('/v1/auth/logout', { method: 'POST' })
     } catch {
-
+      /* ignore */
     }
     user.value = null
     settings.value = {}

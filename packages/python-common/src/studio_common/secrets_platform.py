@@ -12,7 +12,6 @@ def decrypt_platform_credentials(
     *,
     master_key: str | None,
 ) -> dict[str, str]:
-
     out: dict[str, str] = {}
     for key, value in platform.items():
         if not isinstance(key, str) or not isinstance(value, str) or not value.strip():

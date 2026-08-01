@@ -21,7 +21,6 @@ _CONTENT_SYSTEM = (
 
 
 def _theory_serial_count(chapter_count: int, *, compact: bool) -> int:
-
     if chapter_count <= 0:
         return 0
     if compact or chapter_count <= _THEORY_SERIAL_PREFIX:

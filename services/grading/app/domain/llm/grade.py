@@ -23,7 +23,6 @@ async def try_llm_grade(
     prior_feedback: str | None = None,
     prior_checker: str | None = None,
 ) -> CheckOutcome | None:
-
     if not settings.llm_grade_enabled:
         return None
 

@@ -26,7 +26,6 @@ async def complete_lab_when_pack_unavailable(
     user_id: uuid.UUID,
     step: dict[str, object],
 ) -> None:
-
     instructions = step.get("instructions")
     submission: dict[str, object] = {
         "text": (

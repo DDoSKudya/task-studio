@@ -20,7 +20,6 @@ class PackIntegrity:
 def check_pack_integrity(
     disk_path: str | None, manifest: dict[str, object] | None
 ) -> PackIntegrity:
-
     issues: list[str] = []
     if not disk_path or not str(disk_path).strip():
         return PackIntegrity(status="broken", issues=("missing_disk_path",))

@@ -18,7 +18,6 @@ def json_headers() -> dict[str, str]:
 
 
 def basic_auth(api_key: str) -> httpx.BasicAuth:
-
     return httpx.BasicAuth(api_key, "")
 
 

@@ -10,7 +10,7 @@ def normalize_grade_payload(data: dict[str, Any] | None) -> dict[str, Any] | Non
     if not isinstance(passed, bool):
         return None
     confidence = data.get("confidence")
-    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+    if isinstance(confidence, bool) or not isinstance(confidence, int | float):
         return None
     conf = float(confidence)
     if conf < 0.0 or conf > 1.0:

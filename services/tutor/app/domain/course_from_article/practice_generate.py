@@ -43,7 +43,6 @@ async def generate_code_tasks(
     chapters: list[dict[str, str]],
     outcomes: list[str],
 ) -> list[dict[str, object]]:
-
     collected: list[dict[str, object]] = []
     for index, level in enumerate(_ladder_levels(body.code_count)):
         prior_titles = [str(item.get("title") or "") for item in collected]

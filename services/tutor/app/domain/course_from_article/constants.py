@@ -39,7 +39,6 @@ def _allocate_progress_bands(
     include_quizzes: bool,
     include_code: bool,
 ) -> dict[str, tuple[float, float]]:
-
     order: list[str] = []
     if multi_article:
         order.append("consistency")

@@ -13,7 +13,6 @@ def get_object_stream(
     settings: MediaSettings,
     object_key: str,
 ) -> tuple[Iterator[bytes], str | None, int | None]:
-
     response = client.get_object(settings.bucket, object_key)
     content_type = None
     length = None

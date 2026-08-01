@@ -8,7 +8,6 @@ _FENCE_LINE_RE = re.compile(r"^\s*(`{2,})([A-Za-z][\w+-]*)?\s*$")
 
 
 def _repair_code_fences(markdown: str) -> str:
-
     if not markdown or "`" not in markdown:
         return markdown
 
@@ -106,7 +105,6 @@ def _infer_fence_language(code: str, hinted: str) -> str:
 
 
 def _retarget_code_fences(markdown: str) -> str:
-
     markdown = _repair_code_fences(markdown)
 
     def replace(match: re.Match[str]) -> str:

@@ -8,7 +8,6 @@ __all__ = ["HarnessJob", "HarnessBlocked", "resolve_harness"]
 
 
 def resolve_harness(step: dict[str, object], source: str) -> HarnessJob | HarnessBlocked | None:
-
     if step_checker_mode(step) == "llm":
         return None
 

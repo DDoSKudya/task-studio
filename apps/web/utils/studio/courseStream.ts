@@ -139,7 +139,7 @@ export function consumeCourseSseBuffer(
       onEvent(event)
       applyCourseStageEvent(event, state)
     } catch {
-
+      /* ignore */
     }
   }
   return rest

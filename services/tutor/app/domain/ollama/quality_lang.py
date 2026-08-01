@@ -45,7 +45,6 @@ def has_unexpected_scripts(text: str) -> bool:
 
 
 def language_mismatch(text: str, language: ReplyLanguage) -> bool:
-
     prose = prose_without_code(text)
     letters = [ch for ch in prose if ch.isalpha()]
     if len(letters) < 40:

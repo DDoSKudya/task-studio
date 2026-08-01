@@ -161,7 +161,6 @@ def article_from_url_system_prompt(*, compact: bool = False) -> str:
 
 
 def format_learner_turn(message: str) -> str:
-
     text = message.strip()
     return (
         "<learner_message>\n"
