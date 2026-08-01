@@ -41,12 +41,16 @@ function Get-TsInstallRoot {
   if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "studio.ps1"))) {
     return (Split-Path -Parent $PSScriptRoot)
   }
-  if ((Test-Path "deploy\docker-compose.yml") -and (Test-Path "scripts\studio.ps1")) {
-    return (Get-Location).Path
-  }
   $candidate = Join-Path $InstallDir "scripts\studio.ps1"
   if (Test-Path $candidate) {
     return (Resolve-Path $InstallDir).Path
+  }
+  # Smoke / explicit bootstrap: always unpack into TASK_STUDIO_DIR, never adopt a random cwd checkout.
+  if ($env:TASK_STUDIO_DIR -or $env:TASK_STUDIO_ARCHIVE_URL_ZIP) {
+    return $null
+  }
+  if ((Test-Path "deploy\docker-compose.yml") -and (Test-Path "scripts\studio.ps1")) {
+    return (Get-Location).Path
   }
   return $null
 }

@@ -59,12 +59,16 @@ resolve_install_root() {
       return 0
     fi
   fi
-  if [[ -f "$COMPOSE_FILE" && -f "scripts/studio.sh" ]]; then
-    pwd -P
-    return 0
-  fi
   if [[ -f "$INSTALL_DIR/scripts/studio.sh" ]]; then
     cd "$INSTALL_DIR" && pwd -P
+    return 0
+  fi
+  # Explicit bootstrap target/archive: do not adopt a random cwd checkout.
+  if [[ -n "${TASK_STUDIO_DIR:-}" || -n "${TASK_STUDIO_ARCHIVE_URL:-}" ]]; then
+    return 1
+  fi
+  if [[ -f "$COMPOSE_FILE" && -f "scripts/studio.sh" ]]; then
+    pwd -P
     return 0
   fi
   return 1
