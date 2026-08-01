@@ -36,6 +36,10 @@ Convert-TsPsTreeToUtf8Bom $RootCandidate
 . (Join-Path $ScriptDir "lib\DesktopShortcuts.ps1")
 . (Join-Path $ScriptDir "lib\Ops.ps1")
 
+if (Get-Command Reset-TsConsoleColors -ErrorAction SilentlyContinue) {
+  Reset-TsConsoleColors
+}
+
 if (Test-Path (Join-Path $RootCandidate "deploy\docker-compose.yml")) {
   Set-Location $RootCandidate
 }
@@ -82,6 +86,7 @@ function Get-TsMenuItems {
 
 function Show-TsMenu {
   while ($true) {
+    Reset-TsConsoleColors
     if (Test-Path (Join-Path $RootCandidate "deploy\docker-compose.yml")) {
       Set-Location $RootCandidate
     }

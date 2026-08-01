@@ -225,14 +225,23 @@ function Start-TsStudioNewWindow {
   )
   Enable-TsScriptExecution | Out-Null
   Unlock-TaskStudioScripts -Root $Root
-  $studioPs1 = (Get-TsStudioLaunchPaths -Root $Root).Ps1
+  # Prefer studio.cmd (same path as desktop shortcut) for a clean console.
+  $paths = Get-TsStudioLaunchPaths -Root $Root
+  if (Test-Path $paths.Cmd) {
+    if ($Arguments -and $Arguments.Count -gt 0) {
+      Start-Process -FilePath $paths.Cmd -ArgumentList ($Arguments -join " ") -WorkingDirectory $Root
+    } else {
+      Start-Process -FilePath $paths.Cmd -WorkingDirectory $Root
+    }
+    return
+  }
   $argList = @(
     "-NoLogo"
     "-NoProfile"
     "-ExecutionPolicy"
     "Bypass"
     "-File"
-    $studioPs1
+    $paths.Ps1
   )
   if ($Arguments -and $Arguments.Count -gt 0) {
     $argList += $Arguments

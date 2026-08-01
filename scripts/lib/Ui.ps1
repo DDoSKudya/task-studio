@@ -9,9 +9,23 @@ $script:TsOk = "Magenta"
 $script:TsDanger = "Red"
 $script:TsSelBg = "DarkMagenta"
 $script:TsSelFg = "Black"
+$script:TsConsoleFg = "Gray"
+$script:TsConsoleBg = "Black"
 $script:TsLibDir = $PSScriptRoot
 if (-not $script:TsLibDir -and $MyInvocation.MyCommand.Path) {
   $script:TsLibDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+
+function Reset-TsConsoleColors {
+  # Write-Host -BackgroundColor can leave host defaults stuck (near-invisible UI).
+  try {
+    [Console]::ResetColor()
+  } catch { }
+  try {
+    $raw = $Host.UI.RawUI
+    $raw.ForegroundColor = [ConsoleColor]::Gray
+    $raw.BackgroundColor = [ConsoleColor]::Black
+  } catch { }
 }
 
 function Test-TsRawUi {
@@ -149,6 +163,8 @@ function Write-TsBoxLine {
     default { Write-Host $content -ForegroundColor $script:TsFg -NoNewline }
   }
   Write-Host "|" -ForegroundColor $script:TsViolet
+  # BackgroundColor on selected rows must not leak into the next Write-Host.
+  Reset-TsConsoleColors
 }
 
 function Show-TsChoiceFallback {
@@ -156,19 +172,52 @@ function Show-TsChoiceFallback {
     [Parameter(Mandatory = $true)][string]$Prompt,
     [Parameter(Mandatory = $true)][hashtable[]]$Items
   )
-  Write-Host ""
-  Write-Host $Prompt -ForegroundColor $script:TsGold
-  for ($i = 0; $i -lt $Items.Count; $i++) {
-    Write-Host ("  {0}. {1}" -f ($i + 1), $Items[$i].Label) -ForegroundColor $script:TsMuted
-  }
+  # Arrow / digit / Enter only — never Read-Host typing.
+  Reset-TsConsoleColors
+  $selected = 0
+  $count = $Items.Count
   while ($true) {
-    $answer = Read-Host ((Get-TsText enter_continue) + " / number / q")
-    if (-not $answer) { continue }
-    if ($answer -match '^[Qq]$') { return $null }
-    $picked = 0
-    if ([int]::TryParse($answer, [ref]$picked)) {
-      if ($picked -ge 1 -and $picked -le $Items.Count) {
-        return $Items[$picked - 1].Value
+    Clear-Host
+    Write-Host ""
+    Write-Host $Prompt -ForegroundColor $script:TsGold
+    Write-Host ""
+    for ($i = 0; $i -lt $count; $i++) {
+      $mark = if ($i -eq $selected) { "> " } else { "  " }
+      $num = $i + 1
+      $line = ("{0}{1}. {2}" -f $mark, $num, $Items[$i].Label)
+      if ($i -eq $selected) {
+        Write-Host $line -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+        Reset-TsConsoleColors
+      } else {
+        Write-Host $line -ForegroundColor $script:TsMuted
+      }
+    }
+    Write-Host ""
+    Write-Host (Get-TsText menu_footer_ps) -ForegroundColor $script:TsMuted
+    try {
+      $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {
+      # Last resort: default to first item on Enter via host ReadLine is worse — pick first and return on any printable fail.
+      return $Items[0].Value
+    }
+    $vk = [int]$key.VirtualKeyCode
+    switch ($vk) {
+      38 { $selected = ($selected - 1 + $count) % $count }
+      40 { $selected = ($selected + 1) % $count }
+      13 { return $Items[$selected].Value }
+      32 { return $Items[$selected].Value }
+      27 { return $null }
+      81 { return $null }
+      default {
+        if ($vk -ge 49 -and $vk -le 57) {
+          $idx = $vk - 49
+          if ($idx -lt $count) { return $Items[$idx].Value }
+        }
+        if ($vk -ge 97 -and $vk -le 105) {
+          # Numpad 1-9
+          $idx = $vk - 97
+          if ($idx -lt $count) { return $Items[$idx].Value }
+        }
       }
     }
   }
@@ -179,6 +228,8 @@ function Read-TsChoice {
     [Parameter(Mandatory = $true)][string]$Prompt,
     [Parameter(Mandatory = $true)][hashtable[]]$Items
   )
+
+  Reset-TsConsoleColors
 
   if (Use-TsSimpleUi) {
     return (Show-TsChoiceFallback -Prompt $Prompt -Items $Items)
@@ -207,6 +258,7 @@ function Read-TsChoice {
       for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
       Write-Host ($pad) -NoNewline
       Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+      Reset-TsConsoleColors
       Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
       Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Prompt -Style gold
       Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
@@ -277,10 +329,20 @@ function Confirm-TsYes {
 
 function Wait-TsPause {
   param([string]$Message = $(Get-TsText press_enter_menu))
-  if (Use-TsSimpleUi) {
+  Reset-TsConsoleColors
+  if (Use-TsSimpleUi -or -not (Test-TsRawUi)) {
+    Clear-Host
     Write-Host ""
     Write-Host $Message -ForegroundColor $script:TsGold
-    [void](Read-Host (Get-TsText press_enter_menu))
+    Write-Host ""
+    Write-Host "[ Enter ]" -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+    Reset-TsConsoleColors
+    try {
+      while ($true) {
+        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if ([int]$key.VirtualKeyCode -in @(13, 32, 27)) { break }
+      }
+    } catch { }
     return
   }
   $box = Get-TsCenterBox -PrefW 56 -PrefH 8
@@ -291,6 +353,7 @@ function Wait-TsPause {
   for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
   Write-Host ($pad) -NoNewline
   Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+  Reset-TsConsoleColors
   Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
   Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Message -Style gold
   Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
@@ -804,6 +867,8 @@ function Invoke-TsProgress {
   $script:TsProg = $null
   $script:TsProgChromeDrawn = $false
   $script:TsProgressLogPath = $null
+  Reset-TsConsoleColors
+  Clear-Host
 }
 
 # Back-compat
@@ -817,13 +882,24 @@ function Show-TsTextPanel {
     [string]$Title,
     [string[]]$Lines
   )
+  Reset-TsConsoleColors
   if (Use-TsSimpleUi) {
+    Clear-Host
     Write-Host ""
     Write-Host $Title -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+    Reset-TsConsoleColors
     foreach ($l in $Lines) {
       if ($l) { Write-Host $l -ForegroundColor $script:TsMuted } else { Write-Host "" }
     }
-    [void](Read-Host (Get-TsText press_enter_menu))
+    Write-Host ""
+    Write-Host "[ Enter ]" -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+    Reset-TsConsoleColors
+    try {
+      while ($true) {
+        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if ([int]$key.VirtualKeyCode -in @(13, 32, 27)) { break }
+      }
+    } catch { }
     return
   }
   $prefH = $Lines.Count + 8
@@ -835,6 +911,7 @@ function Show-TsTextPanel {
   for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
   Write-Host ($pad) -NoNewline
   Write-Host (Write-TsPad ("  " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+  Reset-TsConsoleColors
   Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
   foreach ($l in $Lines) {
     Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $l -Style muted

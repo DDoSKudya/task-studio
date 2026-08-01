@@ -578,7 +578,7 @@ function Invoke-TsInstall {
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_waiting_ui $script:AppUiUrl)
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
-    Open-AppUi
+    Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
   } else {
     throw (Get-TsText err_ui $script:AppUiUrl)
   }
@@ -626,7 +626,7 @@ function Invoke-TsStart {
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
   if (Wait-AppReady -Tries 60 -SleepSeconds 3) {
-    Open-AppUi
+    Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
     Complete-TsProgress
   } else {
     throw (Get-TsText err_ui $script:AppUiUrl)
@@ -741,7 +741,7 @@ function Invoke-TsRestart {
 
   Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_check_ui $script:AppUiProbeUrl)
   if (Wait-AppReady -Tries 60 -SleepSeconds 3) {
-    Open-AppUi
+    Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
     Complete-TsProgress
   } else {
     throw (Get-TsText err_ui_after_restart $script:AppUiUrl)
@@ -1270,7 +1270,7 @@ function Invoke-TsUpdate {
     throw (Get-TsText err_up_update)
   }
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
-    Open-AppUi
+    Enter-TsProgressStage -Plan $plan -Id "rebuild" -Status (Get-TsText status_ui_ok)
   } else {
     Write-TsWarn (Get-TsText warn_ui_after_update $script:AppUiUrl)
   }

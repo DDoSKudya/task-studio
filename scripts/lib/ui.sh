@@ -470,6 +470,13 @@ ui_choose() {
       [[ "$managed" -eq 1 && "$TS_UI_SESSION" -ne 1 ]] && ui_manager_leave
       printf '%s\n' "${values[$selected]}"
       return 0
+    elif [[ "$key" =~ ^[1-9]$ ]]; then
+      local idx=$((key - 1))
+      if [[ "$idx" -ge 0 && "$idx" -lt "$count" ]]; then
+        [[ "$managed" -eq 1 && "$TS_UI_SESSION" -ne 1 ]] && ui_manager_leave
+        printf '%s\n' "${values[$idx]}"
+        return 0
+      fi
     fi
   done
 }

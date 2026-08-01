@@ -645,7 +645,6 @@ ops_install() {
   ts_prog_enter health "$(ts_t status_waiting_ui "$APP_UI_URL")"
   if wait_app_ready 90 5; then
     ts_prog_status "$(ts_t status_ui_ok)"
-    open_app_ui "$APP_UI_URL" || true
   else
     ui_die "$(ts_t err_ui "$APP_UI_URL")"
   fi
@@ -707,7 +706,7 @@ ops_start() {
 
   ts_prog_enter health "$(ts_t status_check_ui "$APP_UI_PROBE_URL")"
   if wait_app_ready 60 3; then
-    open_app_ui "$APP_UI_URL" || true
+    ts_prog_status "$(ts_t status_ui_ok)"
     ts_prog_done
   else
     ui_die "$(ts_t err_ui "$APP_UI_URL")"
@@ -763,7 +762,7 @@ ops_restart() {
 
   ts_prog_enter health "$(ts_t status_check_ui "$APP_UI_PROBE_URL")"
   if wait_app_ready 60 3; then
-    open_app_ui "$APP_UI_URL" || true
+    ts_prog_status "$(ts_t status_ui_ok)"
     ts_prog_done
   else
     ui_die "$(ts_t err_ui_after_restart "$APP_UI_URL")"
@@ -1431,7 +1430,7 @@ ops_update_apply() {
     ui_die "$(ts_t err_up_update)"
   fi
   if wait_app_ready 90 5; then
-    open_app_ui "$APP_UI_URL" || true
+    ts_prog_status "$(ts_t status_ui_ok)"
   else
     ui_warn "$(ts_t warn_ui_after_update "$APP_UI_URL")"
   fi

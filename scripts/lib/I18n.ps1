@@ -239,7 +239,7 @@ function Get-TsText {
       $en = 'studio.cmd restart      Stop then start'; $ru = 'studio.cmd restart      Стоп, затем старт'
     }
     'help_line_start' {
-      $en = 'studio.cmd start        Run app + open browser'; $ru = 'studio.cmd start        Запуск + браузер'
+      $en = 'studio.cmd start        Run containers'; $ru = 'studio.cmd start        Запуск контейнеров'
     }
     'help_line_stop' {
       $en = 'studio.cmd stop         Shut down containers'; $ru = 'studio.cmd stop         Остановка контейнеров'
@@ -320,7 +320,7 @@ function Get-TsText {
       $en = 'Restart - stop then start'; $ru = 'Перезапуск — стоп, затем старт'
     }
     'menu_start' {
-      $en = 'Start - run app and open browser'; $ru = 'Старт — запуск и открытие браузера'
+      $en = 'Start - run containers'; $ru = 'Старт — запуск контейнеров'
     }
     'menu_stop' {
       $en = 'Stop - shut down containers'; $ru = 'Стоп — остановить контейнеры'
@@ -666,7 +666,7 @@ function Get-TsText {
 Usage:
   .\scripts\studio.cmd              Interactive dialog manager
   .\scripts\studio.cmd install      First-time setup / rebuild
-  .\scripts\studio.cmd start        Start stack + open UI
+  .\scripts\studio.cmd start        Start containers
   .\scripts\studio.cmd open         Open web UI in browser
   .\scripts\studio.cmd stop         Stop stack
   .\scripts\studio.cmd restart      Stop then start
@@ -683,7 +683,7 @@ User data (data/, .env) is never overwritten. Update is never silent.
 Использование:
   .\scripts\studio.cmd              Интерактивный менеджер
   .\scripts\studio.cmd install      Первая установка / пересборка
-  .\scripts\studio.cmd start        Запуск стека + UI
+  .\scripts\studio.cmd start        Запуск контейнеров
   .\scripts\studio.cmd open         Открыть web UI в браузере
   .\scripts\studio.cmd stop         Остановка
   .\scripts\studio.cmd restart      Стоп, затем старт

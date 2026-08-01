@@ -82,7 +82,7 @@ ts_t() {
 
     # menu
     menu_install) en="Install - first-time setup"; ru="Установка — первый запуск" ;;
-    menu_start) en="Start - run app and open browser"; ru="Старт — запуск и открытие браузера" ;;
+    menu_start) en="Start - run containers"; ru="Старт — запуск контейнеров" ;;
     menu_heal) en="Heal - start missing / stopped containers"; ru="Починить — поднять недостающие и остановленные" ;;
     menu_open) en="Open - launch web UI in browser"; ru="Открыть — web-интерфейс в браузере" ;;
     menu_install_repair) en="Install / repair - rebuild stack"; ru="Установка / ремонт — пересборка стека" ;;
@@ -115,7 +115,7 @@ ts_t() {
     help_title) en="Help"; ru="Справка" ;;
     help_line_menu) en="studio.sh              Interactive manager"; ru="studio.sh              Интерактивный менеджер" ;;
     help_line_install) en="studio.sh install      Build and configure"; ru="studio.sh install      Сборка и настройка" ;;
-    help_line_start) en="studio.sh start        Run app + open browser"; ru="studio.sh start        Запуск + браузер" ;;
+    help_line_start) en="studio.sh start        Run containers"; ru="studio.sh start        Запуск контейнеров" ;;
     help_line_open) en="studio.sh open         Open web UI in browser"; ru="studio.sh open         Открыть web UI в браузере" ;;
     help_line_stop) en="studio.sh stop         Shut down containers"; ru="studio.sh stop         Остановка контейнеров" ;;
     help_line_restart) en="studio.sh restart      Stop then start"; ru="studio.sh restart      Стоп, затем старт" ;;
@@ -286,7 +286,7 @@ ts_t() {
     usage_body) en="Usage:
   bash scripts/studio.sh              Interactive dialog manager
   bash scripts/studio.sh install      First-time setup / rebuild
-  bash scripts/studio.sh start        Start stack + open UI
+  bash scripts/studio.sh start        Start containers
   bash scripts/studio.sh open         Open web UI in browser
   bash scripts/studio.sh stop         Stop stack
   bash scripts/studio.sh restart      Stop then start
@@ -300,7 +300,7 @@ Update downloads a package, compares checksums, and replaces app files.
 User data (data/, .env) is never overwritten. Update is never silent."; ru="Использование:
   bash scripts/studio.sh              Интерактивный менеджер
   bash scripts/studio.sh install      Первая установка / пересборка
-  bash scripts/studio.sh start        Запуск стека + UI
+  bash scripts/studio.sh start        Запуск контейнеров
   bash scripts/studio.sh open         Открыть web UI в браузере
   bash scripts/studio.sh stop         Остановка
   bash scripts/studio.sh restart      Стоп, затем старт
