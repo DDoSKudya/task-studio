@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Guard against .gitignore swallowing Python packages (e.g. domain/cache/).
+# Guard against .gitignore swallowing Python packages (e.g. domain/cache/, domain/packs/).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -15,6 +15,10 @@ required_paths=(
   services/integrations/app/domain/cache/service.py
   services/integrations/app/domain/cache/parse.py
   services/integrations/app/domain/cache/upsert.py
+  services/catalog/app/domain/packs/__init__.py
+  services/catalog/app/domain/packs/types.py
+  services/catalog/app/domain/packs/store/__init__.py
+  services/catalog/app/domain/packs/store/upload.py
 )
 
 echo "==> required source files exist"
@@ -29,14 +33,12 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
       fail "$path is ignored by git — fix .gitignore"
     fi
   done
-  # On GitHub Actions, required paths must already be in the tree (catch .gitignore holes).
-  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    echo "==> required paths are tracked in git"
-    for path in "${required_paths[@]}"; do
-      git ls-files --error-unmatch "$path" >/dev/null 2>&1 \
-        || fail "$path is not tracked — add and commit it"
-    done
-  fi
+  # Catch .gitignore holes before push (same as CI).
+  echo "==> required paths are tracked in git"
+  for path in "${required_paths[@]}"; do
+    git ls-files --error-unmatch "$path" >/dev/null 2>&1 \
+      || fail "$path is not tracked — git add it (check .gitignore)"
+  done
 fi
 
 echo "==> import smoke (integrations domain.cache)"

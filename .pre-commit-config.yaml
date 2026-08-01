@@ -1,14 +1,76 @@
+# Mirrors the CI `lint` job (ruff / mypy / launcher / compose / tracked modules).
+# Install once: `just hooks`  or  `uv run pre-commit install`
+# Uses `uv run` so tools match uv.lock (same as GitHub Actions).
+
+default_language_version:
+  python: python3.12
+
+default_stages: [pre-commit]
+
+exclude: |
+  (?x)^(
+    data/|
+    \.venv/|
+    apps/.*/node_modules/|
+    \.git/
+  )
+
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.12
-    hooks:
-      - id: ruff
-        args: [--fix]
-        files: ^(packages|services|scripts)/
-      - id: ruff-format
-        files: ^(packages|services|scripts)/
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: '\.md$|\.tsv$|\.csv$'
       - id: end-of-file-fixer
+        exclude: '\.md$|\.tsv$|\.csv$'
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: [--unsafe]
+        files: ^(\.github/|deploy/|\.pre-commit-config\.yaml)
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (uv)
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        files: ^(packages|services|scripts)/
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format (uv)
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+        files: ^(packages|services|scripts)/
+        require_serial: true
+
+      - id: mypy-python-common
+        name: mypy python-common (uv)
+        entry: uv run mypy packages/python-common/src
+        language: system
+        pass_filenames: false
+        files: ^packages/python-common/
+        require_serial: true
+
+      - id: check-launcher
+        name: check-launcher
+        entry: bash scripts/ci/check-launcher.sh
+        language: system
+        pass_filenames: false
+        files: ^(scripts/|\.gitattributes$)
+
+      - id: check-compose
+        name: check-compose
+        entry: bash scripts/ci/check-compose.sh
+        language: system
+        pass_filenames: false
+        files: ^deploy/
+
+      - id: check-tracked-modules
+        name: check-tracked-modules
+        entry: bash scripts/ci/check-tracked-modules.sh
+        language: system
+        pass_filenames: false
+        always_run: true

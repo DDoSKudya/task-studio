@@ -12,7 +12,7 @@
 | Данные | PostgreSQL, Redis, RabbitMQ, MinIO, Meilisearch, ClickHouse |
 | ИИ | Ollama (+ опционально внешние OpenAI-совместимые провайдеры и Cursor через `cursor-proxy`) |
 | Edge | nginx, Traefik |
-| Качество | ruff, basedpyright/mypy, pytest, vitest, Playwright |
+| Качество | ruff, basedpyright/mypy, pytest, vitest, Playwright, pre-commit |
 | Сборка | Docker Buildx, `uv`, npm |
 
 ## Структура репозитория
@@ -104,6 +104,8 @@ just up
 | `just rebuild-svc <name…>` | Пересборка отдельных сервисов |
 | `just web-dev` | Nuxt HMR в Docker |
 | `just test` / `just lint` / `just ci` | Проверки |
+| `just hooks` | Установить git pre-commit (ruff, mypy, launcher, compose) |
+| `just hooks-run` | Прогнать те же хуки на всех файлах |
 
 Оболочка разработчика (mise + just в shell):
 

@@ -147,6 +147,16 @@ lint:
     bash scripts/ci/check-tracked-modules.sh
     @if [ -d apps/web/node_modules ]; then cd apps/web && npm run lint; fi
 
+# Install git pre-commit hooks (ruff/mypy/launcher/compose/tracked modules).
+hooks:
+    uv sync --group dev
+    uv run pre-commit install
+    @echo "pre-commit installed — hooks run on every git commit."
+
+# Run the same hooks as a commit would (all files).
+hooks-run:
+    uv run pre-commit run --all-files
+
 fmt:
     uv run ruff format packages/python-common packages/contracts services scripts
     uv run ruff check --fix packages/python-common packages/contracts services scripts
