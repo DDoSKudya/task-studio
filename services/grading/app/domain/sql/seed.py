@@ -12,7 +12,6 @@ __all__ = [
 
 
 def build_sql_seed(step: dict[str, object]) -> str | None:
-
     explicit = step.get("sql_seed")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().rstrip(";") + ";"

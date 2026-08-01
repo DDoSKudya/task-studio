@@ -42,7 +42,6 @@ async def fail_stale_import_jobs(
     *,
     now: datetime | None = None,
 ) -> int:
-
     clock = now or datetime.now(UTC)
     result = await session.execute(select(ImportJob).where(ImportJob.status.in_(_ACTIVE_STATUSES)))
     stale = [job for job in result.scalars().all() if import_job_is_stale(job, now=clock)]

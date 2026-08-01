@@ -23,7 +23,6 @@ async def replace_external_courses(
     platform_id: str,
     courses: list[dict[str, object]],
 ) -> None:
-
     await session.execute(
         delete(ExternalCourseCache).where(
             ExternalCourseCache.user_id == user_id,

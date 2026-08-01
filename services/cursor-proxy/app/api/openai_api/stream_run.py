@@ -18,7 +18,6 @@ async def iter_chat_run_frames(
     prompt: str,
     model: str,
 ) -> AsyncIterator[bytes | tuple[str, str]]:
-
     create_task = asyncio.create_task(
         cursor_client.create_chat_run(
             client,

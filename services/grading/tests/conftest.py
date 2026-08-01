@@ -25,7 +25,6 @@ def build_app():
 
 
 def pytest_configure() -> None:
-
     service_root = Path(__file__).resolve().parents[1]
     root = str(service_root)
     if root in sys.path:

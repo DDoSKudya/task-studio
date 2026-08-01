@@ -1,5 +1,3 @@
-# Shared health / browser helpers for install + start (bash).
-# Source after profiles.sh; expects cwd = repo root.
 
 APP_UI_URL="${TASK_STUDIO_UI_URL:-http://localhost}"
 APP_UI_PROBE_URL="${TASK_STUDIO_UI_PROBE_URL:-http://127.0.0.1}"
@@ -18,7 +16,6 @@ wait_http_ok() {
   return 1
 }
 
-# Best-effort: compose reports the edge proxy as running/healthy.
 stack_edge_ok() {
   local compose="${COMPOSE_FILE:-deploy/docker-compose.yml}"
   local pname="${COMPOSE_PROJECT_NAME:-task-studio}"

@@ -1,15 +1,11 @@
-# Shared compose profiles for install/start (source from repo scripts).
-# Expects COMPOSE_FILE already set; cwd = repo root.
 
 is_docker_desktop() {
   docker info --format '{{.OperatingSystem}} {{.Name}}' 2>/dev/null | grep -qi 'docker desktop'
 }
 
-# node-exporter/cadvisor mount host / with rslave — breaks Docker Desktop + rootless.
 can_use_host_metrics() {
   [[ "$(uname -s)" == "Linux" ]] || return 1
   is_docker_desktop && return 1
-  # Rootless: host PID / privileged mounts are unreliable.
   if docker info --format '{{.SecurityOptions}}' 2>/dev/null | grep -qi rootless; then
     return 1
   fi

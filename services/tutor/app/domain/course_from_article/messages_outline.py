@@ -136,7 +136,6 @@ def _theory_user_message(
     index: int,
     book_spine: dict[str, str] | None = None,
 ) -> str:
-
     return _theory_shared_context(
         chapter,
         body,

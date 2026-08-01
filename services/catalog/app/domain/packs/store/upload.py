@@ -38,7 +38,7 @@ async def upload_pack(
     await reject_duplicate_version(session, pack.id, parsed.version, staging)
 
     final_path = pack_dir / str(pack.id) / parsed.version
-                                                                                 
+
     final_path.parent.mkdir(parents=True, exist_ok=True)
     if final_path.exists():
         shutil.rmtree(final_path)

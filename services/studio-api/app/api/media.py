@@ -48,7 +48,6 @@ async def get_media_asset(
     settings: Settings,
     client: UpstreamClient,
 ) -> Response:
-
     upstream = await client.get(
         f"{settings.media_service_url}/internal/v1/media/{asset_id}",
         headers={"X-User-Id": str(user_id)},

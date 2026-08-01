@@ -2,7 +2,6 @@ import { credentialFieldKey, isSecretCredentialField } from '~/utils/settings'
 
 export { credentialFieldKey, isSecretCredentialField }
 
-
 export function useCredentialAutofill(resetSignal?: () => unknown) {
   const unlockedCredentialFields = ref<Record<string, true>>({})
 

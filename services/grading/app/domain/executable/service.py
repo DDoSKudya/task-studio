@@ -11,7 +11,6 @@ def step_checker_mode(step: dict[str, object]) -> str:
 
 
 def step_tests_are_executable(step: dict[str, object]) -> bool:
-
     mode = step_checker_mode(step)
     if mode == "llm":
         return False

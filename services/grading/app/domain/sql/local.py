@@ -13,7 +13,6 @@ __all__ = [
     "looks_like_sql_step",
 ]
 
-
 _HtmlTableParser = HtmlTableParser
 _guess_table_name = guess_table_name
 _sql_ident = sql_ident

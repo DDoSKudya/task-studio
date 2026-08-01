@@ -124,7 +124,6 @@ def get_step(manifest: dict[str, object], step_id: str) -> dict[str, object]:
 
 
 def repair_step(step: dict[str, object]) -> dict[str, object]:
-
     kind = step.get("kind")
     if kind == "code":
         return step
@@ -223,7 +222,6 @@ def entry_after_phase(
 
 
 def iter_positions(manifest: dict[str, object]) -> list[SessionPosition]:
-
     positions: list[SessionPosition] = []
     order = phase_order_for(manifest)
     for topic in list_topics(manifest):

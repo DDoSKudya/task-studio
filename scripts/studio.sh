@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Task Studio Launcher — unified console manager (Linux / macOS / WSL).
-# Usage: bash scripts/studio.sh [install|start|stop|restart|uninstall|help]
-# No args + TTY → interactive dialog-style manager (actions depend on stack state).
 set -euo pipefail
 
 COMPOSE_FILE="deploy/docker-compose.yml"
@@ -31,11 +28,9 @@ $(ts_t usage_body)
 EOF
 }
 
-# Build menu items for current state into global array STUDIO_MENU_ITEMS.
 studio_menu_items() {
   local state update_status
   state="$(ops_stack_state)"
-  # Do not capture ops_update_check in $() — TS_UPDATE_* must stay in this shell.
   ops_update_check >/dev/null 2>&1 || true
   update_status="${TS_UPDATE_STATUS:-error}"
   STUDIO_MENU_ITEMS=()
@@ -191,7 +186,6 @@ main() {
       return 0
       ;;
     open)
-      # Browser only — Docker daemon not required (stack may already be up).
       shift || true
       ops_open "$@"
       return 0
@@ -205,7 +199,6 @@ main() {
       ;;
   esac
 
-  # Every real action (menu included) needs a working Docker.
   ops_need_docker
 
   if [[ -z "$cmd" ]]; then

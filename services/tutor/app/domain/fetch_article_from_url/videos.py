@@ -49,7 +49,6 @@ def canonicalize_video_url(raw: str) -> CourseArticleVideo | None:
 
 
 def extract_video_refs(*chunks: str) -> list[CourseArticleVideo]:
-
     found: list[CourseArticleVideo] = []
     seen: set[str] = set()
 

@@ -1,5 +1,3 @@
-# Ops used by scripts/studio.sh (source after ui/profiles/health/desktop).
-# Expects: COMPOSE_FILE, TS_ROOT / ROOT, cwd may change inside functions.
 
 REPO_SSH="${TASK_STUDIO_REPO_SSH:-git@github.com:DDoSKudya/task-studio.git}"
 REPO_HTTPS="${TASK_STUDIO_REPO_HTTPS:-https://github.com/DDoSKudya/task-studio.git}"
@@ -12,8 +10,6 @@ ops_docker_ready() {
   docker info >/dev/null 2>&1
 }
 
-# Best-effort: start Docker Engine / Docker Desktop when the daemon is down.
-# Disable with TASK_STUDIO_NO_AUTO_DOCKER=1.
 ops_try_start_docker() {
   [[ "${TASK_STUDIO_NO_AUTO_DOCKER:-}" == "1" ]] && return 1
   local os
@@ -21,18 +17,15 @@ ops_try_start_docker() {
 
   case "$os" in
     Linux)
-      # Docker Engine (docker-ce) via systemd — prefer passwordless sudo.
       if command -v systemctl >/dev/null 2>&1; then
         if systemctl list-unit-files 2>/dev/null | grep -q '^docker\.service'; then
           if sudo -n systemctl start docker >/dev/null 2>&1; then
             return 0
           fi
-          # Rootless / already permitted without sudo.
           if systemctl start docker >/dev/null 2>&1; then
             return 0
           fi
         fi
-        # Docker Desktop for Linux (user unit).
         if systemctl --user start docker-desktop >/dev/null 2>&1; then
           return 0
         fi
@@ -42,7 +35,6 @@ ops_try_start_docker() {
           return 0
         fi
       fi
-      # Launch Desktop UI if installed.
       if command -v docker-desktop >/dev/null 2>&1; then
         nohup docker-desktop >/dev/null 2>&1 &
         disown 2>/dev/null || true
@@ -99,7 +91,6 @@ ops_need_docker() {
     if ops_try_start_docker; then
       :
     else
-      # Still wait a bit — user may have started Docker manually in parallel.
       true
     fi
     if ! ops_wait_docker; then
@@ -115,7 +106,6 @@ ops_need_docker() {
   if ! docker compose version >/dev/null 2>&1; then
     ui_die "$(ts_t err_compose_missing)"
   fi
-  # Cache mounts in Dockerfiles need BuildKit (Docker Engine 20+).
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
   local ver major
@@ -126,7 +116,6 @@ ops_need_docker() {
   fi
 }
 
-# Parallel image builds are the main OOM source on 8–16 GB hosts.
 ops_default_parallel_limit() {
   local ram
   ram="$(ops_detect_ram_gb 2>/dev/null || echo 0)"
@@ -295,7 +284,6 @@ ops_prepare_dirs() {
     data/grafana data/prometheus data/piston/packages \
     data/logs
   chmod -R a+rwX data/packs 2>/dev/null || true
-  # Launcher must append studio-last.log; Docker bind mounts often leave data/ as root/nobody.
   chmod a+rwX data/logs 2>/dev/null || true
   if [[ ! -w data/logs ]]; then
     mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/task-studio/logs" 2>/dev/null || true
@@ -303,8 +291,6 @@ ops_prepare_dirs() {
 }
 
 ops_compose() {
-  # Root `.env` has COMPOSE_PROJECT_NAME, but `--env-file` alone does not export it
-  # to the Compose CLI. Load it into the environment and pin -p for safety.
   if [[ -f .env ]]; then
     local pname
     pname="$(grep -E '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/[\"'[:space:]]//g" || true)"
@@ -319,7 +305,6 @@ ops_compose() {
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" --env-file .env "$@"
 }
 
-# After compose up failure: append ps + logs of unhealthy/exited services into the progress log.
 ops_dump_compose_failure() {
   local log="${TS_PROGRESS_LOG:-}"
   local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
@@ -398,7 +383,6 @@ ops_wait_catalog_healthy() {
   return 1
 }
 
-# Warm the data plane, start catalog alone, then bring the full stack.
 ops_compose_up() {
   # shellcheck disable=SC2086
   local profile_args="$*"
@@ -428,7 +412,6 @@ ops_compose_up() {
     fi
   fi
   if [[ "$catalog_ok" -ne 1 ]]; then
-    # Soft-gate: UI does not require catalog healthy in compose.
     if declare -f ui_warn >/dev/null 2>&1; then
       ui_warn "$(ts_t warn_catalog_continue 2>/dev/null || echo "catalog is not healthy — continuing with the rest of the stack")"
     fi
@@ -450,7 +433,6 @@ ops_compose_up() {
   return 1
 }
 
-# Soft root lookup (no die). Sets ROOT and cd when found.
 ops_find_root_quiet() {
   if [[ -f "$COMPOSE_FILE" ]]; then
     ROOT="$(pwd -P)"
@@ -469,7 +451,6 @@ ops_find_root_quiet() {
   return 1
 }
 
-# Count running containers for this compose project (0 if unknown).
 ops_running_count() {
   local n
   if [[ ! -f .env ]] || [[ ! -f "$COMPOSE_FILE" ]]; then
@@ -489,7 +470,6 @@ ops_running_count() {
   printf '%s\n' "$n"
 }
 
-# One of: missing | stopped | running
 ops_stack_state() {
   local here
   here="$(pwd -P)"
@@ -521,7 +501,6 @@ ops_stack_state_label() {
   esac
 }
 
-# Stop stack without removing volumes (used before uninstall / restart).
 ops_ensure_stopped() {
   [[ -f "$COMPOSE_FILE" ]] || return 0
   local down_out=""
@@ -537,7 +516,6 @@ ops_ensure_stopped() {
   if [[ -n "$down_out" ]]; then
     printf '%s\n' "$down_out" >>"${TS_PROGRESS_LOG:-/dev/null}" 2>/dev/null || true
   fi
-  # Also tear down the legacy default project name from compose file path (`deploy`).
   if docker compose -p deploy -f "$COMPOSE_FILE" ps -q 2>/dev/null | grep -q .; then
     docker compose -p deploy -f "$COMPOSE_FILE" \
       --profile full --profile editor --profile host-metrics \
@@ -778,7 +756,6 @@ ops_is_consumer_root() {
   [[ -n "$want" && "$root" == "$want" ]]
 }
 
-# Never delete $HOME or /.
 ops_safe_purge_root() {
   local root="$1"
   [[ -n "$root" ]] || return 1
@@ -791,7 +768,6 @@ ops_safe_purge_root() {
   return 0
 }
 
-# Delete install dir after this process exits (scripts may still be open).
 ops_schedule_delete_root() {
   local root="$1"
   root="$(cd "$root" && pwd -P)"
@@ -812,7 +788,6 @@ ops_schedule_delete_root() {
   ' _ "$root" >/dev/null 2>&1 &
   disown 2>/dev/null || true
   TS_UNINSTALL_EXIT=1
-  # Parent progress UI runs work in a subshell — marker must live outside the deleted tree.
   if [[ -n "${TS_UNINSTALL_EXIT_FILE:-}" ]]; then
     printf '1\n' >"$TS_UNINSTALL_EXIT_FILE" 2>/dev/null || true
   fi
@@ -823,7 +798,6 @@ ops_schedule_delete_root() {
   ts_prog_status "$(ts_t status_delete_scheduled "$root")"
 }
 
-# Interactive consent. Sets TS_UNINSTALL_PURGE=0|1. Returns 0 to proceed, 1 cancel.
 ops_uninstall_confirm() {
   local yes=0 purge=0 arg
   TS_UNINSTALL_EXIT=0
@@ -855,7 +829,6 @@ EOF
   export TS_UNINSTALL_EXIT_FILE
   : >"$TS_UNINSTALL_EXIT_FILE"
 
-  # Consumer product install: always remove the whole folder (launcher included).
   if ops_is_consumer_root "$ROOT"; then
     purge=1
   fi
@@ -889,7 +862,6 @@ EOF
   return 0
 }
 
-# Work only (no prompts). Expects cwd/repo resolved; uses TS_UNINSTALL_PURGE.
 ops_uninstall_run() {
   local purge="${TS_UNINSTALL_PURGE:-0}"
 
@@ -935,10 +907,8 @@ ops_uninstall_run() {
   ts_prog_enter finish "$(ts_t status_cleanup)"
   if [[ "$purge" -eq 1 ]]; then
     if ops_safe_purge_root "$ROOT"; then
-      # Leave data/.env in place — the deferred process removes the whole tree.
       ops_schedule_delete_root "$ROOT"
     else
-      # Dev tree or unsafe path: wipe local runtime files only.
       [[ -d data ]] && rm -rf data && ts_prog_status "$(ts_t status_removed_data)"
       [[ -f .env ]] && rm -f .env && ts_prog_status "$(ts_t status_removed_env)"
       ts_prog_status "$(ts_t status_purge_skip "${TASK_STUDIO_DIR:-$HOME/task-studio}")"
@@ -983,8 +953,6 @@ ops_uninstall_should_exit() {
   fi
   [[ "${TS_UNINSTALL_EXIT:-0}" == "1" ]]
 }
-
-# --- Self-update (HTTP version + archive, no git) ----------------------------
 
 TS_UPDATE_TTL_SEC="${TASK_STUDIO_UPDATE_TTL_SEC:-3600}"
 TS_UPDATE_AVAILABLE=0
@@ -1033,7 +1001,6 @@ ops_update_touch_stamp() {
 }
 
 ops_json_get() {
-  # usage: ops_json_get <file-or-> <key>
   local src="$1" key="$2"
   if command -v python3 >/dev/null 2>&1; then
     if [[ "$src" == "-" ]]; then
@@ -1043,7 +1010,6 @@ ops_json_get() {
     fi
     return
   fi
-  # Fallback: fragile single-line extract
   if [[ "$src" == "-" ]]; then
     src="$(cat)"
     printf '%s' "$src" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -1
@@ -1084,7 +1050,6 @@ ops_mark_consumer() {
   : >"$root/.studio-consumer"
 }
 
-# True for ~/task-studio (or TASK_STUDIO_DIR) / marked consumer installs.
 ops_is_updatable_install() {
   local root want
   root="$(pwd -P)"
@@ -1094,7 +1059,6 @@ ops_is_updatable_install() {
   [[ -n "$want" && "$root" == "$want" ]]
 }
 
-# Content fingerprint of app files. Never includes user data (.env, data/, …).
 ops_content_sha256() {
   local root="$1"
   (
@@ -1119,7 +1083,6 @@ ops_content_sha256() {
       ! -name 'docker-compose.override.yml' \
       | LC_ALL=C sort \
       | while IFS= read -r f; do
-          # skip empty
           [[ -n "$f" ]] || continue
           if command -v sha256sum >/dev/null 2>&1; then
             printf '%s  %s\n' "$(sha256sum "$f" | awk '{print $1}')" "$f"
@@ -1133,7 +1096,6 @@ ops_content_sha256() {
 }
 
 ops_update_preserve_paths() {
-  # Paths kept from the local install during self-update.
   printf '%s\n' \
     'data' \
     '.env' \
@@ -1222,7 +1184,6 @@ ops_update_read_cache() {
   [[ -n "$TS_UPDATE_STATUS" ]]
 }
 
-# Sets TS_UPDATE_* globals. Do not capture in $() if you need those globals.
 ops_update_check() {
   local force="${1:-0}"
   TS_UPDATE_AVAILABLE=0
@@ -1264,7 +1225,6 @@ ops_update_check() {
         return 0
       fi
     fi
-    # No usable cache — fall through to network check.
   fi
 
   local url tmp
@@ -1306,8 +1266,6 @@ ops_update_check() {
   printf '%s\n' "$TS_UPDATE_STATUS"
 }
 
-# Download archive, checksum app tree, replace files (preserve user data), rebuild.
-# Sets TS_UPDATE_REEXEC=1 for caller.
 ops_update_apply() {
   ts_prog_begin "$(ts_t title_update)"
   ts_prog_plan \

@@ -15,7 +15,6 @@ ImportJobStatus = Literal[
     "failed",
 ]
 
-
 _KNOWN_JOB_STATUSES = frozenset(get_args(ImportJobStatus))
 
 

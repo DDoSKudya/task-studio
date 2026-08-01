@@ -11,7 +11,6 @@ def _code_reply_candidates(
     source: str,
     attempt: dict[str, Any],
 ) -> list[dict[str, Any]]:
-
     cleaned = source.strip()
     mode = str(step.get("stepik_reply") or "").casefold()
     runtime = str(step.get("runtime") or "").casefold()

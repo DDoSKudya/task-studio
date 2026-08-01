@@ -8,15 +8,12 @@ const JS_HREF = /\s+(?:href|src)\s*=\s*(['"])\s*javascript:[^'"]*\1/gi
 
 export { repairMojibake } from './sanitizeEncoding'
 
-
 export function sanitizeStudyHtml(dirty: string): string {
   if (!dirty) {
     return ''
   }
   let html = repairMojibake(dirty)
 
-  // Keep fenced examples intact: decodeLiteralEntities must not turn &lt;h1&gt; back into real tags
-  // inside <pre>/<code>, or the browser (and later strippers) will eat the sample markup.
   const preBlocks: string[] = []
   html = html.replace(/<pre\b[\s\S]*?<\/pre>/gi, (block) => {
     const index = preBlocks.length
@@ -68,7 +65,6 @@ export function sanitizeStudyHtml(dirty: string): string {
   return html
 }
 
-/** Ensure sample HTML inside <pre><code> is escaped text, not live DOM tags. */
 export function normalizePreCodeBlock(block: string): string {
   if (!block) {
     return block
@@ -92,7 +88,7 @@ function escapePreCodeBody(body: string): string {
   if (!hasRawTags) {
     return normalized
   }
-  // Real tags leaked into the sample (entity-decode or LLM HTML body) — show them as text.
+
   const plain = normalized
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/g, '&')
@@ -133,7 +129,6 @@ function htmlBlockToPlain(inner: string): string {
     .replace(/&#39;/g, "'")
 }
 
-
 export function hydrateAsciiTablesInHtml(html: string): string {
   if (!html) {
     return html
@@ -151,7 +146,6 @@ export function hydrateAsciiTablesInHtml(html: string): string {
   })
   return out
 }
-
 
 export function isSubstantialStudyHtml(html: string, title = ''): boolean {
   const text = html
@@ -174,7 +168,6 @@ export function looksLikeHtml(value: string): boolean {
     value,
   )
 }
-
 
 export function studyBodyToHtml(value: string): string {
   const text = repairMarkdownFences(value.trim())
@@ -203,7 +196,6 @@ export function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
-
 
 export function asciiTableToHtml(block: string): string | null {
   const lines = block
@@ -270,7 +262,6 @@ function splitPlainChunks(text: string): string[] {
   return chunks
 }
 
-
 export function looksLikeMarkdown(value: string): boolean {
   const text = value.trim()
   if (!text) {
@@ -298,7 +289,6 @@ export function looksLikeMarkdown(value: string): boolean {
   }
   return false
 }
-
 
 export function repairMarkdownFences(markdown: string): string {
   if (!markdown || !markdown.includes('`')) {
@@ -376,7 +366,6 @@ function splitMarkdownPipeRow(line: string): string[] {
   return trimmed.split('|').map((cell) => cell.trim())
 }
 
-
 export function consumeMarkdownPipeTable(
   lines: string[],
   start: number,
@@ -425,7 +414,6 @@ export function consumeMarkdownPipeTable(
   }
 }
 
-
 export function markdownPipeTableBlockToHtml(block: string): string | null {
   const lines = block.replace(/\r\n/g, '\n').split('\n')
   let start = 0
@@ -441,7 +429,6 @@ export function markdownPipeTableBlockToHtml(block: string): string | null {
   }
   return parsed.html
 }
-
 
 export function markdownToStudyHtml(markdown: string): string {
   const cleaned = repairMarkdownFences(markdown.replace(/\r\n/g, '\n').trim())
@@ -584,7 +571,6 @@ export function markdownToStudyHtml(markdown: string): string {
       continue
     }
 
-
     if (/^\s*!\[[^\]]*]\(\s*https?:\/\/[^)]+\)\s*$/.test(line)) {
       flushParagraph()
       parts.push(`<p class="study-figure">${inlineMarkdown(line.trim())}</p>`)
@@ -598,7 +584,6 @@ export function markdownToStudyHtml(markdown: string): string {
   flushParagraph()
   return parts.join('')
 }
-
 
 export function plainToStudyHtml(text: string): string {
   const cleaned = text.replace(/\r\n/g, '\n').trim()
@@ -627,7 +612,6 @@ export function plainToStudyHtml(text: string): string {
       htmlParts.push(`<h3 class="study-section-title">${escapeHtml(headingMatch[1].trim())}</h3>`)
       continue
     }
-
 
     if (
       chunk.length <= 110

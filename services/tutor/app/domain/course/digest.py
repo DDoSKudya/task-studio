@@ -42,7 +42,7 @@ async def get_cached_course_digest(
 ) -> CourseDigest:
     cache_key = f"tutor:course-digest:{pack_version_id}"
     cached = await redis.get(cache_key)
-    if isinstance(cached, (bytes, str)):
+    if isinstance(cached, bytes | str):
         raw = cached.decode("utf-8") if isinstance(cached, bytes) else cached
         try:
             return CourseDigest.model_validate_json(raw)

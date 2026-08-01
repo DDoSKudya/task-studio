@@ -54,7 +54,7 @@ async def delete_user_pack(
     for disk_path in disk_paths:
         path = Path(disk_path)
         shutil.rmtree(path, ignore_errors=True)
-                                                                                        
+
         parent = path.parent
         user_root = packs_root / str(user_id)
         if parent != user_root and parent.is_relative_to(user_root):

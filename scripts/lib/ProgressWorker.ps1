@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-# Background worker for Invoke-TsProgress (UI stays in the parent process).
+﻿#Requires -Version 5.1
 param(
   [Parameter(Mandatory = $true)][string]$Root,
   [Parameter(Mandatory = $true)][string]$SyncPath,
@@ -29,8 +28,6 @@ $exitCode = 0
 try {
   $actionText = [System.IO.File]::ReadAllText($ActionPath)
   $sb = [scriptblock]::Create($actionText)
-  # Docker/BuildKit prints progress on stderr. With Stop + *>&1 those lines become
-  # terminating ErrorRecords ("Image … Building") and abort a healthy build.
   $prevEap = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
@@ -45,7 +42,6 @@ try {
   $exitCode = 1
   $msg = $_.Exception.Message
   if (-not $msg) { $msg = "Command failed" }
-  # Prefer a real log excerpt over BuildKit progress / empty throws.
   if ((Test-Path $LogPath) -and (Get-Command Get-TsProgressLogSummary -ErrorAction SilentlyContinue)) {
     $fromLog = Get-TsProgressLogSummary -Path $LogPath
     if ($fromLog) { $msg = $fromLog }

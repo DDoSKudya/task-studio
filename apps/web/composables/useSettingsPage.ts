@@ -236,7 +236,6 @@ export function useSettingsPage() {
 
     persistActiveProviderDraft()
 
-
     llmStatus.value = null
     loadProviderDraft(next)
 
@@ -713,7 +712,6 @@ export function useSettingsPage() {
         },
       })
       tutor.value.apiKey = ''
-
 
       try {
         syncFromSettings()

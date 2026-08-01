@@ -1,12 +1,10 @@
 
 const MERMAID_HINT = /^(?:mermaid|mmd)$/i
 
-/** Diagram keywords Mermaid 10/11 recognize (plus common LLM typos after repair). */
 const MERMAID_START =
   /^(?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|mindmap|timeline|quadrantChart|gitGraph|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment|block(?:-beta)?|architecture(?:-beta)?|sankey(?:-beta)?|xychart(?:-beta)?|packet(?:-beta)?|kanban|requirementDiagram|zenuml|radar(?:-beta)?)\b/i
 
 const MERMAID_EDGE = /(?:-->|---|-\.->|==>|--|-\.-)/
-
 
 const LABEL_NEEDS_QUOTES = /[(){}<>#;:%\\]|[\u0400-\u04FF]/
 
@@ -15,10 +13,10 @@ export function isMermaidBlock(code: string, hinted = ''): boolean {
   if (MERMAID_HINT.test(hint)) {
     return true
   }
-  // Explicit non-diagram fences stay as code even if body mentions arrows.
+
   if (hint && !/^(?:text|plain|txt|md|markdown)?$/i.test(hint) && !MERMAID_HINT.test(hint)) {
     if (!/^(?:diagram|graph|flow)$/i.test(hint)) {
-      // Still allow detection when the body clearly starts with a diagram keyword.
+
       const stripped = stripMermaidNoise(code)
       if (!MERMAID_START.test(stripped)) {
         return false
@@ -36,7 +34,7 @@ export function looksLikeMermaidSource(code: string): boolean {
   if (MERMAID_START.test(stripped)) {
     return true
   }
-  // Untitled edge lists from LLMs: several node-->node lines, no prose.
+
   const lines = stripped.split('\n').map((line) => line.trim()).filter(Boolean)
   if (lines.length < 2) {
     return false
@@ -64,7 +62,6 @@ function stripMermaidNoise(code: string): string {
     .trim()
 }
 
-
 export function repairMermaidSource(raw: string): string {
   let text = raw.replace(/\r\n/g, '\n').trim()
   if (!text) {
@@ -83,7 +80,6 @@ export function repairMermaidSource(raw: string): string {
   text = text.replace(/^\s*git\s+graph\b/im, 'gitGraph')
   text = text.replace(/^\s*requirement\s+diagram\b/im, 'requirementDiagram')
 
-  // LLM edge lists without a header — Mermaid needs a diagram type.
   const strippedHead = text.replace(/^\s*%%\{[\s\S]*?\}%%\s*/m, '').replace(/^\s*%%[^\n]*\n/gm, '').trimStart()
   if (strippedHead && !MERMAID_START.test(strippedHead) && looksLikeMermaidSource(text)) {
     text = `flowchart TD\n${text}`

@@ -1,4 +1,3 @@
-# Create desktop shortcuts (Linux / macOS). Call with repo root as $1.
 
 desktop_dir() {
   local d
@@ -28,7 +27,6 @@ ensure_script_permissions() {
       /bin/chmod u+rwx,go+rx "$f" 2>/dev/null || chmod u+rwx,go+rx "$f" 2>/dev/null || true
     fi
   done
-  # macOS Gatekeeper: drop quarantine on console entry so double-click / Terminal works.
   if command -v xattr >/dev/null 2>&1; then
     xattr -dr com.apple.quarantine "$root/scripts" 2>/dev/null || true
     xattr -d com.apple.quarantine "$root/scripts/studio.sh" 2>/dev/null || true
@@ -95,11 +93,9 @@ create_desktop_shortcuts() {
     comment="$(ts_t shortcut_comment)"
   fi
 
-  # Single console entry — uninstall lives in the launcher menu.
   case "$(uname -s)" in
     Darwin)
       _write_macos_command "$desk/${main_name}.command" "$studio_sh" "$icon_png" "$bash_bin"
-      # Remove legacy / obsolete shortcut names from older installs.
       rm -f "$desk/Task Studio.command" \
         "$desk/Task Studio — Uninstall.command" \
         "$desk/Task Studio Launcher — Uninstall.command" \
@@ -121,7 +117,6 @@ create_desktop_shortcuts() {
       rm -f "$desk/task-studio-uninstall.desktop" 2>/dev/null || true
       ;;
   esac
-  # Clean legacy Start/Stop/Uninstall shortcuts from older installs
   remove_legacy_start_stop_shortcuts "$desk"
   if declare -f ts_t >/dev/null 2>&1; then
     printf '%s\n' "$(ts_t shortcuts_created "$desk")"
@@ -195,7 +190,6 @@ _write_macos_command() {
     close_prompt='Press Enter to close…'
   fi
   cat >"$path" <<EOF
-#!/bin/bash
 script="$script"
 root="\$(cd "\$(dirname "\$script")/.." && pwd)"
 cd "\$root" || exit 1
@@ -231,7 +225,6 @@ _write_macos_command_args() {
     close_prompt='Press Enter to close…'
   fi
   cat >"$path" <<EOF
-#!/bin/bash
 script="$script"
 root="\$(cd "\$(dirname "\$script")/.." && pwd)"
 cd "\$root" || exit 1

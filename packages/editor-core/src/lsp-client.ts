@@ -160,7 +160,6 @@ function asCompletionItems(
   return out
 }
 
-
 export async function connectLanguageClient(
   monaco: typeof Monaco,
   options: ConnectLanguageClientOptions,

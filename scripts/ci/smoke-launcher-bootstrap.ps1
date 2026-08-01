@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 param()
 
 $ErrorActionPreference = "Stop"
@@ -27,9 +27,14 @@ try {
 
   $env:TASK_STUDIO_ARCHIVE_URL_ZIP = ([System.Uri]$archive).AbsoluteUri
   $env:TASK_STUDIO_DIR = $installDir
-  & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
-    -Command "& '$bootstrap' help" `
-    2>&1 | Out-Host
+  Push-Location $work
+  try {
+    & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+      -Command "& '$bootstrap' help" `
+      2>&1 | Out-Host
+  } finally {
+    Pop-Location
+  }
 
   if (-not (Test-Path (Join-Path $installDir "scripts\studio.ps1"))) {
     throw "bootstrap did not create scripts\studio.ps1"

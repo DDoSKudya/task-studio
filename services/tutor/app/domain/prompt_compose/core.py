@@ -15,7 +15,6 @@ PromptMode = Literal[
     "chat", "hints", "pack_studio", "grade", "course_from_article", "article_from_url"
 ]
 
-
 _SQL_HINT_RE = re.compile(
     r"\b(select|insert|update|delete|join|from|where|group\s+by|sql)\b",
     re.IGNORECASE,

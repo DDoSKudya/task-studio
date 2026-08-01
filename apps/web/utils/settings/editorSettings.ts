@@ -16,7 +16,6 @@ const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   languages: {},
 }
 
-
 export function parseEditorSettings(raw: Record<string, unknown> | undefined): EditorSettings {
   const editor = raw?.editor
   if (!editor || typeof editor !== 'object' || Array.isArray(editor)) {

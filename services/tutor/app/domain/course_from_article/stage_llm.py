@@ -14,7 +14,6 @@ async def _stage_json(
     user_message: str,
     max_tokens: int,
 ) -> dict[str, Any]:
-
     from app.domain import course_from_article
 
     return await course_from_article._stage_json(

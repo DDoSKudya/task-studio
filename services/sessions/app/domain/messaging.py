@@ -46,7 +46,6 @@ async def publish_analytics_events(
     settings: SessionsSettings,
     events: Sequence[AnalyticsEventMessage],
 ) -> None:
-
     if not events:
         return
 

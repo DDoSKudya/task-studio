@@ -1,6 +1,5 @@
 
 
-
 export type LlmModelCatalogEntry = {
 
   pattern: RegExp
@@ -23,7 +22,6 @@ export const LLM_MODEL_CATALOG: LlmModelCatalogEntry[] = [
   { pattern: /^llama3\.1(:|$)/i, descKey: 'llama32', preferred: false },
   { pattern: /^codellama(:|$)/i, descKey: 'codeLlama', preferred: false },
 
-
   { pattern: /^gpt-4o-mini$/i, descKey: 'gpt4oMini', preferred: true },
   { pattern: /^gpt-4\.1-mini$/i, descKey: 'gpt41Mini', preferred: true },
   { pattern: /^gpt-4o$/i, descKey: 'gpt4o', preferred: true },
@@ -34,7 +32,6 @@ export const LLM_MODEL_CATALOG: LlmModelCatalogEntry[] = [
   { pattern: /^codestral/i, descKey: 'codestral', preferred: true },
   { pattern: /^mistral-medium/i, descKey: 'mistralMedium', preferred: false },
   { pattern: /^mistral-large/i, descKey: 'mistralLarge', preferred: false },
-
 
   { pattern: /^auto$/i, descKey: 'cursorAuto', preferred: true },
   { pattern: /^composer/i, descKey: 'composer', preferred: true },
@@ -57,7 +54,6 @@ export function findCatalogEntry(modelId: string): LlmModelCatalogEntry | null {
 function sortAlpha(models: string[]): string[] {
   return [...models].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
-
 
 export function selectProjectModels(available: string[]): {
   models: string[]

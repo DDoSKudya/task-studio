@@ -1,11 +1,4 @@
-#Requires -Version 5.1
-# Public bootstrap — URL must stay stable (README / screenshot).
-#
-# Typical Windows entry (runs in memory — ExecutionPolicy does not block irm|iex):
-#   irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex
-#
-# Then: download archive → unlock scripts → set CurrentUser policy if possible →
-# desktop shortcut (studio.cmd + Bypass) → remove local install.* → new PS window → studio.
+﻿#Requires -Version 5.1
 param([Parameter(ValueFromRemainingArguments = $true)]$Rest)
 
 $ErrorActionPreference = "Stop"
@@ -13,7 +6,6 @@ $RepoBranch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "d
 $ArchiveUrl = if ($env:TASK_STUDIO_ARCHIVE_URL_ZIP) { $env:TASK_STUDIO_ARCHIVE_URL_ZIP } else { "https://codeload.github.com/DDoSKudya/task-studio/zip/refs/heads/$RepoBranch" }
 $InstallDir = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { Join-Path $HOME "task-studio" }
 
-# Locale: Russian OS → Cyrillic; otherwise English (no switches).
 $script:TsUiLang = "en"
 try {
   if ([System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq "ru") {
@@ -49,12 +41,16 @@ function Get-TsInstallRoot {
   if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "studio.ps1"))) {
     return (Split-Path -Parent $PSScriptRoot)
   }
-  if ((Test-Path "deploy\docker-compose.yml") -and (Test-Path "scripts\studio.ps1")) {
-    return (Get-Location).Path
-  }
   $candidate = Join-Path $InstallDir "scripts\studio.ps1"
   if (Test-Path $candidate) {
     return (Resolve-Path $InstallDir).Path
+  }
+  # Smoke / explicit bootstrap: always unpack into TASK_STUDIO_DIR, never adopt a random cwd checkout.
+  if ($env:TASK_STUDIO_DIR -or $env:TASK_STUDIO_ARCHIVE_URL_ZIP) {
+    return $null
+  }
+  if ((Test-Path "deploy\docker-compose.yml") -and (Test-Path "scripts\studio.ps1")) {
+    return (Get-Location).Path
   }
   return $null
 }

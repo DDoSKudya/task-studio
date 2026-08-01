@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Static checks for Task Studio Launcher (bash / PowerShell / i18n / version).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,22 +10,20 @@ fail() {
 }
 
 echo "==> bash -n (studio + install + lib)"
-mapfile -t bash_files < <(
-  find scripts -maxdepth 1 -type f -name '*.sh' -print
-  find scripts/lib -type f -name '*.sh' -print
-  find scripts/ci -type f -name '*.sh' -print
-)
+bash_files=()
+for f in scripts/*.sh scripts/lib/*.sh scripts/ci/*.sh; do
+  if [[ -f "$f" ]]; then
+    bash_files+=("$f")
+  fi
+done
+[[ ${#bash_files[@]} -gt 0 ]] || fail "no bash scripts found under scripts/"
 for f in "${bash_files[@]}"; do
   bash -n "$f" || fail "syntax error: $f"
 done
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo "==> shellcheck"
-  # SC1090/SC1091: dynamic/source paths vary by install layout.
-  # SC2034: vars read by sourced callers.
-  # SC2155: declare-and-assign is fine for launcher scripts.
-  # SC2164: sourced helpers rely on caller set -e / explicit die paths.
-  # SC2120: optional "$@" helpers used both with and without args.
+  # shellcheck disable=SC2086
   shellcheck \
     --shell=bash \
     --source-path=SCRIPTDIR \
@@ -47,7 +44,6 @@ import sys
 data = pathlib.Path(sys.argv[1]).read_bytes()
 if not data:
     sys.exit(1)
-# Every LF must be part of CRLF (Windows cmd).
 sys.exit(0 if data.count(b"\n") == data.count(b"\r\n") and b"\r\n" in data else 1)
 PY
 
@@ -104,23 +100,61 @@ if not sh_keys:
 print(f"ok {len(sh_keys)} keys match")
 PY
 
+echo "==> PowerShell block comments balanced"
+python3 - <<'PY' || fail "unbalanced <# #> in PowerShell scripts"
+from pathlib import Path
+import re
+import sys
+
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths += sorted(Path("scripts/lib").glob("*.ps1"))
+bad = []
+for path in paths:
+    if not path.is_file():
+        continue
+    text = path.read_text(encoding="utf-8-sig")
+    # rough: count markers outside strings is hard; flag orphan openers left as code
+    if re.search(r"^\s*<#", text, re.M) and not re.search(r"^\s*#>", text, re.M):
+        # opener without any closer line
+        opens = len(re.findall(r"<#", text))
+        closes = len(re.findall(r"#>", text))
+        if opens != closes:
+            bad.append(f"{path}: <#={opens} #>={closes}")
+    else:
+        opens = len(re.findall(r"<#", text))
+        closes = len(re.findall(r"#>", text))
+        if opens != closes:
+            bad.append(f"{path}: <#={opens} #>={closes}")
+if bad:
+    print("\n".join(bad), file=sys.stderr)
+    raise SystemExit(1)
+print(f"ok {sum(1 for p in paths if p.is_file())} files")
+PY
+
 if command -v pwsh >/dev/null 2>&1; then
   echo "==> PowerShell parse"
   pwsh -NoProfile -NonInteractive -Command '
     $ErrorActionPreference = "Stop"
+    function Test-TsPsParseUtf8([string]$Path) {
+      $utf8 = New-Object System.Text.UTF8Encoding $false
+      $bytes = [System.IO.File]::ReadAllBytes($Path)
+      if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $text = $utf8.GetString($bytes, 3, $bytes.Length - 3)
+      } else {
+        $text = $utf8.GetString($bytes)
+      }
+      $tokens = $null
+      $errors = $null
+      [void][System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
+      return $errors
+    }
     $files = @(
       "scripts/studio.ps1",
       "scripts/install.ps1"
     ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
     $failed = $false
     foreach ($path in $files) {
-      $tokens = $null
-      $errors = $null
-      [void][System.Management.Automation.Language.Parser]::ParseFile(
-        (Resolve-Path $path),
-        [ref]$tokens,
-        [ref]$errors
-      )
+      $errors = Test-TsPsParseUtf8 -Path (Resolve-Path $path)
       if ($errors -and $errors.Count -gt 0) {
         $failed = $true
         Write-Host "parse errors in $path"
@@ -133,5 +167,20 @@ if command -v pwsh >/dev/null 2>&1; then
 else
   echo "==> PowerShell parse skipped (pwsh not installed)"
 fi
+
+echo "==> PowerShell scripts must have UTF-8 BOM (Windows PS 5.1)"
+python3 - <<'PY' || fail "one or more .ps1 files missing UTF-8 BOM"
+from pathlib import Path
+import sys
+
+bom = b"\xef\xbb\xbf"
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths += sorted(Path("scripts/lib").glob("*.ps1"))
+missing = [str(p) for p in paths if p.is_file() and not p.read_bytes().startswith(bom)]
+if missing:
+    print("missing UTF-8 BOM:", ", ".join(missing), file=sys.stderr)
+    raise SystemExit(1)
+print(f"ok BOM on {len(paths)} files")
+PY
 
 echo "check-launcher: OK"

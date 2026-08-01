@@ -25,7 +25,6 @@ async def complete_text_until_done(
     num_ctx: int | None = None,
     conversation_id: str | None = None,
 ) -> str:
-
     parts: list[str] = []
     history: list[dict[str, str]] | None = None
     current_user = user_message
@@ -76,7 +75,6 @@ async def complete_json_raw_until_done(
     top_p: float | None = None,
     num_ctx: int | None = None,
 ) -> ChatCompletionResult:
-
     from app.domain.json_util.extract import extract_json_object
     from app.domain.llm.json_mode import complete_json_chat_result
 

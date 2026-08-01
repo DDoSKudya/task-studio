@@ -70,7 +70,6 @@ async def grade_quiz(
 
 
 def _with_quiz_reveal(step: dict[str, object], outcome: CheckOutcome) -> CheckOutcome:
-
     if outcome.passed:
         return outcome
     if outcome.details.get("expected") is not None:

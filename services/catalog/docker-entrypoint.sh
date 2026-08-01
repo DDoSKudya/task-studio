@@ -1,5 +1,4 @@
 #!/bin/sh
-# Catalog container entrypoint: ensure packs dir, migrate once, then serve.
 set -eu
 
 PACKS_ROOT="${PACKS_ROOT:-/data/packs}"

@@ -27,7 +27,6 @@ export function courseDownloadKey(
   return keyFn(pack.source ?? '', pack.external_id)
 }
 
-
 export function downloadProgressPercent(input: {
   queued: boolean
   importing: boolean

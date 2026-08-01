@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-# Shared health / browser helpers for install + start (Windows). Dot-source from scripts.
+﻿#Requires -Version 5.1
 
 $script:AppUiUrl = if ($env:TASK_STUDIO_UI_URL) { $env:TASK_STUDIO_UI_URL } else { "http://localhost" }
 $script:AppUiProbeUrl = if ($env:TASK_STUDIO_UI_PROBE_URL) { $env:TASK_STUDIO_UI_PROBE_URL } else { "http://127.0.0.1" }

@@ -22,7 +22,6 @@ def as_str(value: object) -> str | None:
 
 
 def first_plain_str(*values: object) -> str:
-
     for value in values:
         if isinstance(value, str):
             return value

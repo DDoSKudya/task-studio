@@ -25,7 +25,6 @@ async def infer_unknown_kind(
     client: httpx.AsyncClient,
     user_id: uuid.UUID | None,
 ) -> CheckOutcome:
-
     if has_choice(submission):
         return await grade_quiz(
             {**step, "kind": "quiz"},

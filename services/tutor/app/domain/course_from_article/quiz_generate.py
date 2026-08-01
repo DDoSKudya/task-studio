@@ -34,7 +34,6 @@ async def generate_quizzes(
     outcomes: list[str],
     theory_steps: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-
     collected: list[dict[str, object]] = []
     count = max(1, int(body.quiz_count))
     for index in range(count):

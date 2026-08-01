@@ -11,7 +11,6 @@ class ChatCompletionResult:
 
     @property
     def truncated(self) -> bool:
-
         reason = (self.finish_reason or "").casefold()
         if reason in {"length", "max_tokens"}:
             return True

@@ -40,7 +40,6 @@ def python_io_script(
 
 
 def python_arg_expr(value: object) -> str:
-
     if isinstance(value, dict) and set(value) == {"$call"}:
         name = value.get("$call")
         if isinstance(name, str) and re.fullmatch(r"[A-Za-z_][\w]*", name):

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Guard against .gitignore swallowing Python packages (e.g. domain/cache/, domain/packs/).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,7 +32,6 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
       fail "$path is ignored by git — fix .gitignore"
     fi
   done
-  # Catch .gitignore holes before push (same as CI).
   echo "==> required paths are tracked in git"
   for path in "${required_paths[@]}"; do
     git ls-files --error-unmatch "$path" >/dev/null 2>&1 \

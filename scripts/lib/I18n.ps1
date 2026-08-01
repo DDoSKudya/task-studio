@@ -1,6 +1,4 @@
-#Requires -Version 5.1
-# Locale for Task Studio Launcher. Russian OS → Cyrillic; else English.
-# Synced from scripts/lib/i18n.sh (Windows-specific help/usage overrides).
+﻿#Requires -Version 5.1
 $script:TsUiLang = "en"
 
 function Initialize-TsI18n {
@@ -785,4 +783,3 @@ Update скачивает пакет, сверяет контрольные су
 }
 
 Initialize-TsI18n
-

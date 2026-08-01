@@ -9,7 +9,6 @@ async def wait_ready_with_keepalive[T](
     *,
     poll_interval: float = 8.0,
 ) -> AsyncIterator[bytes]:
-
     while True:
         if task.done():
             return
