@@ -327,39 +327,83 @@ function Confirm-TsYes {
   return (Confirm-TsDelete -Prompt $Prompt)
 }
 
+function Clear-TsConsoleKeyBuffer {
+  try {
+    while ([Console]::KeyAvailable) {
+      $null = [Console]::ReadKey($true)
+    }
+  } catch { }
+}
+
+function Test-TsConsumeKeyPress {
+  # Prefer [Console]::KeyAvailable — RawUI.KeyAvailable + ReadKey often hangs on Windows Terminal
+  # (mouse / KeyUp leave KeyAvailable true, then IncludeKeyDown blocks forever).
+  try {
+    if ([Console]::KeyAvailable) {
+      $null = [Console]::ReadKey($true)
+      return $true
+    }
+  } catch { }
+  return $false
+}
+
+function Wait-TsAutoReturn {
+  param(
+    [int]$Seconds = 5,
+    [scriptblock]$OnTick = $null
+  )
+  Clear-TsConsoleKeyBuffer
+  $total = [Math]::Max(1, $Seconds)
+  for ($left = $total; $left -ge 1; $left--) {
+    if ($OnTick) {
+      try { & $OnTick $left } catch { }
+    }
+    $sliceEnd = [DateTime]::UtcNow.AddSeconds(1)
+    while ([DateTime]::UtcNow -lt $sliceEnd) {
+      if (Test-TsConsumeKeyPress) { return }
+      Start-Sleep -Milliseconds 100
+    }
+  }
+}
+
 function Wait-TsPause {
-  param([string]$Message = $(Get-TsText press_enter_menu))
+  param(
+    [string]$Message = $(Get-TsText press_enter_menu),
+    [int]$AutoSeconds = 5
+  )
   Reset-TsConsoleColors
   if (Use-TsSimpleUi -or -not (Test-TsRawUi)) {
-    Clear-Host
-    Write-Host ""
-    Write-Host $Message -ForegroundColor $script:TsGold
-    Write-Host ""
-    Write-Host "[ Enter ]" -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-    Reset-TsConsoleColors
-    try {
-      while ($true) {
-        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        if ([int]$key.VirtualKeyCode -in @(13, 32, 27)) { break }
-      }
-    } catch { }
+    Wait-TsAutoReturn -Seconds $AutoSeconds -OnTick {
+      param([int]$Sec)
+      Clear-Host
+      Write-Host ""
+      Write-Host $Message -ForegroundColor $script:TsGold
+      Write-Host ""
+      Write-Host (Get-TsText returning_footer $Sec) -ForegroundColor $script:TsMuted
+      Write-Host ""
+      Write-Host "[ Enter ]" -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+      Reset-TsConsoleColors
+    }
     return
   }
-  $box = Get-TsCenterBox -PrefW 56 -PrefH 8
+  $box = Get-TsCenterBox -PrefW 56 -PrefH 9
   $inner = $box.Width - 2
   $line = ("-" * $inner)
   $pad = (" " * $box.Left)
-  Clear-Host
-  for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
-  Write-Host ($pad) -NoNewline
-  Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
-  Reset-TsConsoleColors
-  Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-  Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Message -Style gold
-  Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
-  Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "[ Enter ]" -Style selected
-  Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-  [void]$host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+  Wait-TsAutoReturn -Seconds $AutoSeconds -OnTick {
+    param([int]$Sec)
+    Clear-Host
+    for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
+    Write-Host ($pad) -NoNewline
+    Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+    Reset-TsConsoleColors
+    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
+    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Message -Style gold
+    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText returning_footer $Sec) -Style muted
+    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
+    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "[ Enter ]" -Style selected
+    Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
+  }
 }
 
 function Write-TsProgressBar([int]$Pct, [int]$Width) {
@@ -845,22 +889,14 @@ function Invoke-TsProgress {
   }
 
   Show-ProgressPanel -Force
-  # Auto-return after 5s; any key skips.
-  $deadline = [DateTime]::UtcNow.AddSeconds(5)
-  while ([DateTime]::UtcNow -lt $deadline) {
-    $remain = [Math]::Max(1, [int][Math]::Ceiling(($deadline - [DateTime]::UtcNow).TotalSeconds))
+  # Auto-return after 5s; any key skips. Do not use RawUI.KeyAvailable+ReadKey (hangs on WT).
+  Wait-TsAutoReturn -Seconds 5 -OnTick {
+    param([int]$Sec)
     if ($script:TsProg -and $script:TsProg.Phase -in @("done", "error")) {
-      $script:TsProg.Status = (Get-TsText returning_footer $remain)
+      $script:TsProg.Status = (Get-TsText returning_footer $Sec)
       $script:TsProgFp = ""
-      Show-ProgressPanel
+      Show-ProgressPanel -Force
     }
-    $hasKey = $false
-    try { $hasKey = $Host.UI.RawUI.KeyAvailable } catch { $hasKey = $false }
-    if ($hasKey) {
-      try { [void]$Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { }
-      break
-    }
-    Start-Sleep -Milliseconds 250
   }
   # Keep studio-last.log; only drop ephemeral sync/worker files.
   Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
