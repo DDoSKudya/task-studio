@@ -1,7 +1,6 @@
 set dotenv-load := true
 set export := true
 
-# BuildKit cache mounts in Dockerfiles need these.
 DOCKER_BUILDKIT := "1"
 COMPOSE_DOCKER_CLI_BUILD := "1"
 COMPOSE_BAKE := "true"
@@ -15,7 +14,6 @@ buildx_cache := "/tmp/task-studio-buildx-cache"
 default:
     @just --list
 
-# Full rebuild of all profile images, then start (or recreate) containers.
 up mode="":
     #!/usr/bin/env bash
     set -eo pipefail
@@ -31,7 +29,6 @@ up mode="":
     {{compose}} $profiles up -d --force-recreate --remove-orphans
     echo "Stack rebuilt and running."
 
-# Alias — same as `just up` (full rebuild + start).
 rebuild mode="":
     #!/usr/bin/env bash
     set -eo pipefail
@@ -41,7 +38,6 @@ rebuild mode="":
       just up
     fi
 
-# Start existing images without rebuilding (fast resume).
 start mode="":
     #!/usr/bin/env bash
     set -eo pipefail
@@ -54,7 +50,6 @@ start mode="":
     chmod -R a+rwX data/packs 2>/dev/null || true
     {{compose}} $profiles up -d --remove-orphans
 
-# Rebuild only the learner UI production image (slow). Prefer `just web-dev` for day-to-day UI work.
 rebuild-web:
     #!/usr/bin/env bash
     set -eo pipefail
@@ -63,8 +58,6 @@ rebuild-web:
     echo "Web image rebuilt — hard-refresh the browser (Ctrl+Shift+R)."
     echo "Tip: for UI edits use \`just web-dev\` (HMR, no production Nuxt rebuild)."
 
-# Rebuild one or more backend services after API/code changes.
-# Example: just rebuild-svc integrations studio-api
 rebuild-svc +services:
     #!/usr/bin/env bash
     set -eo pipefail
@@ -72,8 +65,6 @@ rebuild-svc +services:
     {{compose}} --profile {{profile}} up -d --force-recreate {{services}}
     echo "Rebuilt: {{services}}"
 
-# Nuxt HMR via Docker: source bind-mount, no image rebuild on every edit.
-# Open http://localhost — edits under apps/web hot-reload.
 web-dev:
     #!/usr/bin/env bash
     set -eo pipefail
@@ -84,7 +75,6 @@ web-dev:
     {{compose_web_dev}} $profiles up -d --build web nginx
     echo "Web HMR is up — open http://localhost (source: apps/web)"
 
-# Local Nuxt on :3000 (API proxied to http://localhost/api). Stack must already be up.
 web-local:
     #!/usr/bin/env bash
     set -eo pipefail
@@ -99,29 +89,22 @@ down:
 logs service:
     {{compose}} logs -f {{service}}
 
-# Install Piston language runtimes (python/node/go/sqlite/ts/bash).
-# Packages persist under data/piston/packages. Re-run after wiping that dir.
 piston-install:
     #!/usr/bin/env bash
     set -eo pipefail
     {{compose}} --profile {{profile}} up -d piston
-    # Piston API is internal-only; run the installer inside grading.
     {{compose}} --profile {{profile}} cp scripts/install_piston_packages.py grading:/tmp/install_piston_packages.py
     {{compose}} --profile {{profile}} exec -T grading python /tmp/install_piston_packages.py --url http://piston:2000
-
 
 test:
     #!/usr/bin/env bash
     set -eo pipefail
     uv sync --all-packages
-    # dotenv-load sets DATABASE_URL for compose; unit tests must skip DB suites.
     unset DATABASE_URL
     shared_path="packages/python-common/src:packages/contracts:packages/integration-sdk"
-    # Packages first (no conflicting ``app`` packages).
     PYTHONPATH="$shared_path" uv run pytest -q \
       packages/python-common/tests \
       packages/contracts/tests
-    # Each service gets its own interpreter so ``import app`` cannot leak.
     services=(
       auth catalog media studio-api grading sessions tutor cursor-proxy
       integrations analytics lab-runner orchestrator
@@ -147,13 +130,11 @@ lint:
     bash scripts/ci/check-tracked-modules.sh
     @if [ -d apps/web/node_modules ]; then cd apps/web && npm run lint; fi
 
-# Install git pre-commit hooks (ruff/mypy/launcher/compose/tracked modules).
 hooks:
     uv sync --group dev
     uv run pre-commit install
     @echo "pre-commit installed — hooks run on every git commit."
 
-# Run the same hooks as a commit would (all files).
 hooks-run:
     uv run pre-commit run --all-files
 
@@ -184,7 +165,6 @@ build-images tag="latest":
     set -eo pipefail
     registry="${DOCKER_REGISTRY:-ghcr.io/task-studio}"
     mkdir -p "{{buildx_cache}}"
-    # Local bake: host arch only (multi-arch stays on `just publish`).
     host_platform="linux/$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
     docker buildx bake -f deploy/docker-bake.hcl \
       --set "*.platform=${host_platform}" \

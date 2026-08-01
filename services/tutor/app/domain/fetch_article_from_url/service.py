@@ -21,7 +21,6 @@ from .videos import extract_video_refs
 
 logger = logging.getLogger(__name__)
 
-
 _page_to_plaintext = page_to_plaintext
 _fetch_page = fetch_page
 _parse_article_json = parse_article_json

@@ -7,7 +7,6 @@ from app.domain.llm.target import LlmTarget
 
 _JSON_OBJECT = {"type": "json_object"}
 
-
 _UNSUPPORTED_JSON_MODE_MARKERS = (
     "response_format",
     "json_object",

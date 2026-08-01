@@ -1,5 +1,3 @@
-# Locale for Task Studio Launcher (sourced by studio.sh, ops, ui).
-# Russian OS → Cyrillic UI; everything else → English. No user switches.
 
 TS_UI_LANG="${TS_UI_LANG:-}"
 
@@ -11,7 +9,6 @@ ts_detect_lang() {
       loc="$(defaults read -g AppleLocale 2>/dev/null || true)"
     fi
   fi
-  # Normalize: ru_RU.UTF-8 → ru_ru.utf-8
   loc="$(printf '%s' "$loc" | tr '[:upper:]' '[:lower:]')"
   case "$loc" in
     ru|ru_*|ru.*|*.ru|ru@*|*"ru_ru"*)
@@ -24,7 +21,6 @@ ts_detect_lang() {
   export TS_UI_LANG
 }
 
-# Usage: ts_t key   or   ts_t key arg1 arg2…  (printf-style in the template)
 ts_t() {
   local key="${1:-}"
   shift || true
@@ -80,7 +76,6 @@ ts_t() {
     cmd_failed) en="Command failed (exit %s)"; ru="Команда завершилась с ошибкой (код %s)" ;;
     err_progress_empty_log) en="Command failed before writing a log (exit early). Often data/logs is not writable (Docker owns data/). Log path: %s"; ru="Команда упала до записи лога. Часто data/logs недоступен для записи (каталог data/ создал Docker). Путь лога: %s" ;;
 
-    # menu
     menu_install) en="Install - first-time setup"; ru="Установка — первый запуск" ;;
     menu_start) en="Start - run containers"; ru="Старт — запуск контейнеров" ;;
     menu_heal) en="Heal - start missing / stopped containers"; ru="Починить — поднять недостающие и остановленные" ;;
@@ -125,7 +120,6 @@ ts_t() {
     help_update_note2) en="Update downloads an archive, compares checksums, replaces app files."; ru="Update скачивает архив, сверяет контрольные суммы, заменяет файлы приложения." ;;
     help_update_note3) en="User data is preserved: data/, .env, local compose overrides."; ru="Данные пользователя сохраняются: data/, .env, локальные compose-overrides." ;;
 
-    # docker
     err_docker_missing) en="Docker not found. Install Docker Desktop (macOS/Windows) or Docker Engine + Compose v2 (Linux), then start it and retry."; ru="Docker не найден. Установите Docker Desktop (macOS/Windows) или Docker Engine + Compose v2 (Linux), запустите его и повторите." ;;
     err_docker_unusable) en="Docker is installed but not usable. Start Docker Desktop / the Docker daemon and wait until it is ready. Detail: %s"; ru="Docker установлен, но недоступен. Запустите Docker Desktop / демон Docker и дождитесь готовности. Подробности: %s" ;;
     err_docker_stopped) en="Docker is installed but not running. Start Docker Desktop / the Docker daemon and wait until it is ready."; ru="Docker установлен, но не запущен. Запустите Docker Desktop / демон Docker и дождитесь готовности." ;;
@@ -134,7 +128,6 @@ ts_t() {
     err_compose_missing) en="Docker Compose v2 is required (command: docker compose). Update Docker Desktop or install the compose plugin."; ru="Нужен Docker Compose v2 (команда: docker compose). Обновите Docker Desktop или установите плагин compose." ;;
     err_buildkit) en="Docker Engine %s is too old. Task Studio needs Docker 20+ with BuildKit (cache mounts). Upgrade Docker Desktop / Engine."; ru="Docker Engine %s слишком старый. Нужен Docker 20+ с BuildKit (cache mounts). Обновите Docker Desktop / Engine." ;;
 
-    # install bootstrap
     boot_git_missing) en="git not found."; ru="git не найден." ;;
     boot_updating) en="Updating existing install…"; ru="Обновление существующей установки…" ;;
     boot_studio_missing) en="studio.sh not found under %s/scripts"; ru="studio.sh не найден в %s/scripts" ;;
@@ -146,8 +139,6 @@ ts_t() {
     boot_ps_studio_missing) en="studio.ps1 not found under %s\scripts"; ru="studio.ps1 не найден в %s\scripts" ;;
     boot_ps_git_missing) en="git not found. Install Git for Windows, then re-run: irm …/install.ps1 | iex"; ru="git не найден. Установите Git for Windows и снова выполните: irm …/install.ps1 | iex" ;;
 
-
-    # ops titles / stages
     title_install) en="Install"; ru="Установка" ;;
     title_start) en="Start"; ru="Старт" ;;
     title_open) en="Open"; ru="Открыть" ;;
@@ -331,7 +322,6 @@ Update скачивает пакет, сверяет контрольные су
   fi
 }
 
-# Auto-detect once on source (can be re-run).
 if [[ -z "${TS_UI_LANG}" ]]; then
   ts_detect_lang
 fi

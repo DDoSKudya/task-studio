@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-# Console manager UI — Debian-dialog style, brand colors from tokens.css
+﻿#Requires -Version 5.1
 
 $script:TsViolet = "DarkMagenta"
 $script:TsGold = "Yellow"
@@ -17,7 +16,6 @@ if (-not $script:TsLibDir -and $MyInvocation.MyCommand.Path) {
 }
 
 function Reset-TsConsoleColors {
-  # Write-Host -BackgroundColor can leave host defaults stuck (near-invisible UI).
   try {
     [Console]::ResetColor()
   } catch { }
@@ -41,7 +39,6 @@ function Test-TsRawUi {
 function Use-TsSimpleUi {
   if ($env:TASK_STUDIO_SIMPLE_UI -eq "1") { return $true }
   if ($env:TASK_STUDIO_SIMPLE_UI -eq "0") { return $false }
-  # PS 5.1 supports in-place RawUI updates; full redraw only when RawUI is unavailable.
   return -not (Test-TsRawUi)
 }
 
@@ -129,7 +126,6 @@ function Write-TsFrame {
   for ($r = 0; $r -lt $Height; $r++) {
     if ($r -gt 0) { Write-Host "" }  # rely on Clear-Host + relative write via blank lines above
   }
-  # Clear and position by printing leading blank lines then indented box
   Clear-Host
   for ($i = 0; $i -lt $Top; $i++) { Write-Host "" }
 
@@ -138,8 +134,6 @@ function Write-TsFrame {
 
   Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
 
-  # Body rows are drawn by caller between header and footer; this helper only chrome.
-  # Caller uses Write-TsBoxLine.
 }
 
 function Write-TsBoxLine {
@@ -163,7 +157,6 @@ function Write-TsBoxLine {
     default { Write-Host $content -ForegroundColor $script:TsFg -NoNewline }
   }
   Write-Host "|" -ForegroundColor $script:TsViolet
-  # BackgroundColor on selected rows must not leak into the next Write-Host.
   Reset-TsConsoleColors
 }
 
@@ -172,7 +165,6 @@ function Show-TsChoiceFallback {
     [Parameter(Mandatory = $true)][string]$Prompt,
     [Parameter(Mandatory = $true)][hashtable[]]$Items
   )
-  # Arrow / digit / Enter only — never Read-Host typing.
   Reset-TsConsoleColors
   $selected = 0
   $count = $Items.Count
@@ -197,7 +189,6 @@ function Show-TsChoiceFallback {
     try {
       $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     } catch {
-      # Last resort: default to first item on Enter via host ReadLine is worse — pick first and return on any printable fail.
       return $Items[0].Value
     }
     $vk = [int]$key.VirtualKeyCode
@@ -214,7 +205,6 @@ function Show-TsChoiceFallback {
           if ($idx -lt $count) { return $Items[$idx].Value }
         }
         if ($vk -ge 97 -and $vk -le 105) {
-          # Numpad 1-9
           $idx = $vk - 97
           if ($idx -lt $count) { return $Items[$idx].Value }
         }
@@ -311,7 +301,6 @@ function Confirm-Ts {
   return ($pick -eq "yes")
 }
 
-# Destructive confirm: arrows — Delete / Cancel (no typing YES).
 function Confirm-TsDelete {
   param([string]$Prompt = (Get-TsText confirm_uninstall))
   $pick = Read-TsChoice -Prompt $Prompt -Items @(
@@ -321,7 +310,6 @@ function Confirm-TsDelete {
   return ($pick -eq "delete")
 }
 
-# Back-compat alias.
 function Confirm-TsYes {
   param([string]$Prompt = (Get-TsText confirm_uninstall))
   return (Confirm-TsDelete -Prompt $Prompt)
@@ -336,8 +324,6 @@ function Clear-TsConsoleKeyBuffer {
 }
 
 function Test-TsConsumeKeyPress {
-  # Prefer [Console]::KeyAvailable — RawUI.KeyAvailable + ReadKey often hangs on Windows Terminal
-  # (mouse / KeyUp leave KeyAvailable true, then IncludeKeyDown blocks forever).
   try {
     if ([Console]::KeyAvailable) {
       $null = [Console]::ReadKey($true)
@@ -566,7 +552,6 @@ function Get-TsProgressLogPath {
       New-Item -ItemType Directory -Path $dir -Force | Out-Null
     }
     $probe = Join-Path $dir "studio-last.log"
-    # Touch to verify write access (Docker bind mounts often leave data/ non-writable).
     [System.IO.File]::OpenWrite($probe).Close()
     return $probe
   } catch {
@@ -687,7 +672,6 @@ function Invoke-TsProgress {
     return
   }
 
-  # Same model as Linux ui_run_progress: work in a child process, UI polls a sync file.
   $work = Join-Path ([System.IO.Path]::GetTempPath()) ("ts-prog-" + [guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $work -Force | Out-Null
   $syncPath = Join-Path $work "sync.txt"
@@ -776,7 +760,6 @@ function Invoke-TsProgress {
       $script:TsProgContentTop = $box.Top + 2
     }
 
-    # Overwrite content in place (no Clear-Host) to avoid flicker.
     try {
       $raw = $Host.UI.RawUI
       $row = [Math]::Max(0, $box.Top + 2)
@@ -815,7 +798,6 @@ function Invoke-TsProgress {
       $raw.CursorPosition = New-Object System.Management.Automation.Host.Coordinates $col, ($row + $lines.Count)
       Write-Host ("+" + $line + "+") -ForegroundColor $script:TsViolet
     } catch {
-      # Fallback: rare hosts without RawUI — one clear only when forced.
       if ($Force) {
         Clear-Host
         for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
@@ -889,7 +871,6 @@ function Invoke-TsProgress {
   }
 
   Show-ProgressPanel -Force
-  # Auto-return after 5s; any key skips. Do not use RawUI.KeyAvailable+ReadKey (hangs on WT).
   Wait-TsAutoReturn -Seconds 5 -OnTick {
     param([int]$Sec)
     if ($script:TsProg -and $script:TsProg.Phase -in @("done", "error")) {
@@ -898,7 +879,6 @@ function Invoke-TsProgress {
       Show-ProgressPanel -Force
     }
   }
-  # Keep studio-last.log; only drop ephemeral sync/worker files.
   Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
   $script:TsProg = $null
   $script:TsProgChromeDrawn = $false
@@ -907,7 +887,6 @@ function Invoke-TsProgress {
   Clear-Host
 }
 
-# Back-compat
 function Invoke-TsLogged {
   param([string]$Title, [scriptblock]$Action)
   Invoke-TsProgress -Title $Title -Action $Action

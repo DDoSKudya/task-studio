@@ -1,6 +1,3 @@
-# Progress state for the dialog manager (stages, %, ETA, errors).
-# Used when TS_PROGRESS_FILE is set by ui_run_progress.
-# Format of the state file: key=value lines (no spaces around =).
 
 TS_PROG_IDS=()
 TS_PROG_LABELS=()
@@ -16,7 +13,6 @@ ts_prog_now() {
 }
 
 ts_prog_write() {
-  # Append key=value lines; readers take the last value per key.
   ts_prog_active || return 0
   local line
   for line in "$@"; do
@@ -36,7 +32,6 @@ ts_prog_get() {
   fi
 }
 
-# Begin a run. Optional title (also set by ui_run_progress).
 ts_prog_begin() {
   local title="${1:-}"
   if [[ -z "$title" ]]; then
@@ -68,7 +63,6 @@ ts_prog_begin() {
   fi
 }
 
-# Register plan: each arg is id|Label|est_seconds
 ts_prog_plan() {
   local item id label est
   TS_PROG_IDS=()
@@ -107,7 +101,6 @@ ts_prog_weight_before() {
   printf '%s\n' "$sum"
 }
 
-# Enter stage by id (must be in plan).
 ts_prog_enter() {
   local id="$1"
   local status="${2:-}"
@@ -163,13 +156,11 @@ ts_prog_status() {
 
 ts_prog_fail() {
   local msg="$1"
-  # Keep message to one line for the panel
   msg="${msg//$'\n'/ }"
   msg="${msg:0:200}"
   if ts_prog_active; then
     ts_prog_write "phase=error" "error=$msg" "status=$(ts_t prog_failed 2>/dev/null || echo Failed)"
   fi
-  # Outside an active progress session, callers (ui_die) print the error once.
 }
 
 ts_prog_done() {
@@ -189,8 +180,6 @@ ts_prog_done() {
   fi
 }
 
-# Compute display pct + eta from state (for the painter).
-# Prints: pct eta_sec
 ts_prog_compute() {
   local pct_lo pct_hi stage_t0 stage_est left now elapsed frac pct remain
   pct_lo="$(ts_prog_get pct_lo 0)"
@@ -202,7 +191,6 @@ ts_prog_compute() {
   elapsed=$((now - stage_t0))
   ((elapsed < 0)) && elapsed=0
   ((stage_est < 1)) && stage_est=1
-  # Soft fill inside the stage, never quite reach pct_hi until stage ends
   if ((elapsed * 100 / stage_est > 92)); then
     frac=92
   else
@@ -237,12 +225,10 @@ ts_prog_format_eta() {
   fi
 }
 
-# Strip CSI / noise so log lines fit the panel.
 ts_prog_clean_line() {
   local line="$1"
   line="$(ui_strip_ansi "$line" 2>/dev/null || printf '%s' "$line")"
   line="${line//$'\r'/}"
-  # Collapse runs of spaces
   line="$(printf '%s' "$line" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
   printf '%s' "$line"
 }
@@ -250,7 +236,6 @@ ts_prog_clean_line() {
 ts_prog_line_is_noise() {
   local line="$1"
   [[ -z "$line" ]] && return 0
-  # Keep BuildKit "#12 ERROR: …" — only drop plain step markers.
   if ts_prog_line_is_signal "$line"; then
     return 1
   fi
@@ -269,7 +254,6 @@ ts_prog_line_is_signal() {
     'error:|ERROR|fatal:|FATAL|failed to solve|failed to |exit code|Cannot connect|permission denied|no space|ENOSPC|not found|refused|timeout|deadlock|out of memory|OOMKilled|OOM|heap out of memory|JavaScript heap|killed process|signal: killed|ResourceExhausted|invalid reference|manifest unknown|unauthorized|authentication|TLS handshake|no such file|Target failed|buildx failed|compose.*failed|npm error|ELIFECYCLE'
 }
 
-# Up to N meaningful lines from the end of the log for the error panel.
 ts_prog_error_excerpt() {
   local log="${1:-${TS_PROGRESS_LOG:-}}"
   local max="${2:-5}"
@@ -322,7 +306,6 @@ ts_prog_error_excerpt() {
   return 1
 }
 
-# One-line summary for status / sync field.
 ts_prog_extract_error() {
   local log="${1:-${TS_PROGRESS_LOG:-}}"
   local line
@@ -336,13 +319,11 @@ ts_prog_extract_error() {
   printf '%s\n' "$line"
 }
 
-# Persistent launcher log under the install root when writable; otherwise cache/tmp.
 ts_progress_log_path() {
   local root="${1:-${ROOT:-$(pwd -P 2>/dev/null || pwd)}}"
   local preferred="$root/data/logs"
   local fallback log
   if mkdir -p "$preferred" 2>/dev/null && [[ -w "$preferred" ]]; then
-    # Docker often creates data/ as root/nobody — keep logs writable for the launcher user.
     chmod a+rwX "$preferred" 2>/dev/null || true
     log="$preferred/studio-last.log"
     if : >"$log" 2>/dev/null; then

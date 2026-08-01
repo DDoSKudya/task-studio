@@ -1,10 +1,4 @@
-# Task Studio console manager UI (Debian-dialog style, brand colors).
-# tokens.css: --op-violet #b366ff --op-gold #ffd700 --color-bg #05050a --color-surface #12121c
-#
-# UI -> stderr. Selected values -> stdout.
-# Callers: pick="$(ui_choose …)"
 
-# Truecolor
 TS_FG=$'\033[38;2;255;255;255m'
 TS_MUTED=$'\033[38;2;160;160;168m'
 TS_VIOLET=$'\033[38;2;179;102;255m'
@@ -29,11 +23,9 @@ TS_ALT_OFF=$'\033[?1049l'
 TS_CLEAR=$'\033[2J\033[H'
 TS_UI_SPIN_I=0
 TS_UI_SPIN_FRAMES='|/-\'
-# Synchronized output (reduces flicker / flashing in modern terminals)
 TS_SYNC_BEGIN=$'\033[?2026h'
 TS_SYNC_END=$'\033[?2026l'
 
-# Session: keep alt-screen across menu + logged actions
 TS_UI_SESSION=0
 TS_UI_SCREEN_READY=0
 TS_UI_GEOM=""
@@ -69,8 +61,6 @@ ui_err() {
 }
 
 ui_die() {
-  # Progress panel: record error in the state file only (stderr is redirected to the log).
-  # Outside progress: print once — ts_prog_fail must not also call ui_err here.
   if declare -F ts_prog_active >/dev/null 2>&1 && ts_prog_active; then
     ts_prog_fail "$*" || true
   else
@@ -87,7 +77,6 @@ ui_tty() {
   fi
 }
 
-# Real terminal size from the controlling tty (not capped to 120).
 ui_term_size() {
   local cols rows size
   cols=""
@@ -113,7 +102,6 @@ ui_cols() { ui_term_size | awk '{print $1}'; }
 ui_rows() { ui_term_size | awk '{print $2}'; }
 
 ui_pad() {
-  # Pad/truncate to exact display width (byte-safe labels preferred).
   local text="$1" width="$2"
   local len=${#text}
   if ((len > width)); then
@@ -139,7 +127,6 @@ ui_fill() {
   done
 }
 
-# Strip CSI / OSC so log lines fit the panel cleanly.
 ui_strip_ansi() {
   local s="$1"
   # shellcheck disable=SC2001
@@ -161,7 +148,6 @@ ui_sync_end() {
 
 ui_paint_screen() {
   local cols rows r force="${1:-}"
-  # Skip full clear when the backdrop is already painted (anti-flicker).
   if [[ "$force" != "force" && "$TS_UI_SCREEN_READY" -eq 1 ]]; then
     return 0
   fi
@@ -203,7 +189,6 @@ ui_session_end() {
   printf '%s%s%s' "$TS_SHOW" "$TS_ALT_OFF" "$TS_RESET" >&2
 }
 
-# Enter dialog chrome. Pass "force" to wipe the screen (new panel / resize).
 ui_manager_enter() {
   local mode="${1:-}"
   if [[ "$mode" == "force" ]]; then
@@ -234,7 +219,6 @@ ui_manager_leave() {
   printf '%s%s%s' "$TS_SHOW" "$TS_ALT_OFF" "$TS_RESET" >&2
 }
 
-# Geometry helper: center a box. Prints: top left height width
 ui_center_box() {
   local pref_w="$1" pref_h="$2"
   local cols rows width height top left
@@ -252,8 +236,6 @@ ui_center_box() {
   printf '%s %s %s %s\n' "$top" "$left" "$height" "$width"
 }
 
-# Draw dialog frame. Args: top left height width title [footer] [chrome=1]
-# chrome=0 skips shadow (in-place updates — less flicker).
 ui_draw_frame() {
   local top="$1" left="$2" height="$3" width="$4" title="$5"
   local footer="${6:-}"
@@ -424,7 +406,6 @@ ui_choose() {
         need_full=0
         prev_selected=$selected
       elif [[ "$prev_selected" -ne "$selected" ]]; then
-        # Only rewrite the two rows that changed — no full-screen flash.
         if [[ "$prev_selected" -ge 0 ]]; then
           ui_draw_line_in_box $((list_top + prev_selected)) "$left" "$width" "  ${labels[$prev_selected]}" muted
         fi
@@ -496,7 +477,6 @@ ui_confirm() {
   [[ "$pick" == "yes" ]]
 }
 
-# Destructive confirm: arrow keys — Delete / Cancel (no typing YES).
 ui_confirm_delete() {
   local prompt="${1:-}"
   local del_l can_l
@@ -519,7 +499,6 @@ ui_confirm_delete() {
   [[ "$pick" == "delete" ]]
 }
 
-# Back-compat alias (was: type YES).
 ui_confirm_yes() {
   ui_confirm_delete "$@"
 }
@@ -560,7 +539,6 @@ ui_pause() {
   fi
 }
 
-# Draw a progress bar string of exact width (fill + percent lives outside).
 ui_progress_bar_string() {
   local pct="$1" width="$2"
   ((width < 8)) && width=8
@@ -586,8 +564,6 @@ ui_spinner_tick() {
   TS_UI_SPIN_I=$(( (i + 1) % n ))
 }
 
-# Paint progress dialog from TS_PROGRESS_FILE.
-# mode: full (chrome+content) | update (content only, skip if unchanged)
 ui_progress_panel_paint() {
   local top="$1" left="$2" height="$3" width="$4"
   local mode="${5:-full}"
@@ -615,7 +591,6 @@ ui_progress_panel_paint() {
     if [[ "$eta_sec" -le 0 ]]; then
       eta_text="$(ts_t prog_eta_finishing 2>/dev/null || echo 'finishing…')"
     else
-      # Bucket ETA to whole minutes (or 10s under a minute) to avoid per-tick redraw flash.
       if ((eta_sec < 60)); then
         eta_text="$(ts_prog_format_eta $(( (eta_sec / 10) * 10 )))"
       else
@@ -641,7 +616,6 @@ ui_progress_panel_paint() {
   [[ "$phase" == "run" ]] && footer="$(ts_t prog_footer_run 2>/dev/null || echo 'working… please wait')"
   [[ "$phase" == "error" || "$phase" == "done" ]] && footer="${TS_UI_RETURN_FOOTER:-$(ts_t prog_footer_return 2>/dev/null || echo 'Enter = back / auto in 5s')}"
 
-  # Include spinner tick so the panel always redraws while work is running.
   fp="${title}|${group}|${status_line}|${phase}|${error}|${pct}|${eta_text}|${footer}|${spin}"
   if [[ "$mode" == "update" && "$fp" == "${TS_UI_PROG_FP:-}" ]]; then
     return 0
@@ -654,7 +628,6 @@ ui_progress_panel_paint() {
   if [[ "$mode" == "full" ]]; then
     ui_draw_frame "$top" "$left" "$height" "$width" "$app_title · $title" "$footer" 1
   else
-    # Title / footer may change on phase transition — rewrite without shadow flash.
     ui_goto "$top" "$left"
     printf '%s%s' "$TS_TITLE_BG" "$TS_TITLE_FG$TS_BOLD" >&2
     printf '%s' "$(ui_pad "  $app_title · $title" "$width")" >&2
@@ -705,8 +678,6 @@ ui_progress_panel_paint() {
   ui_sync_end
 }
 
-# Run action with stage progress panel (not a raw log dump).
-# Usage: ui_run_progress "Install" ops_install
 ui_run_progress() {
   local title="$1"
   shift
@@ -716,7 +687,6 @@ ui_run_progress() {
   export TS_PROGRESS_FILE
   export TS_PROGRESS_LOG
   TS_PROGRESS_FILE="$(mktemp "${TMPDIR:-/tmp}/ts-prog.XXXXXX")"
-  # Keep the real log under the install tree — temp files were deleted and lied in the UI.
   if [[ -z "${ROOT:-}" ]]; then
     ops_find_root_quiet 2>/dev/null || true
   fi
@@ -727,7 +697,6 @@ ui_run_progress() {
     : >"$TS_PROGRESS_LOG"
   fi
   TS_UI_PROG_FP=""
-  # Use action title as the first group — "Starting" looked like a wrong action (Stop → Старт).
   ts_prog_write "title=$title" "phase=run" "group=$title" "status=" "pct_lo=0" "pct_hi=5" \
     "stage_t0=$(date +%s)" "stage_est=10" "stages_left_est=0" "error=" "pct=0"
 
@@ -747,7 +716,6 @@ ui_run_progress() {
   fi
 
   set +e
-  # Redirect must succeed: an unwritable log path aborts the job with exit 1 and no progress update.
   if ! : >>"$TS_PROGRESS_LOG" 2>/dev/null; then
     TS_PROGRESS_LOG="$(mktemp "${TMPDIR:-/tmp}/ts-studio.XXXXXX.log")"
   fi
@@ -795,7 +763,6 @@ ui_run_progress() {
     fi
     TS_UI_PROG_FP=""
     ui_progress_panel_paint "$top" "$left" "$height" "$width" update
-    # Auto-return to menu after 5s; Enter/Space/q skips the wait.
     local left_sec=5 key
     while ((left_sec > 0)); do
       TS_UI_RETURN_FOOTER="$(ts_t returning_footer "$left_sec" 2>/dev/null || echo "Returning in ${left_sec}s / Enter = now")"
@@ -805,7 +772,6 @@ ui_run_progress() {
       IFS= read -r -s -n 1 -t 1 key <"$tty" || true
       if [[ -n "$key" ]]; then
         [[ "$key" == $'\n' || "$key" == $'\r' || "$key" == ' ' || "$key" == 'q' || "$key" == 'Q' ]] && break
-        # Any other key also dismisses.
         break
       fi
       left_sec=$((left_sec - 1))
@@ -834,18 +800,15 @@ ui_run_progress() {
 
   set -e
   local prog_file="$TS_PROGRESS_FILE"
-  # Keep TS_PROGRESS_LOG on disk for the user; only drop the sync tempfile.
   unset TS_PROGRESS_FILE
   rm -f "$prog_file" 2>/dev/null || true
   return "$rc"
 }
 
-# Back-compat alias
 ui_run_logged() {
   ui_run_progress "$@"
 }
 
-# Show a static text panel (help).
 ui_show_text() {
   local title="$1"
   shift
@@ -881,4 +844,3 @@ ui_show_text() {
     read -r _ <"$tty" || true
   fi
 }
-

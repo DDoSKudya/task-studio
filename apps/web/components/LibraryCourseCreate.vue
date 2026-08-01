@@ -81,7 +81,6 @@ const gateDeviations = ref<Array<{ summary: string; sources: string[] }>>([])
 const gateSimilarity = ref<number | null>(null)
 const gateRelated = ref(true)
 
-
 const viewMode = ref<'edit' | 'progress'>('edit')
 
 let abortController: AbortController | null = null

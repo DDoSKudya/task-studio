@@ -72,7 +72,6 @@ const STAGES = computed(() => {
 
 const visible = computed(() => props.active || props.done || Boolean(props.error))
 
-
 const activeStep = computed(() => {
   for (let i = props.log.length - 1; i >= 0; i -= 1) {
     const event = props.log[i]
@@ -92,7 +91,6 @@ const activeStep = computed(() => {
   }
   return null
 })
-
 
 const displayProgress = computed(() => {
   if (props.error) {

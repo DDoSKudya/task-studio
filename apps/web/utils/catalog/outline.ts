@@ -48,7 +48,6 @@ function resolvePhaseOrder(
   return ordered
 }
 
-
 export function buildCourseOutline(
   manifest: Record<string, unknown> | null | undefined,
 ): CourseOutlineModule[] {

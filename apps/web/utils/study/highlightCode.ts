@@ -161,7 +161,6 @@ const SLOT_START = '\uE000'
 const SLOT_END = '\uE001'
 const SLOT_BASE = 0xE100
 
-
 export function highlightStudyCode(code: string, language = ''): string {
   const lang = detectCodeLanguage(code, language)
   const keywords = LANG_KEYWORDS[lang]
@@ -179,7 +178,6 @@ export function highlightStudyCode(code: string, language = ''): string {
     slots.push({ kind, text })
     return `${SLOT_START}${String.fromCharCode(SLOT_BASE + index)}${SLOT_END}`
   }
-
 
   html = html.replace(/(^|\s)(#.*|\/\/.*)$/gm, (_full, prefix: string, comment: string) => {
     return `${prefix}${stash('com', comment)}`

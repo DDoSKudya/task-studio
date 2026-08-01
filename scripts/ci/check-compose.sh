@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Validate compose file merges against .env.example (no Docker daemon required for `config`).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

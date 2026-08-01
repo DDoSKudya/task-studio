@@ -13,7 +13,6 @@ class CatalogSettings:
 
 
 def _env_int(name: str, default: int) -> int:
-    # Compose may set VAR="" when interpolation misses; getenv default then does not apply.
     raw = os.getenv(name)
     if raw is None:
         return default

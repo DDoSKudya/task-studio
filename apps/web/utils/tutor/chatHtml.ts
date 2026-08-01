@@ -15,7 +15,6 @@ function decodeBasicEntities(text: string): string {
     .replace(/&amp;/g, '&')
 }
 
-
 export function tutorMessageHtml(content: string): string {
   const text = content.trim()
   if (!text) {

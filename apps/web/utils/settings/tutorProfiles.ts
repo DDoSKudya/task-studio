@@ -81,7 +81,6 @@ export function providerProfilesFromSettings(
     }
   }
 
-
   profiles.cursor = {
     ...profiles.cursor,
     providerUrl: CURSOR_PROXY_URL,

@@ -56,7 +56,6 @@ import {
   type PackLearningSnapshot,
 } from '~/utils/catalog'
 
-
 type PackLearning = PackLearningSnapshot
 
 const route = useRoute()

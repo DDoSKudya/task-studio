@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-# Create Windows desktop shortcuts. Dot-source from install.ps1 / studio.
+﻿#Requires -Version 5.1
 
 function Get-DesktopPath {
   $p = [Environment]::GetFolderPath("Desktop")
@@ -13,7 +12,6 @@ function Remove-TsZoneIdentifier {
   param([Parameter(Mandatory = $true)][string]$Path)
   if (-not (Test-Path $Path)) { return }
   try { Unblock-File -Path $Path -ErrorAction SilentlyContinue } catch { }
-  # Extra: strip Mark of the Web ADS if Unblock-File is unavailable / incomplete.
   try {
     $ads = $Path + ":Zone.Identifier"
     if (Test-Path $ads) { Remove-Item -Force $ads -ErrorAction SilentlyContinue }
@@ -31,7 +29,6 @@ function Unlock-TaskStudioScripts {
   Get-ChildItem -Path $scriptDir -Recurse -Include *.ps1, *.cmd, *.bat -ErrorAction SilentlyContinue | ForEach-Object {
     Remove-TsZoneIdentifier -Path $_.FullName
   }
-  # Brand icons / assets sometimes blocked too when cloned via some tools
   $brand = Join-Path $Root "docs\assets\brand"
   if (Test-Path $brand) {
     Get-ChildItem -Path $brand -File -ErrorAction SilentlyContinue | ForEach-Object {
@@ -45,7 +42,6 @@ function Enable-TsScriptExecution {
     Best-effort so studio.ps1 / shortcuts can run after irm|iex bootstrap.
     Order: CurrentUser RemoteSigned → Bypass → Process Bypass → Unblock files.
     Machine/User GPO cannot always be overridden; we still prefer studio.cmd (-ExecutionPolicy Bypass).
-  #>
   $notes = @()
   try {
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop
@@ -98,7 +94,6 @@ function New-TaskStudioShortcut {
   $lnkPath = Join-Path $desktop "$Name.lnk"
   $wsh = New-Object -ComObject WScript.Shell
   $sc = $wsh.CreateShortcut($lnkPath)
-  # Always point at .cmd so -ExecutionPolicy Bypass is applied.
   $sc.TargetPath = $CmdPath
   if ($Arguments) { $sc.Arguments = $Arguments }
   $sc.WorkingDirectory = $Root
@@ -136,17 +131,16 @@ function Install-TaskStudioDesktopShortcuts {
   $a = New-TaskStudioShortcut -Root $Root -Name $mainName -CmdPath $studioCmd
   foreach ($legacy in @(
       "Task Studio.lnk",
-      "Task Studio — Uninstall.lnk",
-      "Task Studio — Start.lnk",
-      "Task Studio — Stop.lnk",
-      "Task Studio Launcher — Uninstall.lnk",
-      "Task Studio Launcher — Удаление.lnk"
+      "Task Studio - Uninstall.lnk",
+      "Task Studio - Start.lnk",
+      "Task Studio - Stop.lnk",
+      "Task Studio Launcher - Uninstall.lnk",
+      "Task Studio Launcher - Uninstall.lnk"
     )) {
     if ($legacy -eq ($mainName + ".lnk")) { continue }
     $p = Join-Path $desktop $legacy
     if (Test-Path $p) { Remove-Item -Force $p -ErrorAction SilentlyContinue }
   }
-  # Drop obsolete Uninstall shortcut if present under localized name.
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
     $unName = Get-TsText shortcut_uninstall
     if ($unName -and $unName -ne $mainName) {
@@ -163,11 +157,11 @@ function Remove-TaskStudioDesktopShortcuts {
   $names = @(
     "Task Studio.lnk",
     "Task Studio Launcher.lnk",
-    "Task Studio — Start.lnk",
-    "Task Studio — Stop.lnk",
-    "Task Studio — Uninstall.lnk",
-    "Task Studio Launcher — Uninstall.lnk",
-    "Task Studio Launcher — Удаление.lnk"
+    "Task Studio - Start.lnk",
+    "Task Studio - Stop.lnk",
+    "Task Studio - Uninstall.lnk",
+    "Task Studio Launcher - Uninstall.lnk",
+    "Task Studio Launcher - Uninstall.lnk"
   )
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
     $names += ((Get-TsText shortcut_main) + ".lnk")
@@ -206,7 +200,6 @@ function Start-TsStudioConsole {
   $studioCmd = $paths.Cmd
   $studioPs1 = $paths.Ps1
   if (Test-Path $studioCmd) {
-    # Same console / TTY so the dialog manager stays interactive.
     if ($Arguments -and $Arguments.Count -gt 0) {
       & cmd.exe /c "`"$studioCmd`" $($Arguments -join ' ')"
     } else {
@@ -225,7 +218,6 @@ function Start-TsStudioNewWindow {
   )
   Enable-TsScriptExecution | Out-Null
   Unlock-TaskStudioScripts -Root $Root
-  # Prefer studio.cmd (same path as desktop shortcut) for a clean console.
   $paths = Get-TsStudioLaunchPaths -Root $Root
   if (Test-Path $paths.Cmd) {
     if ($Arguments -and $Arguments.Count -gt 0) {

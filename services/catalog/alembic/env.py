@@ -57,7 +57,6 @@ async def run_async_migrations() -> None:
     )
 
     async with connectable.connect() as connection:
-        # Entrypoint runs alembic before FastAPI lifespan ensure_schema().
         await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {VERSION_SCHEMA}"))
         await connection.commit()
         await connection.run_sync(do_run_migrations)

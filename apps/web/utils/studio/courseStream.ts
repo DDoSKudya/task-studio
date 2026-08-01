@@ -115,7 +115,6 @@ export function finalizeCourseStream(state: {
   return { kind: 'done', result: state.doneResult }
 }
 
-
 export function consumeCourseSseBuffer(
   buffer: string,
   onEvent: (event: CourseStageEvent) => void,
@@ -140,7 +139,7 @@ export function consumeCourseSseBuffer(
       onEvent(event)
       applyCourseStageEvent(event, state)
     } catch {
-      // skip malformed SSE payloads
+
     }
   }
   return rest

@@ -1,6 +1,4 @@
-#Requires -Version 5.1
-# Task Studio Launcher — unified console (Windows).
-# Usage: .\scripts\studio.cmd [install|start|open|stop|restart|update|uninstall|help]
+﻿#Requires -Version 5.1
 param(
   [Parameter(Position = 0)][string]$Command = "",
   [switch]$Yes,
@@ -49,7 +47,6 @@ function Show-TsHelp {
   Write-Host ""
   Write-Host (Get-TsText usage_body)
 }
-
 
 function Get-TsMenuItems {
   $state = Get-TsStackState
@@ -174,7 +171,6 @@ if ($Help -or $Command -in @("help", "-h", "--help")) {
   exit 0
 }
 
-# Browser only — Docker daemon not required (stack may already be up).
 if ($Command.ToLowerInvariant() -eq "open") {
   Invoke-TsOpen
   exit 0

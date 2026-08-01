@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1.7
-# Build from repository root: docker build -f services/orchestrator/Dockerfile .
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

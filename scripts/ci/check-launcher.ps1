@@ -1,10 +1,29 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $Root
 
-Write-Host "==> PowerShell parse (Windows PowerShell)"
+function Test-TsPsParseUtf8 {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  $bytes = [System.IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    $text = $utf8.GetString($bytes, 3, $bytes.Length - 3)
+  } else {
+    $text = $utf8.GetString($bytes)
+  }
+  $tokens = $null
+  $errors = $null
+  [void][System.Management.Automation.Language.Parser]::ParseInput(
+    $text,
+    [ref]$tokens,
+    [ref]$errors
+  )
+  return $errors
+}
+
+Write-Host "==> PowerShell parse (Windows PowerShell, UTF-8)"
 $files = @(
   "scripts\install.ps1",
   "scripts\studio.ps1"
@@ -12,13 +31,8 @@ $files = @(
 
 $failed = $false
 foreach ($path in $files) {
-  $tokens = $null
-  $errors = $null
-  [void][System.Management.Automation.Language.Parser]::ParseFile(
-    (Resolve-Path $path),
-    [ref]$tokens,
-    [ref]$errors
-  )
+  $full = (Resolve-Path $path).Path
+  $errors = Test-TsPsParseUtf8 -Path $full
   if ($errors -and $errors.Count -gt 0) {
     $failed = $true
     Write-Host "parse errors in $path"

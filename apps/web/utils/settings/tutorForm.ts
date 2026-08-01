@@ -23,7 +23,6 @@ export function normalizePlatformCredentials(raw: unknown): Record<string, strin
   return credentials
 }
 
-
 export function integrationDraftFromStored(
   stored: Record<string, string>,
   fields: string[],
@@ -65,7 +64,6 @@ export function isModelInList(wanted: string, models: string[]): boolean {
   return models.some((item) => modelAliases(item).some((alias) => wantedSet.has(alias)))
 }
 
-
 export function coerceTutorModelSelection(input: {
   currentModel: string
   models: string[]
@@ -83,4 +81,3 @@ export function coerceTutorModelSelection(input: {
 
   return ''
 }
-

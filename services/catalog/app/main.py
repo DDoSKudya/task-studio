@@ -27,7 +27,6 @@ def build_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        # Entrypoint already ran alembic when CATALOG_MIGRATIONS_DONE=1.
         try:
             catalog_settings.packs_root.mkdir(parents=True, exist_ok=True)
         except OSError as exc:

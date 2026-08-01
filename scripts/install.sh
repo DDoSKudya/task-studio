@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Public bootstrap — URL must stay stable (README / screenshot).
-# Downloads Task Studio Launcher archive, creates a desktop shortcut,
-# removes this install script from the install folder, then starts studio
-# in the same terminal.
 set -euo pipefail
 
 REPO_BRANCH="${TASK_STUDIO_BRANCH:-develop}"
@@ -10,7 +6,6 @@ ARCHIVE_URL="${TASK_STUDIO_ARCHIVE_URL:-https://codeload.github.com/DDoSKudya/ta
 INSTALL_DIR="${TASK_STUDIO_DIR:-$HOME/task-studio}"
 COMPOSE_FILE="deploy/docker-compose.yml"
 
-# Locale: Russian OS → Cyrillic; otherwise English (no switches).
 TS_UI_LANG=en
 _ts_boot_detect_lang() {
   local loc="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
@@ -129,7 +124,6 @@ fi
 [[ -f "$root/scripts/studio.sh" ]] || die "$(_t studio_missing "$root")"
 
 cd "$root"
-# Prefer full catalog from the repo once available.
 # shellcheck source=lib/i18n.sh
 if [[ -f "$root/scripts/lib/i18n.sh" ]]; then
   # shellcheck disable=SC1091

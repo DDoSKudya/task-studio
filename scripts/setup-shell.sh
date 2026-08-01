@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# One-time developer shell setup: mise auto-activate + just.
 set -euo pipefail
 
 MISE_BIN="${HOME}/.local/bin/mise"
@@ -13,7 +12,6 @@ if [[ ! -x "${MISE_BIN}" ]]; then
   exit 1
 fi
 
-# Keep just available even when mise cache/network hiccups.
 if [[ ! -x "${JUST_BIN}" ]]; then
   echo "Downloading just 1.40.0 into ~/.local/bin ..."
   curl -fsSL \
@@ -60,7 +58,6 @@ echo "Installing tools from .mise.toml (includes just)..."
 cd "$(dirname "$0")/.."
 "${MISE_BIN}" install
 
-# Fix root-owned mise cache leftovers from container/root runs.
 if [[ -d "${HOME}/.cache/mise" ]]; then
   find "${HOME}/.cache/mise" -user root -print -quit >/dev/null 2>&1 && {
     echo "Note: some files under ~/.cache/mise are owned by root."

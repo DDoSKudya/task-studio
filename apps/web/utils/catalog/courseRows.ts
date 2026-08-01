@@ -21,7 +21,7 @@ export function canDownloadExternalCourse(row: Pick<CatalogCourseRow, 'platform'
   if (row.platform !== 'stepik') {
     return true
   }
-  // Only enrolled courses are downloadable; unknown/null must not look like "Скачать".
+
   return row.enrolled === true
 }
 

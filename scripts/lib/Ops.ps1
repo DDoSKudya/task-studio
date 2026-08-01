@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-# Ops for studio.ps1 — dot-source after Ui.ps1, OpenApp.ps1, DesktopShortcuts.ps1
+﻿#Requires -Version 5.1
 
 $script:ComposeFile = "deploy/docker-compose.yml"
 $script:RepoHttps = if ($env:TASK_STUDIO_REPO_HTTPS) { $env:TASK_STUDIO_REPO_HTTPS } else { "https://github.com/DDoSKudya/task-studio.git" }
@@ -8,7 +7,6 @@ $script:InstallDir = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { J
 $script:MinRamGb = if ($env:TASK_STUDIO_MIN_RAM_GB) { [int]$env:TASK_STUDIO_MIN_RAM_GB } else { 8 }
 $script:OllamaModel = if ($env:OLLAMA_MODEL) { $env:OLLAMA_MODEL } else { "qwen2.5:3b" }
 
-# Windows PowerShell 5.1 "utf8" = UTF-8 with BOM — breaks docker --env-file and some JSON readers.
 function Write-TsUtf8NoBom {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
@@ -18,8 +16,6 @@ function Write-TsUtf8NoBom {
   [System.IO.File]::WriteAllText($Path, $Content, $enc)
 }
 
-# Run a native CLI under PS 5.1 without turning stderr into terminating errors
-# when $ErrorActionPreference is Stop (studio.ps1 default).
 function Invoke-TsNative {
   param(
     [Parameter(Mandatory = $true)][string]$FilePath,
@@ -65,7 +61,6 @@ function Start-TsDockerDesktop {
       }
     }
     if (-not $started) {
-      # Last resort: protocol / app user model id varies by install — ignore failures.
       try { Start-Process "Docker Desktop" -ErrorAction SilentlyContinue | Out-Null; $started = $true } catch { }
     }
     return $started
@@ -151,7 +146,6 @@ function Get-TsDefaultParallelLimit {
 function Write-TsInstallPathWarning {
   param([string]$Root = (Get-Location).Path)
   if (-not $Root) { return }
-  # Docker Desktop bind-mounts from NTFS (C:\) often break Postgres/ClickHouse permissions.
   if ($Root -match '^[A-Za-z]:\\') {
     Write-TsWarn (Get-TsText warn_path_windows $Root)
   }
@@ -226,7 +220,6 @@ function Set-TsEnvValue([string]$Name, [string]$Value) {
   }
   $lines = New-Object System.Collections.Generic.List[string]
   foreach ($line in ($raw -split "`r?`n", -1)) {
-    # Drop trailing empty split artifact only if file ended with newline — keep content lines.
     [void]$lines.Add($line)
   }
   if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq "") {
@@ -267,7 +260,6 @@ function Test-TsMasterKey([string]$Raw) {
 }
 
 function Get-TsDockerSockGid {
-  # Docker Desktop / Linux VM: read GID of the mounted socket so orchestrator group_add works.
   try {
     $r = Invoke-TsNative docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.20 `
       stat -c '%g' /var/run/docker.sock
@@ -283,7 +275,6 @@ function Ensure-TsEnv {
     Copy-Item ".env.example" ".env"
     Write-TsInfo (Get-TsText info_env_created)
   }
-  # Normalize possible UTF-8 BOM from editors / older launcher builds.
   $envPath = Join-Path (Get-Location).Path ".env"
   $raw = [System.IO.File]::ReadAllText($envPath)
   if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) {
@@ -307,7 +298,6 @@ function Ensure-TsEnv {
   if (-not $packMax) {
     Set-TsEnvValue "PACK_MAX_UPLOAD_MB" "500"
   }
-  # Only probe the socket when GID is missing or still the .env.example placeholder.
   $curGid = Get-TsEnvValue "DOCKER_GID"
   if (-not $curGid -or $curGid -eq "988") {
     $gid = Get-TsDockerSockGid
@@ -340,7 +330,6 @@ function Invoke-TsCompose {
     $argList += @("--env-file", ".env")
   }
   if ($ComposeArgs) { $argList += $ComposeArgs }
-  # Docker prints progress on stderr; under Stop that becomes NativeCommandError.
   $r = Invoke-TsNative docker @argList
   foreach ($line in $r.Output) {
     Write-Output $line
@@ -428,7 +417,6 @@ function Write-TsComposeFailureDiagnostics {
       }
     }
     $payload = $sb.ToString()
-    # Prefer .NET append — works while the worker still has the file open for redirect.
     try {
       [System.IO.File]::AppendAllText($log, $payload, (New-Object System.Text.UTF8Encoding $false))
     } catch {
@@ -499,7 +487,6 @@ function Invoke-TsComposeUp {
     $catalogOk = Wait-TsCatalogHealthy -TimeoutSec 240
   }
   if (-not $catalogOk) {
-    # Soft-gate: UI (nginx/web/studio-api) does not require catalog healthy.
     Write-TsWarn (Get-TsText warn_catalog_continue)
     Write-TsComposeFailureDiagnostics
   }
@@ -519,7 +506,6 @@ function Invoke-TsComposeUp {
 }
 
 function Get-TsProfileArgs {
-  # Prefer process env (install may force power_saving on low RAM). Fall back to .env.
   $mode = "balancing"
   if ($env:ORCHESTRATOR_MODE) {
     $mode = $env:ORCHESTRATOR_MODE
@@ -648,7 +634,6 @@ function Get-TsRunningCount {
   }
 }
 
-# missing | stopped | running
 function Get-TsStackState {
   $root = Resolve-TsRoot
   if (-not $root) {
@@ -680,7 +665,6 @@ function Ensure-TsStopped {
     if ($logPath -and $downOut) {
       Add-Content -Path $logPath -Value (($downOut | ForEach-Object { "$_" }) -join "`n") -Encoding utf8 -ErrorAction SilentlyContinue
     }
-    # Legacy installs used project name from compose path (`deploy`).
     $legacy = @(docker compose -p deploy -f $script:ComposeFile ps -q 2>$null)
     if ($legacy) {
       $legacyOut = @(docker compose -p deploy -f $script:ComposeFile @profiles down --remove-orphans 2>&1)
@@ -789,7 +773,6 @@ exit 1
     "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd
   ) | Out-Null
   $script:UninstallExit = $true
-  # Parent progress UI runs work in a child process — sticky marker for menu exit.
   try {
     Set-Content -LiteralPath (Join-Path $Root ".studio-uninstall-exit") -Value "1" -Encoding ascii -Force
   } catch { }
@@ -801,7 +784,6 @@ exit 1
   }
 }
 
-# Returns $null on cancel, otherwise @{ Purge = $bool }.
 function Confirm-TsUninstallConsent {
   param([switch]$Yes, [switch]$Purge)
   if ($env:TASK_STUDIO_UNINSTALL_YES -eq "1") { $Yes = $true }
@@ -920,8 +902,6 @@ function Invoke-TsUninstall {
   }
   Complete-TsProgress
 }
-
-# --- Self-update (HTTP version + archive, no git) ----------------------------
 
 $script:UpdateTtlSec = if ($env:TASK_STUDIO_UPDATE_TTL_SEC) { [int]$env:TASK_STUDIO_UPDATE_TTL_SEC } else { 3600 }
 $script:UpdateAvailable = $false
@@ -1059,7 +1039,6 @@ function Sync-TsPayload {
   if (-not (Get-Command robocopy -ErrorAction SilentlyContinue)) {
     throw (Get-TsText err_robocopy)
   }
-  # /PURGE removes obsolete app files; /XD /XF keep user data and local markers.
   $args = @(
     $Source, $Destination, '/E', '/PURGE',
     '/NFL', '/NDL', '/NJH', '/NJS', '/NP',

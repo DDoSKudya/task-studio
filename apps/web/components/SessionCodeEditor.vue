@@ -118,7 +118,6 @@ async function setupLsp(
     model,
   }
 
-
   let lastError: unknown = null
   for (let attempt = 1; attempt <= 8; attempt += 1) {
     if (disposed) {
@@ -207,7 +206,7 @@ onBeforeUnmount(async () => {
     try {
       await sendBeacon('close', { language: props.lspId, sessionId: props.sessionId })
     } catch {
-      // best-effort close on unmount
+
     }
   }
   await disconnectLanguageClient(lspHandle)

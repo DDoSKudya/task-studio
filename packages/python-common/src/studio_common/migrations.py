@@ -31,7 +31,6 @@ def _is_transient_db_error(exc: BaseException) -> bool:
                 "temporarily unavailable",
             )
         )
-    # Alembic often wraps the root cause.
     cause = exc.__cause__ or exc.__context__
     return cause is not None and cause is not exc and _is_transient_db_error(cause)
 

@@ -8,8 +8,6 @@ RUN apk add --no-cache libc6-compat
 COPY apps/web/package.json apps/web/package-lock.json ./
 COPY packages/editor-core /app/packages/editor-core
 
-# editor-core is a file: link; install its deps under packages/ so Vite can resolve
-# imports from /app/packages/editor-core/src (walks that tree, not apps/web/node_modules).
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --ignore-scripts \
  && npm install --prefix /app/packages/editor-core --ignore-scripts --omit=dev --no-package-lock
@@ -21,10 +19,8 @@ ENV NUXT_DEVTOOLS=false
 ENV NUXT_SKIP_ESLINT=true
 ENV NUXT_TELEMETRY_DISABLED=1
 ENV NUXT_SOURCEMAP=false
-# Nuxt + Monaco/Mermaid/ECharts needs a large heap; 2048 OOMs on Docker Desktop (Win).
 ARG NODE_MAX_OLD_SPACE_SIZE=4096
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}
-# Vite default cacheDir is node_modules/.vite (not .cache).
 RUN --mount=type=cache,target=/app/apps/web/node_modules/.vite \
     --mount=type=cache,target=/app/apps/web/node_modules/.cache \
     npm run build
