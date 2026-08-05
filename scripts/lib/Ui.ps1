@@ -14,6 +14,58 @@ $script:TsLibDir = $PSScriptRoot
 if (-not $script:TsLibDir -and $MyInvocation.MyCommand.Path) {
   $script:TsLibDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
+$script:TsLauncherVersion = $null
+$script:TsLauncherBuild = $null
+$script:TsLauncherVersionLoaded = $false
+
+function Get-TsLauncherVersionPath {
+  return (Join-Path $script:TsLibDir "..\launcher-version.json")
+}
+
+function Get-TsLauncherVersionInfo {
+  if ($script:TsLauncherVersionLoaded) {
+    return @{
+      Version = [string]$script:TsLauncherVersion
+      Build   = [string]$script:TsLauncherBuild
+    }
+  }
+  $script:TsLauncherVersionLoaded = $true
+  $script:TsLauncherVersion = ""
+  $script:TsLauncherBuild = ""
+  $path = Get-TsLauncherVersionPath
+  if (Test-Path -LiteralPath $path) {
+    try {
+      $obj = Get-Content -Raw -LiteralPath $path -Encoding utf8 | ConvertFrom-Json
+      if ($null -ne $obj.version) { $script:TsLauncherVersion = [string]$obj.version }
+      if ($null -ne $obj.build) { $script:TsLauncherBuild = [string]$obj.build }
+    } catch { }
+  }
+  return @{
+    Version = [string]$script:TsLauncherVersion
+    Build   = [string]$script:TsLauncherBuild
+  }
+}
+
+function Get-TsChromeAppTitle {
+  $base = "Task Studio Launcher"
+  if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
+    $base = Get-TsText app_title
+  }
+  $info = Get-TsLauncherVersionInfo
+  if ($info.Version) {
+    return ($base + " · " + $info.Version)
+  }
+  return $base
+}
+
+function Get-TsChromeFooter {
+  param([string]$Base)
+  $info = Get-TsLauncherVersionInfo
+  if ($info.Build) {
+    return ($Base + " · build " + $info.Build)
+  }
+  return $Base
+}
 
 function Reset-TsConsoleColors {
   try {
@@ -80,7 +132,7 @@ function Write-TsErr([string]$Message) {
   }
 }
 
-function Show-TsBanner([string]$Title = $(Get-TsText app_title)) { }
+function Show-TsBanner([string]$Title = $(Get-TsChromeAppTitle)) { }
 
 function Get-TsTermSize {
   try {
@@ -103,6 +155,85 @@ function Get-TsCenterBox {
   return @{ Top = $top; Left = $left; Height = $height; Width = $width }
 }
 
+function Get-TsBoxPrefWidth {
+  $sz = Get-TsTermSize
+  $w = $sz.Cols - 4
+  if ($w -lt 56) { $w = 56 }
+  return $w
+}
+
+function Get-TsBoxPrefHeight {
+  $sz = Get-TsTermSize
+  $h = $sz.Rows - 2
+  if ($h -lt 18) { $h = 18 }
+  return $h
+}
+
+function Split-TsTextToWidth {
+  param(
+    [string]$Text,
+    [int]$MaxWidth
+  )
+  if ($MaxWidth -lt 4) { $MaxWidth = 4 }
+  if (-not $Text) { return @("") }
+  $lines = New-Object System.Collections.Generic.List[string]
+  $rest = $Text
+  while ($rest.Length -gt $MaxWidth) {
+    $breakAt = $MaxWidth
+    $chunk = $rest.Substring(0, $MaxWidth)
+    $spaceIdx = $chunk.LastIndexOf(' ')
+    if ($spaceIdx -gt 0) { $breakAt = $spaceIdx }
+    $line = $rest.Substring(0, $breakAt).TrimEnd()
+    [void]$lines.Add($line)
+    $rest = $rest.Substring($breakAt).TrimStart()
+  }
+  if ($rest.Length -gt 0) { [void]$lines.Add($rest) }
+  return @($lines)
+}
+
+function Split-TsTextToWidthLimited {
+  param(
+    [string]$Text,
+    [int]$MaxWidth,
+    [int]$MaxLines
+  )
+  $lines = @(Split-TsTextToWidth -Text $Text -MaxWidth $MaxWidth)
+  if ($MaxLines -le 0 -or $lines.Count -le $MaxLines) { return $lines }
+  $trimmed = @($lines[0..($MaxLines - 1)])
+  $lastIdx = $MaxLines - 1
+  $last = $trimmed[$lastIdx]
+  if ($last.Length -gt $MaxWidth) {
+    if ($MaxWidth -le 3) {
+      $trimmed[$lastIdx] = $last.Substring(0, $MaxWidth)
+    } else {
+      $trimmed[$lastIdx] = $last.Substring(0, $MaxWidth - 3) + "..."
+    }
+  }
+  return $trimmed
+}
+
+function Write-TsWrappedBoxLines {
+  param(
+    [int]$Left,
+    [int]$Width,
+    [string]$Text,
+    [ValidateSet("normal", "selected", "gold", "muted", "ok", "danger")]
+    [string]$Style = "normal",
+    [int]$MaxLines = 0
+  )
+  $inner = $Width - 4
+  if ($inner -lt 4) { $inner = 4 }
+  if ($MaxLines -gt 0) {
+    $parts = @(Split-TsTextToWidthLimited -Text $Text -MaxWidth $inner -MaxLines $MaxLines)
+  } else {
+    $parts = @(Split-TsTextToWidth -Text $Text -MaxWidth $inner)
+  }
+  if ($parts.Count -eq 0) { $parts = @("") }
+  foreach ($part in $parts) {
+    Write-TsBoxLine -Left $Left -Width $Width -Text $part -Style $Style
+  }
+}
+
 function Write-TsPad([string]$Text, [int]$Width) {
   if ($null -eq $Text) { $Text = "" }
   if ($Text.Length -gt $Width) {
@@ -118,7 +249,7 @@ function Write-TsFrame {
     [string]$Title,
     [string]$Footer = ""
   )
-  if (-not $Footer) { $Footer = Get-TsText menu_footer_ps }
+  if (-not $Footer) { $Footer = Get-TsChromeFooter (Get-TsText menu_footer_ps) }
   $inner = $Width - 2
   $line = ("-" * $inner)
   $pad = (" " * $Left)
@@ -185,7 +316,7 @@ function Show-TsChoiceFallback {
       }
     }
     Write-Host ""
-    Write-Host (Get-TsText menu_footer_ps) -ForegroundColor $script:TsMuted
+    Write-Host (Get-TsChromeFooter (Get-TsText menu_footer_ps)) -ForegroundColor $script:TsMuted
     try {
       $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     } catch {
@@ -227,16 +358,19 @@ function Read-TsChoice {
 
   $selected = 0
   $count = $Items.Count
-  $prefW = 58
-  $prefH = $count + 9
+  $needH = $count + 9
+  $prefW = Get-TsBoxPrefWidth
+  $prefH = [Math]::Max($needH, (Get-TsBoxPrefHeight))
   $prev = -1
   $chromeDrawn = $false
   $box = $null
   $listTop = 0
 
   while ($true) {
+    $prefW = Get-TsBoxPrefWidth
+    $prefH = [Math]::Max($needH, (Get-TsBoxPrefHeight))
     $newBox = Get-TsCenterBox -PrefW $prefW -PrefH $prefH
-    $resized = (-not $box) -or ($box.Top -ne $newBox.Top) -or ($box.Left -ne $newBox.Left) -or ($box.Width -ne $newBox.Width)
+    $resized = (-not $box) -or ($box.Top -ne $newBox.Top) -or ($box.Left -ne $newBox.Left) -or ($box.Width -ne $newBox.Width) -or ($box.Height -ne $newBox.Height)
     $box = $newBox
     $inner = $box.Width - 2
     $line = ("-" * $inner)
@@ -247,7 +381,7 @@ function Read-TsChoice {
       Clear-Host
       for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
       Write-Host ($pad) -NoNewline
-      Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+      Write-Host (Write-TsPad ("  " + (Get-TsChromeAppTitle)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
       Reset-TsConsoleColors
       Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
       Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Prompt -Style gold
@@ -257,8 +391,14 @@ function Read-TsChoice {
         $style = if ($i -eq $selected) { "selected" } else { "muted" }
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text ($mark + $Items[$i].Label) -Style $style
       }
+      # Fill remaining body rows so the frame matches terminal height.
+      $bodyUsed = 2 + $count
+      $bodyAvail = [Math]::Max(0, $box.Height - 4)
+      for ($i = $bodyUsed; $i -lt $bodyAvail; $i++) {
+        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
+      }
       Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
-      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText menu_footer_ps) -Style muted
+      Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsChromeFooter (Get-TsText menu_footer_ps)) -Style muted
       $chromeDrawn = $true
       $prev = $selected
     } elseif ($prev -ne $selected) {
@@ -381,7 +521,7 @@ function Wait-TsPause {
     Clear-Host
     for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
     Write-Host ($pad) -NoNewline
-    Write-Host (Write-TsPad ("  " + (Get-TsText app_title)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+    Write-Host (Write-TsPad ("  " + (Get-TsChromeAppTitle)) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
     Reset-TsConsoleColors
     Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
     Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $Message -Style gold
@@ -742,7 +882,22 @@ function Invoke-TsProgress {
     $script:TsProgFp = $fp
     $script:TsLastProgressPaint = $now
 
-    $box = Get-TsCenterBox -PrefW 64 -PrefH 20
+    $prefW = Get-TsBoxPrefWidth
+    $prefH = Get-TsBoxPrefHeight
+    $box = Get-TsCenterBox -PrefW $prefW -PrefH $prefH
+    $resized = $false
+    if ($script:TsProgBox) {
+      $resized = (
+        $script:TsProgBox.Top -ne $box.Top -or
+        $script:TsProgBox.Left -ne $box.Left -or
+        $script:TsProgBox.Width -ne $box.Width -or
+        $script:TsProgBox.Height -ne $box.Height
+      )
+    }
+    if ($resized) {
+      $script:TsProgChromeDrawn = $false
+      $Force = $true
+    }
     $script:TsProgBox = $box
     $inner = $box.Width - 2
     $line = ("-" * $inner)
@@ -754,11 +909,17 @@ function Invoke-TsProgress {
       Clear-Host
       for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
       Write-Host ($pad) -NoNewline
-      Write-Host (Write-TsPad ("  " + (Get-TsText app_title) + " · " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+      Write-Host (Write-TsPad ("  " + (Get-TsChromeAppTitle) + " · " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
       Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
       $script:TsProgChromeDrawn = $true
       $script:TsProgContentTop = $box.Top + 2
     }
+
+    $inner = $box.Width - 4
+    if ($inner -lt 4) { $inner = 4 }
+    $statusMax = if ($box.Height -lt 18) { 2 } else { 3 }
+    $logMax = if ($box.Height -lt 18) { 1 } else { 2 }
+    $excerptMax = if ($box.Height -lt 18) { 2 } else { 3 }
 
     try {
       $raw = $Host.UI.RawUI
@@ -767,29 +928,43 @@ function Invoke-TsProgress {
       $lines = @(
         @{ T = ""; S = "muted" }
         @{ T = $snap.Group; S = "gold" }
-        @{ T = $statusLine; S = "muted" }
-        @{ T = ""; S = "muted" }
-        @{ T = ("[" + $bar + "] " + $snap.Pct + "%"); S = "selected" }
-        @{ T = $eta; S = "muted" }
-        @{ T = ""; S = "muted" }
       )
+      foreach ($sl in (Split-TsTextToWidthLimited -Text $statusLine -MaxWidth $inner -MaxLines $statusMax)) {
+        $lines += @{ T = $sl; S = "muted" }
+      }
+      $lines += @{ T = ""; S = "muted" }
+      $lines += @{ T = ("[" + $bar + "] " + $snap.Pct + "%"); S = "selected" }
+      $lines += @{ T = $eta; S = "muted" }
+      $lines += @{ T = ""; S = "muted" }
       if ($snap.Phase -eq "error") {
         $lines += @{ T = (Get-TsText prog_error_label); S = "danger" }
+        $ei = 0
         foreach ($el in $excerpt) {
-          $lines += @{ T = $el; S = "danger" }
+          if ($ei -ge $excerptMax) { break }
+          foreach ($wl in (Split-TsTextToWidthLimited -Text $el -MaxWidth $inner -MaxLines 2)) {
+            $lines += @{ T = $wl; S = "danger" }
+          }
+          $ei++
         }
-        for ($padI = $excerpt.Count; $padI -lt 5; $padI++) {
-          $lines += @{ T = ""; S = "muted" }
+        foreach ($ll in (Split-TsTextToWidthLimited -Text $logHint -MaxWidth $inner -MaxLines $logMax)) {
+          $lines += @{ T = $ll; S = "muted" }
         }
-        $lines += @{ T = $logHint; S = "muted" }
       } elseif ($snap.Phase -eq "done") {
         $lines += @{ T = (Get-TsText prog_completed); S = "ok" }
-        $lines += @{ T = $logHint; S = "muted" }
-        $lines += @{ T = ""; S = "muted" }
+        foreach ($ll in (Split-TsTextToWidthLimited -Text $logHint -MaxWidth $inner -MaxLines $logMax)) {
+          $lines += @{ T = $ll; S = "muted" }
+        }
       } else {
-        $lines += @{ T = $logHint; S = "muted" }
+        foreach ($ll in (Split-TsTextToWidthLimited -Text $logHint -MaxWidth $inner -MaxLines $logMax)) {
+          $lines += @{ T = $ll; S = "muted" }
+        }
+      }
+      $bodyMax = [Math]::Max(6, $box.Height - 6)
+      while ($lines.Count -lt $bodyMax) {
         $lines += @{ T = ""; S = "muted" }
-        $lines += @{ T = ""; S = "muted" }
+      }
+      if ($lines.Count -gt $bodyMax) {
+        $lines = @($lines[0..($bodyMax - 1)])
       }
       for ($i = 0; $i -lt $lines.Count; $i++) {
         $raw.CursorPosition = New-Object System.Management.Automation.Host.Coordinates $col, ($row + $i)
@@ -802,19 +977,22 @@ function Invoke-TsProgress {
         Clear-Host
         for ($i = 0; $i -lt $box.Top; $i++) { Write-Host "" }
         Write-Host ($pad) -NoNewline
-        Write-Host (Write-TsPad ("  " + (Get-TsText app_title) + " · " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
+        Write-Host (Write-TsPad ("  " + (Get-TsChromeAppTitle) + " · " + $Title) $box.Width) -ForegroundColor $script:TsSelFg -BackgroundColor $script:TsSelBg
         Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $snap.Group -Style gold
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $statusLine -Style muted
+        Write-TsWrappedBoxLines -Left $box.Left -Width $box.Width -Text $statusLine -Style muted -MaxLines $statusMax
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text ("[" + $bar + "] " + $snap.Pct + "%") -Style selected
         Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $eta -Style muted
         if ($snap.Phase -eq "error") {
           Write-TsBoxLine -Left $box.Left -Width $box.Width -Text (Get-TsText prog_error_label) -Style danger
+          $ei = 0
           foreach ($el in $excerpt) {
-            Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $el -Style danger
+            if ($ei -ge $excerptMax) { break }
+            Write-TsWrappedBoxLines -Left $box.Left -Width $box.Width -Text $el -Style danger -MaxLines 2
+            $ei++
           }
         }
-        Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $logHint -Style muted
+        Write-TsWrappedBoxLines -Left $box.Left -Width $box.Width -Text $logHint -Style muted -MaxLines $logMax
       }
     }
   }
@@ -918,7 +1096,8 @@ function Show-TsTextPanel {
     return
   }
   $prefH = $Lines.Count + 8
-  $box = Get-TsCenterBox -PrefW 64 -PrefH $prefH
+  $prefW = Get-TsBoxPrefWidth
+  $box = Get-TsCenterBox -PrefW $prefW -PrefH $prefH
   $inner = $box.Width - 2
   $line = ("-" * $inner)
   $pad = (" " * $box.Left)
@@ -929,7 +1108,7 @@ function Show-TsTextPanel {
   Reset-TsConsoleColors
   Write-Host ($pad + "+" + $line + "+") -ForegroundColor $script:TsViolet
   foreach ($l in $Lines) {
-    Write-TsBoxLine -Left $box.Left -Width $box.Width -Text $l -Style muted
+    Write-TsWrappedBoxLines -Left $box.Left -Width $box.Width -Text $l -Style muted
   }
   Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "" -Style muted
   Write-TsBoxLine -Left $box.Left -Width $box.Width -Text "[ Enter ]" -Style selected

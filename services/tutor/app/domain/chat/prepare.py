@@ -45,6 +45,7 @@ async def prepare_chat(
         provider_url=view.user_settings.provider_url,
         api_key_encrypted=view.user_settings.api_key_encrypted,
         model=view.user_settings.model,
+        task="chat",
     )
     if target is None:
         raise TutorError(status.HTTP_503_SERVICE_UNAVAILABLE, "no tutor provider configured")

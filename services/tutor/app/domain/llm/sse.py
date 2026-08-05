@@ -68,3 +68,23 @@ def parse_sse_line(line: str) -> str | None:
         return None
     content = delta.get("content")
     return content if isinstance(content, str) and content else None
+
+
+def parse_sse_finish_reason(line: str) -> str | None:
+    if not line.startswith("data:"):
+        return None
+    data = line.removeprefix("data:").strip()
+    if not data or data == "[DONE]":
+        return None
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError:
+        return None
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return None
+    first = choices[0]
+    if not isinstance(first, dict):
+        return None
+    reason = first.get("finish_reason")
+    return reason if isinstance(reason, str) and reason.strip() else None

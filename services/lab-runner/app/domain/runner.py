@@ -26,9 +26,12 @@ def run_lab(
 
     if settings.dry_run:
         return LabRunOutcome(
-            passed=True,
-            score=1.0,
-            feedback=None,
+            passed=False,
+            score=0.0,
+            feedback=(
+                "LAB_RUNNER_DRY_RUN: docker checks were not executed "
+                "(set LAB_RUNNER_DRY_RUN=false to run compose)"
+            ),
             details={"mode": "dry_run", "checks": len(checks), "compose_file": compose_file},
             duration_ms=int((time.perf_counter() - started) * 1000),
         )

@@ -20,7 +20,6 @@ import type {
 } from '~/composables/useSearch'
 import type { PackSummary } from '~/composables/useCatalog'
 import { useCatalogDownloads } from '~/composables/useCatalogDownloads'
-import type { SessionState, SessionSummary } from '~/composables/useSessions'
 import {
   relativeTime,
   sortSessionsByActivity,
@@ -28,26 +27,29 @@ import {
 import { extractErrorMessage } from '~/utils/api'
 import {
   buildCatalogCourseRows,
+  buildLibrarySourceRails,
   canDownloadExternalCourse,
   canRedownloadPack,
   cardInitial as cardInitialGlyph,
   catalogOpenSourceAction,
   catalogQueryForTab,
   catalogTabFromQuery,
-  chapterTitleFromOutline,
   courseCardMeta,
   courseDownloadKey as packDownloadKey,
   courseKey,
   emptyPackLearning,
   filterLibraryPacks,
+  filterLibraryPacksBySource,
   groupCatalogCourseRows,
   indexSessionsForPacks,
   inferDisplayTags,
   isActivePackLearning,
   isBrokenPack,
+  LIBRARY_SOURCE_LOCAL,
   libraryCardSubtitleText,
   matchSessionForPack,
-  packLearningFromSession,
+  packContentTags,
+  packLearningFromProgress,
   packPrimaryHref,
   platformHintText,
   settingsLinkForPlatform,
@@ -60,30 +62,65 @@ type PackLearning = PackLearningSnapshot
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
+useAppPageTitle(computed(() => t('nav.catalog')))
 const { search, discoverCourses } = useSearch()
 const { listPacks, deletePack } = useCatalog()
-const { listSessions, getSession } = useSessions()
+const { listCourseBuilds, discardCourseBuild } = useStudio()
+const { listPackProgress } = useSessions()
 const discoverCache = useDiscoverCache()
 const toasts = useToasts()
 
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const platformFilter = ref(typeof route.query.platform === 'string' ? route.query.platform : '')
+const librarySourceFilter = ref('')
 const tagFilter = ref('')
 const activeTab = ref<'library' | 'external'>(catalogTabFromQuery(route.query.tab))
 
 const workspaceTab = ref<'library' | 'external'>(activeTab.value)
+// Snapshot state used inside Transition leaves/enters.
+// `activeTab` changes immediately on click, but Transition leave/enter should keep
+// the old DOM stable until the leave animation finishes.
+const paneTab = ref<'library' | 'external'>(activeTab.value)
 const showCourseCreate = ref(false)
+const resumeBuildId = ref<string | null>(null)
+const courseBuilds = ref<
+  Array<{
+    build_id: string
+    title: string
+    status: string
+    stage: string
+    progress: number
+    message: string
+    chapter_total: number
+    chapters_done: number
+    error?: string | null
+    updated_at: string
+  }>
+>([])
 
-watch(activeTab, (tab) => {
-  if (tab === 'external') {
+function onCatalogPaneAfterLeave() {
+  paneTab.value = activeTab.value
+  if (activeTab.value === 'external') {
     workspaceTab.value = 'external'
   }
-})
+}
+
+function onCatalogPaneAfterEnter() {
+  if (activeTab.value === 'external') {
+    workspaceTab.value = 'external'
+  }
+}
 
 function onSourcesRailAfterLeave() {
   if (activeTab.value === 'library') {
     workspaceTab.value = 'library'
+  }
+}
+
+function onLibraryRailAfterLeave() {
+  if (activeTab.value === 'external') {
+    workspaceTab.value = 'external'
   }
 }
 
@@ -97,11 +134,51 @@ const catalogPending = ref(false)
 const searched = ref(false)
 
 const filteredPacks = computed(() => {
-  if (activeTab.value !== 'library') {
+  if (paneTab.value !== 'library') {
     return packs.value
   }
-  return filterLibraryPacks(packs.value, query.value)
+  let result = filterLibraryPacks(packs.value, query.value)
+  if (librarySourceFilter.value) {
+    result = filterLibraryPacksBySource(result, librarySourceFilter.value)
+  }
+  return result
 })
+
+const librarySourceRails = computed(() =>
+  buildLibrarySourceRails(packs.value, courseBuilds.value.length),
+)
+
+const libraryRailVisible = computed(
+  () => packs.value.length > 0 || courseBuilds.value.length > 0,
+)
+
+const workspaceHasRail = computed(() => {
+  // IMPORTANT: use `workspaceTab`, not `activeTab`.
+  // `activeTab` changes immediately, while `workspaceTab` is updated in Transition
+  // leave/enter hooks. If we depend on `activeTab`, `.has-rail` flips mid-animation,
+  // and the rail column changes width (visible size "jump").
+  if (workspaceTab.value === 'library') {
+    return libraryRailVisible.value
+  }
+  if (workspaceTab.value === 'external') {
+    return true
+  }
+  return false
+})
+
+const visibleCourseBuilds = computed(() => {
+  if (paneTab.value !== 'library') {
+    return []
+  }
+  if (!librarySourceFilter.value || librarySourceFilter.value === LIBRARY_SOURCE_LOCAL) {
+    return courseBuilds.value
+  }
+  return []
+})
+
+const libraryVisibleCount = computed(
+  () => filteredPacks.value.length + visibleCourseBuilds.value.length,
+)
 
 const allTags = computed(() => {
   const tags = new Set<string>()
@@ -220,7 +297,54 @@ async function refreshPacks() {
   } catch {
     packs.value = []
   }
-  await loadPackLearning()
+  await Promise.all([loadPackLearning(), refreshCourseBuilds()])
+}
+
+async function refreshCourseBuilds() {
+  try {
+    courseBuilds.value = await listCourseBuilds()
+  } catch {
+    courseBuilds.value = []
+  }
+}
+
+function openCourseCreate(buildId: string | null = null) {
+  resumeBuildId.value = buildId
+  showCourseCreate.value = true
+}
+
+function closeCourseCreate() {
+  showCourseCreate.value = false
+  resumeBuildId.value = null
+  void refreshCourseBuilds()
+}
+
+async function resumeCourseBuild(buildId: string) {
+  openCourseCreate(buildId)
+}
+
+async function discardIncompleteBuild(build: { build_id: string; title: string }) {
+  const { confirm } = useConfirm()
+  const ok = await confirm({
+    title: t('catalog.discardBuildConfirm', { title: build.title }),
+    confirmLabel: t('dialog.delete'),
+    cancelLabel: t('dialog.cancel'),
+    danger: true,
+  })
+  if (!ok) {
+    return
+  }
+  try {
+    await discardCourseBuild(build.build_id)
+    await refreshCourseBuilds()
+  } catch (err) {
+    toasts.error(extractErrorMessage(err) || t('catalog.errors.deleteFailed'))
+  }
+}
+
+function buildStageLabel(stage: string) {
+  const key = `courseBuild.stages.${stage}`
+  return te(key) ? t(key) : stage
 }
 
 const {
@@ -274,25 +398,49 @@ function platformHint(platform: PlatformCatalogBlock) {
 }
 
 function setTab(tab: 'library' | 'external') {
+  if (tab === activeTab.value) {
+    return
+  }
+  if (tab !== 'library') {
+    librarySourceFilter.value = ''
+  }
   activeTab.value = tab
   void router.replace({
     query: catalogQueryForTab(route.query as Record<string, string>, tab),
   })
 }
 
-function chapterTitle(detail: SessionState | null, summary: SessionSummary): string {
-  return chapterTitleFromOutline(
-    detail?.outline,
-    summary.current_topic_id,
-    t('catalog.noProgressYet'),
-  )
+function openLibrarySource(sourceId: string) {
+  librarySourceFilter.value = librarySourceFilter.value === sourceId ? '' : sourceId
 }
 
-function phaseLabel(phase: SessionSummary['current_phase'] | null) {
-  if (!phase) {
-    return ''
+function librarySourceLabel(sourceId: string) {
+  if (sourceId === LIBRARY_SOURCE_LOCAL) {
+    return t('catalog.libraryLocal')
   }
-  return t(`session.phase.${phase}`)
+  return sourceLabel(sourceId)
+}
+
+function librarySourceMeta(sourceId: string) {
+  if (sourceId === LIBRARY_SOURCE_LOCAL) {
+    return t('catalog.libraryLocalMeta')
+  }
+  return t('catalog.librarySourceMeta')
+}
+
+async function focusIncompleteBuilds(event?: Event) {
+  event?.stopPropagation()
+  if (!courseBuilds.value.length) {
+    return
+  }
+  if (activeTab.value !== 'library') {
+    setTab('library')
+    await nextTick()
+    await nextTick()
+  }
+  document
+    .getElementById('catalog-incomplete-builds')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function packPrimaryTo(pack: PackSummary) {
@@ -327,30 +475,19 @@ async function loadPackLearning() {
     return
   }
   try {
-    const summaries = sortSessionsByActivity(await listSessions())
-    const indexes = indexSessionsForPacks(summaries)
+    const items = sortSessionsByActivity(await listPackProgress())
+    const indexes = indexSessionsForPacks(items)
+    const byId = new Map(items.map((item) => [item.id, item]))
+    const emptyChapter = t('catalog.noProgressYet')
 
     const next: Record<string, PackLearning> = {}
-    await Promise.all(
-      packs.value.map(async (pack) => {
-        const summary = matchSessionForPack(pack, indexes)
-        if (!summary) {
-          next[pack.id] = emptyPackLearning()
-          return
-        }
-        let detail: SessionState | null = null
-        try {
-          detail = await getSession(summary.id)
-        } catch {
-          detail = null
-        }
-        next[pack.id] = packLearningFromSession({
-          summary,
-          detail,
-          chapter: chapterTitle(detail, summary),
-        })
-      }),
-    )
+    for (const pack of packs.value) {
+      const summary = matchSessionForPack(pack, indexes)
+      const item = summary ? byId.get(summary.id) : undefined
+      next[pack.id] = item
+        ? packLearningFromProgress(item, emptyChapter)
+        : emptyPackLearning()
+    }
     packLearning.value = next
   } catch {
     packLearning.value = {}
@@ -432,9 +569,12 @@ async function runSearch() {
 }
 
 async function onCourseInstalled() {
-
   discoverCache.clear()
-  await Promise.all([refreshPacks(), loadDiscover(query.value.trim(), { force: true })])
+  await Promise.all([
+    refreshPacks(),
+    loadDiscover(query.value.trim(), { force: true }),
+  ])
+  closeCourseCreate()
   setTab('library')
 }
 
@@ -497,7 +637,10 @@ watch(
 watch(
   () => route.query.tab,
   (value) => {
-    activeTab.value = catalogTabFromQuery(value)
+    const next = catalogTabFromQuery(value)
+    if (next !== activeTab.value) {
+      activeTab.value = next
+    }
   },
 )
 
@@ -539,6 +682,19 @@ onBeforeUnmount(() => {
             <BookOpenIcon class="icon-sm" />
             <span>{{ t('catalog.tabLibrary') }}</span>
             <span class="catalog-segment-count">{{ packs.length }}</span>
+            <span
+              v-if="courseBuilds.length"
+              class="catalog-segment-incomplete"
+              role="button"
+              tabindex="0"
+              :title="t('catalog.incompleteBuildsHint', { count: courseBuilds.length })"
+              :aria-label="t('catalog.incompleteBuildsHint', { count: courseBuilds.length })"
+              @click.stop="focusIncompleteBuilds"
+              @keydown.enter.prevent.stop="focusIncompleteBuilds"
+              @keydown.space.prevent.stop="focusIncompleteBuilds"
+            >
+              {{ courseBuilds.length }}
+            </span>
           </button>
           <button
             class="catalog-segment-btn"
@@ -569,42 +725,58 @@ onBeforeUnmount(() => {
                 :placeholder="searchPlaceholder"
               >
             </div>
-            <button
-              v-if="activeTab === 'external'"
-              class="btn-primary btn-sm catalog-search-submit"
-              type="submit"
-              :disabled="pending || catalogPending"
-            >
-              {{ pending || catalogPending ? t('search.loading') : t('search.submit') }}
-            </button>
+            <Transition name="page-cyber">
+              <button
+                v-if="activeTab === 'external' && workspaceTab === 'external'"
+                key="catalog-search-submit"
+                class="btn-primary btn-sm catalog-search-submit"
+                type="submit"
+                :disabled="pending || catalogPending"
+              >
+                {{ pending || catalogPending ? t('search.loading') : t('search.submit') }}
+              </button>
+            </Transition>
           </form>
 
-          <button
-            v-if="activeTab === 'external'"
-            class="btn-primary btn-sm catalog-toolbar-cta"
-            type="button"
-            @click="showCourseCreate = true"
-          >
-            <SparklesIcon class="icon-sm" />
-            {{ t('libraryCreate.open') }}
-          </button>
+          <Transition name="page-cyber">
+            <button
+              v-if="activeTab === 'external' && workspaceTab === 'external'"
+              key="catalog-toolbar-cta"
+              class="btn-primary btn-sm catalog-toolbar-cta"
+              type="button"
+              @click="openCourseCreate()"
+            >
+              <SparklesIcon class="icon-sm" />
+              {{ t('libraryCreate.open') }}
+            </button>
+          </Transition>
         </div>
       </header>
 
       <ClientOnly>
         <LibraryCourseCreate
           :open="showCourseCreate"
-          @close="showCourseCreate = false"
+          :resume-build-id="resumeBuildId"
+          @close="closeCourseCreate"
           @installed="onCourseInstalled"
+          @update:resume-build-id="resumeBuildId = $event"
         />
       </ClientOnly>
 
       <div
         class="catalog-workspace"
-        :class="{ 'is-library': workspaceTab === 'library', 'is-discover': workspaceTab === 'external' }"
+        :class="{
+          'is-library': workspaceTab === 'library',
+          'is-discover': workspaceTab === 'external',
+          'has-rail': workspaceHasRail,
+        }"
       >
         <Transition name="page-cyber" @after-leave="onSourcesRailAfterLeave">
-          <aside v-if="activeTab === 'external'" key="sources-rail" class="catalog-rail">
+          <aside
+            v-if="activeTab === 'external' && workspaceTab === 'external'"
+            key="sources-rail"
+            class="catalog-rail"
+          >
             <section class="catalog-rail-panel">
               <header class="catalog-rail-head">
                 <h3 class="catalog-rail-title">{{ t('catalog.platformsTitle') }}</h3>
@@ -666,15 +838,77 @@ onBeforeUnmount(() => {
           </aside>
         </Transition>
 
+        <Transition name="page-cyber" @after-leave="onLibraryRailAfterLeave">
+          <aside
+            v-if="activeTab === 'library' && workspaceTab === 'library' && libraryRailVisible"
+            key="library-sources-rail"
+            class="catalog-rail"
+          >
+            <section class="catalog-rail-panel">
+              <header class="catalog-rail-head">
+                <h3 class="catalog-rail-title">{{ t('catalog.platformsTitle') }}</h3>
+              </header>
+
+              <div class="catalog-source-list">
+                <button
+                  class="catalog-source-item"
+                  :class="{ 'catalog-source-item-active': !librarySourceFilter }"
+                  type="button"
+                  @click="librarySourceFilter = ''"
+                >
+                  <span class="catalog-source-icon" aria-hidden="true">
+                    <CubeIcon class="icon-sm" />
+                  </span>
+                  <span class="catalog-source-copy">
+                    <span class="catalog-source-name">{{ t('catalog.allPlatforms') }}</span>
+                    <span class="catalog-source-meta">{{ t('catalog.allPlatformsMeta') }}</span>
+                  </span>
+                  <span class="catalog-source-count">{{ librarySourceRails.total }}</span>
+                </button>
+
+                <button
+                  v-for="source in librarySourceRails.sources"
+                  :key="source.id"
+                  class="catalog-source-item"
+                  :class="{ 'catalog-source-item-active': librarySourceFilter === source.id }"
+                  type="button"
+                  @click="openLibrarySource(source.id)"
+                >
+                  <span class="catalog-source-icon" aria-hidden="true">
+                    <component
+                      :is="source.id === LIBRARY_SOURCE_LOCAL ? BookOpenIcon : platformIcon(source.id)"
+                      class="icon-sm"
+                    />
+                  </span>
+                  <span class="catalog-source-copy">
+                    <span class="catalog-source-name">{{ librarySourceLabel(source.id) }}</span>
+                    <span class="catalog-source-meta">{{ librarySourceMeta(source.id) }}</span>
+                  </span>
+                  <span class="catalog-source-count">{{ source.count }}</span>
+                </button>
+              </div>
+
+              <p class="catalog-rail-footnote">{{ t('catalog.libraryRailFootnote') }}</p>
+            </section>
+          </aside>
+        </Transition>
+
         <section class="catalog-main">
-          <Transition name="page-cyber" mode="out-in">
+          <Transition
+            name="page-cyber"
+            mode="out-in"
+            @after-leave="onCatalogPaneAfterLeave"
+            @after-enter="onCatalogPaneAfterEnter"
+          >
             <div :key="activeTab" class="catalog-pane">
           <header class="catalog-command">
             <div class="catalog-command-copy">
               <h2>
                 {{
-                  activeTab === 'library'
-                    ? t('catalog.libraryTitle')
+                  paneTab === 'library'
+                    ? librarySourceFilter
+                      ? librarySourceLabel(librarySourceFilter)
+                      : t('catalog.libraryTitle')
                     : platformFilter
                       ? sourceLabel(platformFilter)
                       : t('catalog.externalTitle')
@@ -682,15 +916,23 @@ onBeforeUnmount(() => {
               </h2>
               <p>
                 {{
-                  activeTab === 'library'
-                    ? t('catalog.libraryCount', { count: filteredPacks.length })
+                  paneTab === 'library'
+                    ? t('catalog.libraryCount', { count: libraryVisibleCount })
                     : t('catalog.externalMeta')
                 }}
               </p>
             </div>
             <div class="catalog-command-tools">
               <button
-                v-if="platformFilter && activeTab === 'external'"
+                v-if="librarySourceFilter && paneTab === 'library'"
+                class="btn-secondary btn-sm"
+                type="button"
+                @click="librarySourceFilter = ''"
+              >
+                {{ t('catalog.clearFilter') }}
+              </button>
+              <button
+                v-if="platformFilter && paneTab === 'external'"
                 class="btn-secondary btn-sm"
                 type="button"
                 @click="platformFilter = ''"
@@ -701,7 +943,7 @@ onBeforeUnmount(() => {
           </header>
 
           <div
-            v-if="activeTab === 'external' && allTags.length"
+            v-if="paneTab === 'external' && allTags.length"
             class="catalog-tags"
           >
             <button
@@ -727,15 +969,20 @@ onBeforeUnmount(() => {
 
           <div class="catalog-scroll">
             <div
-              v-if="catalogPending && activeTab === 'external' && !courseRows.length"
+              v-if="catalogPending && paneTab === 'external' && !courseRows.length"
               class="loading-state catalog-loading"
             >
               <span class="loading-spinner" aria-hidden="true" />
               <span>{{ t('search.loading') }}</span>
             </div>
 
-            <template v-else-if="activeTab === 'library'">
-              <div v-if="!packs.length" class="catalog-empty">
+            <template v-else-if="paneTab === 'library'">
+              <Transition name="page-cyber" mode="out-in">
+                <div
+                  :key="librarySourceFilter || 'all'"
+                  class="catalog-discover-swap"
+                >
+              <div v-if="!packs.length && !courseBuilds.length" class="catalog-empty">
                 <div class="catalog-empty-visual">
                   <BookOpenIcon class="icon-md" />
                 </div>
@@ -749,12 +996,100 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <div v-else-if="!filteredPacks.length" class="catalog-empty">
-                <p class="catalog-empty-title">{{ t('catalog.librarySearchEmpty') }}</p>
-                <p class="catalog-empty-meta">{{ t('catalog.librarySearchEmptyMeta') }}</p>
+              <div v-else-if="!filteredPacks.length && !visibleCourseBuilds.length" class="catalog-empty">
+                <p class="catalog-empty-title">
+                  {{
+                    librarySourceFilter
+                      ? t('catalog.libraryFilterEmpty')
+                      : t('catalog.librarySearchEmpty')
+                  }}
+                </p>
+                <p class="catalog-empty-meta">
+                  {{
+                    librarySourceFilter
+                      ? t('catalog.libraryFilterEmptyMeta')
+                      : t('catalog.librarySearchEmptyMeta')
+                  }}
+                </p>
+                <div v-if="librarySourceFilter" class="catalog-empty-actions">
+                  <button class="btn-secondary btn-sm" type="button" @click="librarySourceFilter = ''">
+                    {{ t('catalog.clearFilter') }}
+                  </button>
+                </div>
               </div>
 
               <div v-else class="catalog-pack-grid catalog-library-grid">
+                <article
+                  v-for="(build, buildIndex) in visibleCourseBuilds"
+                  :id="buildIndex === 0 ? 'catalog-incomplete-builds' : undefined"
+                  :key="`build-${build.build_id}`"
+                  class="lib-card is-incomplete"
+                  :style="{ '--progress': Math.round((build.progress || 0) * 100) }"
+                >
+                  <header class="lib-card-head">
+                    <span class="lib-card-code" aria-hidden="true">··</span>
+                    <div class="lib-card-tags">
+                      <span class="lib-tag is-incomplete">{{ t('catalog.incompleteBuild') }}</span>
+                    </div>
+                    <span class="lib-card-time">
+                      {{ relativeTime(build.updated_at, locale) }}
+                    </span>
+                  </header>
+
+                  <div class="lib-card-body">
+                    <p class="lib-card-mark" aria-hidden="true">{{ cardInitial(build.title) }}</p>
+                    <h3 class="lib-card-title">{{ build.title }}</h3>
+                    <p class="lib-card-subtitle">
+                      {{
+                        t('catalog.buildProgressMeta', {
+                          stage: buildStageLabel(build.stage),
+                          done: build.chapters_done,
+                          total: build.chapter_total || '—',
+                        })
+                      }}
+                    </p>
+                  </div>
+
+                  <footer class="lib-card-foot">
+                    <div
+                      class="lib-card-progress"
+                      role="progressbar"
+                      :aria-valuenow="Math.round((build.progress || 0) * 100)"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                    >
+                      <span class="lib-card-pct">
+                        {{ Math.round((build.progress || 0) * 100) }}%
+                      </span>
+                      <div class="lib-card-track" aria-hidden="true">
+                        <span
+                          class="lib-card-fill"
+                          :style="{ width: `${Math.round((build.progress || 0) * 100)}%` }"
+                        />
+                      </div>
+                    </div>
+                    <div class="lib-card-actions">
+                      <button
+                        class="lib-card-cta"
+                        type="button"
+                        @click="resumeCourseBuild(build.build_id)"
+                      >
+                        {{ t('catalog.resumeGeneration') }}
+                        <span class="lib-card-cta-arrow" aria-hidden="true">→</span>
+                      </button>
+                      <button
+                        class="lib-card-delete"
+                        type="button"
+                        :aria-label="t('catalog.discardBuild')"
+                        :title="t('catalog.discardBuild')"
+                        @click="discardIncompleteBuild(build)"
+                      >
+                        <TrashIcon class="icon-sm" />
+                      </button>
+                    </div>
+                  </footer>
+                </article>
+
                 <article
                   v-for="(pack, packIndex) in filteredPacks"
                   :key="pack.id"
@@ -776,10 +1111,12 @@ onBeforeUnmount(() => {
                       </span>
                       <span v-else class="lib-tag">{{ t('search.sources.local') }}</span>
                       <span
-                        v-if="packLearning[pack.id]?.phase"
+                        v-for="tagId in packContentTags(pack)"
+                        :key="tagId"
                         class="lib-tag"
+                        :class="`is-content-${tagId}`"
                       >
-                        {{ phaseLabel(packLearning[pack.id].phase) }}
+                        {{ t(`catalog.contentTags.${tagId}`) }}
                       </span>
                       <span
                         v-if="isBrokenPack(pack)"
@@ -877,6 +1214,8 @@ onBeforeUnmount(() => {
                   </footer>
                 </article>
               </div>
+                </div>
+              </Transition>
             </template>
 
             <template v-else>

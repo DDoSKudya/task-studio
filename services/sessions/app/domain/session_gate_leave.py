@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from app.domain.session_errors import SessionError
-from app.domain.session_passed import passed_step_ids, step_marked_ungradable
+from app.domain.session_passed import passed_step_ids
 from app.infra.models import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.manifest import PhaseName, SessionPosition, get_step, iter_positions
@@ -37,11 +37,9 @@ async def ensure_can_leave_gated_step(
         return
     step = get_step(learning_session.manifest, current.step_id)
     kind = step.get("kind")
-    if kind not in {"quiz", "code", "task"}:
+    if kind not in {"quiz", "code", "lab", "task"}:
         return
     passed = await passed_step_ids(session, learning_session.id)
     if current.step_id in passed:
-        return
-    if await step_marked_ungradable(session, learning_session.id, current.step_id):
         return
     raise SessionError(403, "complete the current task before continuing")

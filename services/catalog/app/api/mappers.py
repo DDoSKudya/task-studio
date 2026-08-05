@@ -10,6 +10,7 @@ from studio_contracts.catalog_schemas import (
     PackUploadResponse,
     PackVersionInfo,
 )
+from studio_contracts.pack_content import content_modules_from_manifest
 from studio_contracts.pack_integrity import check_pack_integrity
 
 
@@ -17,8 +18,17 @@ def pack_summary(
     pack: Pack,
     version: PackVersion,
     installed_at: datetime,
+    *,
+    verify_disk: bool = False,
 ) -> PackSummary:
-    integrity = check_pack_integrity(version.disk_path, version.manifest)
+    if verify_disk:
+        integrity = check_pack_integrity(version.disk_path, version.manifest)
+        status = integrity.status
+        issues = list(integrity.issues)
+    else:
+        status = "ok"
+        issues = []
+    modules = content_modules_from_manifest(version.manifest)
     return PackSummary(
         id=pack.id,
         slug=pack.slug,
@@ -28,8 +38,12 @@ def pack_summary(
         version=version.version,
         version_id=version.id,
         installed_at=installed_at,
-        integrity=integrity.status,
-        integrity_issues=list(integrity.issues),
+        integrity=status,
+        integrity_issues=issues,
+        has_theory=modules.has_theory,
+        has_video=modules.has_video,
+        has_quiz=modules.has_quiz,
+        has_practice=modules.has_practice,
     )
 
 

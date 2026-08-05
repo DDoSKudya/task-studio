@@ -34,6 +34,7 @@ const {
   tutorProviderMode,
   hasStoredApiKey,
   llmStatus,
+  llmStatusDetail,
   llmStatusPending,
   modelsLoadPending,
   baseline,
@@ -70,6 +71,8 @@ const {
   discardChanges,
   submit,
 } = useSettingsPage()
+
+useAppPageTitle(computed(() => t('nav.settings')))
 
 const {
   unlockCredentialField,
@@ -437,7 +440,7 @@ const {
                       class="settings-provider-status"
                       :class="llmStatus.ok ? 'settings-provider-status-ok' : 'settings-provider-status-bad'"
                     >
-                      {{ llmStatus.detail }}
+                      {{ llmStatusDetail }}
                     </p>
                   </div>
                   <div v-else class="settings-provider-summary">

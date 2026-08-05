@@ -21,6 +21,8 @@ def quiz_answer_index(step: dict[str, object]) -> int | None:
 
 
 async def stage_answer_key(ctx: GradeContext) -> CheckOutcome | None:
+    if is_stepik_quiz(ctx.step):
+        return None
     answer = quiz_answer_index(ctx.step)
     if answer is None:
         return None

@@ -5,6 +5,7 @@ export type { TutorHintResponse, TutorLlmStatus, TutorStreamEvent } from '~/util
 export function useTutor() {
   const config = useRuntimeConfig()
   const { request } = useApi()
+  let chatAbort: AbortController | null = null
 
   async function getHints(sessionId: string, stepId: string) {
     const params = new URLSearchParams({ session_id: sessionId })
@@ -27,16 +28,25 @@ export function useTutor() {
     })
   }
 
+  function abortChat() {
+    chatAbort?.abort()
+    chatAbort = null
+  }
+
   async function streamChat(
     sessionId: string,
     message: string,
     onEvent: (event: TutorStreamEvent) => void,
     options?: { history?: Array<{ role: 'user' | 'assistant'; content: string }> },
   ) {
+    abortChat()
+    chatAbort = new AbortController()
+    const signal = chatAbort.signal
     const response = await fetch(`${config.public.apiBase}/v1/tutor/chat`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      signal,
       body: JSON.stringify({
         session_id: sessionId,
         message,
@@ -57,27 +67,39 @@ export function useTutor() {
     const decoder = new TextDecoder()
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) {
-        break
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          break
+        }
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data:')) {
+            continue
+          }
+          const payload = line.slice(5).trim()
+          if (!payload) {
+            continue
+          }
+          try {
+            onEvent(JSON.parse(payload) as TutorStreamEvent)
+          } catch (err) {
+            // Игнорируем битые/неполные SSE-сообщения.
+            void err
+          }
+        }
       }
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.startsWith('data:')) {
-          continue
-        }
-        const payload = line.slice(5).trim()
-        if (!payload) {
-          continue
-        }
-        try {
-          onEvent(JSON.parse(payload) as TutorStreamEvent)
-        } catch {
-      /* ignore */
-    }
+    } catch (error) {
+      if (signal.aborted) {
+        return
+      }
+      throw error
+    } finally {
+      if (chatAbort?.signal === signal) {
+        chatAbort = null
       }
     }
   }
@@ -92,5 +114,11 @@ export function useTutor() {
     )
   }
 
-  return { getHints, getLlmStatus, testLlm, streamChat, warmupCursor }
+  if (import.meta.client) {
+    onBeforeUnmount(() => {
+      abortChat()
+    })
+  }
+
+  return { getHints, getLlmStatus, testLlm, streamChat, abortChat, warmupCursor }
 }

@@ -5,6 +5,10 @@ from app.domain.harness.exercism import build_exercism_job
 from app.domain.harness.fcc import build_fcc_job
 from app.domain.harness.io import build_io_job
 from app.domain.harness.resolve_types import HarnessBlocked, HarnessJob
+from studio_contracts.step_dependencies import (
+    normalize_dependency_list,
+    step_skips_local_dependency_install,
+)
 
 
 def pick_harness_job(
@@ -75,6 +79,8 @@ def pick_harness_job(
             entrypoint=optional_str(step.get("entrypoint")),
             template=optional_str(step.get("template")),
             setup=optional_str(step.get("setup")),
+            dependencies=normalize_dependency_list(step.get("dependencies")),
+            skip_dependency_install=step_skips_local_dependency_install(step),
         )
     except ValueError as exc:
         return HarnessBlocked(

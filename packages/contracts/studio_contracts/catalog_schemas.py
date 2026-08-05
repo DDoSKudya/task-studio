@@ -20,6 +20,10 @@ class PackSummary(BaseModel):
     installed_at: datetime
     integrity: PackIntegrityStatus = "ok"
     integrity_issues: list[str] = Field(default_factory=list)
+    has_theory: bool = False
+    has_video: bool = False
+    has_quiz: bool = False
+    has_practice: bool = False
 
 
 class PackVersionInfo(BaseModel):

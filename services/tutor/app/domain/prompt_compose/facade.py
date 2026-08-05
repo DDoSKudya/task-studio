@@ -121,6 +121,7 @@ def course_from_article_system_prompt(
     *,
     stage: str,
     compact: bool = False,
+    course_profile: str = "",
 ) -> str:
     return build_system_prompt(
         PromptRequest(
@@ -130,6 +131,7 @@ def course_from_article_system_prompt(
             step_title=stage,
             compact=compact,
             sql_aware=False,
+            course_profile=course_profile,
         )
     )
 

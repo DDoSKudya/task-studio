@@ -19,10 +19,10 @@
     "@nuxtjs/i18n": "^9.5.4",
     "echarts": "^5.6.0",
     "editor-core": "file:../../packages/editor-core",
+    "isomorphic-dompurify": "^2.26.0",
     "mermaid": "^11.6.0",
     "monaco-editor": "^0.52.2",
     "nuxt": "^3.17.4",
-    "vidstack": "^1.12.13",
     "vue-echarts": "^7.0.3"
   },
   "devDependencies": {

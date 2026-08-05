@@ -37,12 +37,25 @@ async def test_ready_degraded_when_database_ping_fails() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/ready")
-    assert response.status_code == 200
+    assert response.status_code == 503
     assert response.json() == {"status": "degraded"}
 
 
 @pytest.mark.asyncio
-async def test_ready_ok_when_database_ping_succeeds() -> None:
+async def test_ready_degraded_on_os_error() -> None:
+    app = create_service_app("test-service")
+    mock_session = AsyncMock()
+    mock_session.execute.side_effect = OSError("connection refused")
+    mock_context = AsyncMock()
+    mock_context.__aenter__.return_value = mock_session
+    mock_context.__aexit__.return_value = None
+    app.state.db_session_factory = MagicMock(return_value=mock_context)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/ready")
+    assert response.status_code == 503
+    assert response.json() == {"status": "degraded"}
     app = create_service_app("test-service")
     app.state.db_session_factory = _mock_session_factory(execute_raises=False)
 

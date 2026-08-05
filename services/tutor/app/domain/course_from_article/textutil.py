@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.errors import TutorError
-from app.domain.fetch_article_from_url import extract_video_refs
+from app.domain.fetch_article_from_url import extract_image_refs, extract_video_refs
 from fastapi import status
 from studio_contracts.studio_schemas import CourseArticleVideo, CourseFromArticleRequest
 
@@ -26,6 +26,10 @@ __all__ = [
 ]
 
 
+def _image_rows(content: str) -> list[dict[str, str]]:
+    return [{"url": item.url, "alt": item.alt} for item in extract_image_refs(content)]
+
+
 def _articles_from_body(body: CourseFromArticleRequest) -> list[dict[str, object]]:
     if body.articles:
         rows: list[dict[str, object]] = []
@@ -42,7 +46,14 @@ def _articles_from_body(body: CourseFromArticleRequest) -> list[dict[str, object
                     "\n".join(video.url for video in videos),
                     content,
                 )
-            rows.append({"title": title, "content": content, "videos": videos})
+            rows.append(
+                {
+                    "title": title,
+                    "content": content,
+                    "videos": videos,
+                    "images": _image_rows(content),
+                }
+            )
         if not rows:
             raise TutorError(status.HTTP_422_UNPROCESSABLE_ENTITY, "no usable articles")
         return rows
@@ -54,6 +65,7 @@ def _articles_from_body(body: CourseFromArticleRequest) -> list[dict[str, object
             "title": (body.title or "Article").strip() or "Article",
             "content": text,
             "videos": extract_video_refs(text),
+            "images": _image_rows(text),
         }
     ]
 

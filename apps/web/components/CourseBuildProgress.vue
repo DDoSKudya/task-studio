@@ -11,7 +11,12 @@ import {
   ScaleIcon,
 } from '@heroicons/vue/24/outline'
 import type { CourseStageEvent, CourseStageName } from '~/composables/useStudio'
-import { localizeCourseProgressMessage, localizeCourseWarning, localizeCourseError } from '~/utils/studio'
+import {
+  localizeCourseProgressMessage,
+  localizeCourseWarning,
+  localizeCourseError,
+  mapCourseStageToUi,
+} from '~/utils/studio'
 
 const props = defineProps<{
   active: boolean
@@ -38,11 +43,30 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+const uiStage = computed(() => mapCourseStageToUi(props.currentStage))
+
 const displayMessage = computed(() => {
   if (props.error) {
     return localizeCourseError(props.error, t)
   }
   return localizeCourseProgressMessage({ message: props.message }, t)
+})
+
+const isPartialDone = computed(
+  () =>
+    props.done &&
+    !props.error &&
+    (props.warnings.length > 0 || /partial/i.test(props.message)),
+)
+
+const doneTitle = computed(() => {
+  if (!props.done) {
+    return t('courseBuild.progressTitle')
+  }
+  if (isPartialDone.value) {
+    return t('courseBuild.progressDonePartial')
+  }
+  return t('courseBuild.progressDone')
 })
 
 const displayWarnings = computed(() =>
@@ -73,9 +97,14 @@ const STAGES = computed(() => {
 const visible = computed(() => props.active || props.done || Boolean(props.error))
 
 const activeStep = computed(() => {
+  const mapped = uiStage.value
   for (let i = props.log.length - 1; i >= 0; i -= 1) {
     const event = props.log[i]
-    if (!event || event.stage !== props.currentStage) {
+    if (!event) {
+      continue
+    }
+    const eventUi = mapCourseStageToUi(event.stage)
+    if (eventUi !== mapped && event.stage !== props.currentStage) {
       continue
     }
     if (typeof event.index !== 'number' || typeof event.total !== 'number' || event.total <= 0) {
@@ -104,14 +133,14 @@ const displayProgress = computed(() => {
   if (!order.length) {
     return backend
   }
-  const currentIdx = order.indexOf(props.currentStage as CourseStageName)
+  const currentIdx = order.indexOf(uiStage.value as CourseStageName)
   if (currentIdx < 0) {
     return backend
   }
   const weight = 1 / order.length
   let estimated = currentIdx * weight
   const step = activeStep.value
-  if (step && step.total > 0 && props.currentStage === order[currentIdx]) {
+  if (step && step.total > 0) {
     estimated += Math.min(1, Math.max(0, step.index / step.total)) * weight
   } else {
     estimated += 0.12 * weight
@@ -137,20 +166,21 @@ const stageStates = computed(() => {
 })
 
 function resolveStageState(id: CourseStageName): 'pending' | 'running' | 'done' | 'error' {
-  if (props.error && props.currentStage === id) {
+  const current = uiStage.value
+  if (props.error && current === id) {
     return 'error'
   }
   if (props.done && !props.error) {
     return 'done'
   }
   const order = STAGES.value.map((s) => s.id)
-  const currentIdx = order.indexOf(props.currentStage as CourseStageName)
+  const currentIdx = order.indexOf(current as CourseStageName)
   const idx = order.indexOf(id)
   if (idx < 0) {
     return 'pending'
   }
-  if (props.currentStage === id) {
-    const last = [...props.log].reverse().find((e) => e.stage === id)
+  if (current === id) {
+    const last = [...props.log].reverse().find((e) => mapCourseStageToUi(e.stage) === id)
     if (last?.status === 'done' || last?.status === 'needs_confirmation') {
       return last.status === 'needs_confirmation' ? 'running' : 'done'
     }
@@ -171,7 +201,7 @@ function stageFillPercent(
   }
   if (state === 'running') {
     const step = activeStep.value
-    if (step && props.currentStage === stageId && step.total > 0) {
+    if (step && uiStage.value === stageId && step.total > 0) {
       const ratio = Math.min(1, Math.max(0, step.index / step.total))
       return `${Math.round(ratio * 100)}%`
     }
@@ -203,7 +233,7 @@ function chapterLabel(item: { id?: string; title?: string } | string): string {
     <header class="course-progress-header">
       <div class="course-progress-copy">
         <h3 class="course-progress-title">
-          {{ error ? t('courseBuild.progressFailed') : done ? t('courseBuild.progressDone') : t('courseBuild.progressTitle') }}
+          {{ error ? t('courseBuild.progressFailed') : doneTitle }}
         </h3>
         <p class="course-progress-message">{{ displayMessage }}</p>
         <div
@@ -249,7 +279,7 @@ function chapterLabel(item: { id?: string; title?: string } | string): string {
         </span>
         <span class="course-progress-stage-label">{{ t(`courseBuild.stages.${stage.id}`) }}</span>
         <span
-          v-if="stageStates[stage.id] === 'running' && activeStep && currentStage === stage.id"
+          v-if="stageStates[stage.id] === 'running' && activeStep && uiStage === stage.id"
           class="course-progress-stage-count"
           aria-hidden="true"
         >

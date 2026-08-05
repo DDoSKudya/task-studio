@@ -19,6 +19,9 @@ function modeFromQuery(value: unknown): AuthMode {
 }
 
 const mode = ref<AuthMode>(modeFromQuery(route.query.mode))
+useAppPageTitle(computed(() =>
+  mode.value === 'register' ? t('auth.register') : t('auth.login'),
+))
 const email = ref('')
 const password = ref('')
 const pending = ref(false)

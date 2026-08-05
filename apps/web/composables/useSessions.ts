@@ -1,5 +1,6 @@
 import type {
   AttemptInfo,
+  PackProgressItem,
   SessionState,
   SessionSummary,
   StepContent,
@@ -11,6 +12,7 @@ export type {
   OutlineStep,
   OutlineTopic,
   PackPolicies,
+  PackProgressItem,
   PhaseProgress,
   SessionState,
   SessionSummary,
@@ -69,8 +71,16 @@ export function useSessions() {
     return request<AttemptInfo[]>(`/v1/sessions/${sessionId}/attempts`)
   }
 
+  async function getAttempt(sessionId: string, attemptId: string) {
+    return request<AttemptInfo>(`/v1/sessions/${sessionId}/attempts/${attemptId}`)
+  }
+
   async function listSessions() {
     return request<SessionSummary[]>('/v1/sessions')
+  }
+
+  async function listPackProgress() {
+    return request<PackProgressItem[]>('/v1/sessions/pack-progress')
   }
 
   return {
@@ -81,6 +91,8 @@ export function useSessions() {
     skipStudy,
     submit,
     listAttempts,
+    getAttempt,
     listSessions,
+    listPackProgress,
   }
 }

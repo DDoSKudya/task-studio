@@ -95,8 +95,10 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
+  font-family: var(--font-sans);
   font-size: 0.875rem;
   line-height: 1.45;
+  letter-spacing: -0.01em;
   outline: none;
   transition:
     border-color var(--motion-fast) var(--ease-soft),

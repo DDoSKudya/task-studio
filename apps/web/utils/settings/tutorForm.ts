@@ -1,6 +1,8 @@
+import { EDITOR_RUNTIMES as CORE_EDITOR_RUNTIMES } from 'editor-core/policy'
+
 export type TutorProviderMode = 'ollama' | 'external' | 'cursor'
 
-export const EDITOR_RUNTIMES = ['python', 'javascript', 'go', 'sql'] as const
+export const EDITOR_RUNTIMES = CORE_EDITOR_RUNTIMES
 export const OPENAI_PROVIDER_URL = 'https://api.openai.com/v1'
 export const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini'
 export const CURSOR_PROXY_URL = 'http://cursor-proxy:8015/v1'

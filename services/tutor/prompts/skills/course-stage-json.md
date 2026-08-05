@@ -2,6 +2,9 @@
 
 Each pipeline stage returns one JSON object only.
 
+**Course locale (mandatory):** learner-facing text follows the request `locale`
+(`ru` / `en`), not the language of the source articles. Sources may be any language.
+
 ## Stage: analyze
 
 First pass — syllabus skeleton (short JSON):
@@ -22,12 +25,17 @@ First pass — syllabus skeleton (short JSON):
     "recurring_metaphors": ["desk / warehouse"]
   },
   "chapters": [
-    { "id": "ch-foundations", "title": "What SQLAlchemy is and why Session exists" }
+    {
+      "id": "ch-foundations",
+      "title": "What SQLAlchemy is and why Session exists",
+      "learning_objective": "After this chapter the learner can describe what Session tracks before commit"
+    }
   ]
 }
 ```
 
-Follow-up passes may request one chapter detail object (`purpose`, bridges, `source_excerpt` ≤500 chars).
+Follow-up passes may request one chapter detail object (`purpose`, `learning_objective`,
+bridges, `source_excerpt` ≤3500 chars).
 
 `domain` (required):
 
@@ -51,6 +59,8 @@ Max 12 chapters. Aim for **6–12** when multiple sources exist.
 - One idea per chapter; split mixed TOC headings.
 - Overlaps across articles → merge into one well-named chapter.
 - `purpose` = one short line: role of this chapter in the arc.
+- `learning_objective` = observable skill after the chapter (Bloom verb + one capability).
+  Theory, quiz, and practice for this chapter must align to it.
 - `source_titles` = which sources feed this chapter (use exact source titles from the prompt).
 - `source_excerpt` supports **only** that chapter; verbatim from those sources.
 - Course `title` names the whole subject (not a single advanced subtopic).
@@ -69,6 +79,8 @@ Max 12 chapters. Aim for **6–12** when multiple sources exist.
 
 `content` is plain markdown. Code fences contain source code only (no HTML / highlighter markup).
 Teach this chapter in context of the syllabus (assume prior chapters were read; do not re-teach them).
+**Never** put homework, quizzes, «Задание», check-yourself, or answer keys in `content` —
+those are separate assess/practice steps.
 
 ## Stage: book_polish
 
@@ -105,17 +117,22 @@ Prefer one task per call when the harness asks for a single level:
     "id": "code-easy",
     "kind": "code",
     "title": "...",
-    "content": "brief",
+    "content": "What to build.\\n\\n**Input:** ...\\n\\n**Output:** ...\\n\\n**Constraints:** ...",
     "runtime": "python",
     "runtime_version": "3.12",
     "template": "def domain_named_fn(...):\n    ...\n",
     "entrypoint": "domain_named_fn",
     "setup": "",
+    "dependencies": ["httpx>=0.27"],
     "tests": [{"input": [], "output": null}],
     "level": "easy"
   }
 }
 ```
+
+`content` must spell out accepted inputs and expected return shape for the learner;
+do not hide the contract only inside the template docstring.
+Do not paste `requirements.txt` / `package.json` samples in `content` — list packages in `dependencies`.
 
 Batch `{ "tasks": [ ... ] }` is accepted only when asked. When tests cannot honestly run in a sandbox, set `"checker": "llm"` and a `"rubric"`.
 

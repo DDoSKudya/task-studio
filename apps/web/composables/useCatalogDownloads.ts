@@ -60,7 +60,7 @@ export function useCatalogDownloads(options: {
     while (Date.now() < deadline) {
       const job = await getImportJob(jobId)
       importStates.value = { ...importStates.value, [key]: { status: job.status } }
-      if (job.status === 'done') {
+      if (job.status === 'done' || job.status === 'partial') {
         return job
       }
       if (job.status === 'failed') {
@@ -94,13 +94,14 @@ export function useCatalogDownloads(options: {
       }
       importStates.value = { ...importStates.value, [key]: { status: 'starting' } }
       const accepted = await importFromSearch(platform, externalId, { force })
-      await waitForImportJob(accepted.id, key)
+      const finished = await waitForImportJob(accepted.id, key)
       await options.refreshPacks()
-      toasts.success(
-        t('search.downloadDone', {
-          title: options.findInstalledTitle(platform, externalId) ?? externalId,
-        }),
-      )
+      const title = options.findInstalledTitle(platform, externalId) ?? externalId
+      if (finished.status === 'partial') {
+        toasts.success(t('search.downloadPartial', { title }))
+      } else {
+        toasts.success(t('search.downloadDone', { title }))
+      }
     } catch (error) {
       toasts.error(importFailureToastMessage(error, extractErrorMessage, t))
     } finally {

@@ -4,6 +4,7 @@ from app.api.deps import ClickHouseClient, DbSession, Settings
 from app.domain.events import process_event
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from studio_common.system_auth import SystemAuth
 from studio_contracts.analytics_schemas import AnalyticsEventMessage
 
 router = APIRouter(prefix="/internal/v1/analytics", tags=["analytics-ingest"])
@@ -23,6 +24,7 @@ async def ingest_events(
     session: DbSession,
     clickhouse: ClickHouseClient,
     settings: Settings,
+    _auth: SystemAuth,
 ) -> IngestEventsResponse:
     accepted = 0
     for event in body.events:

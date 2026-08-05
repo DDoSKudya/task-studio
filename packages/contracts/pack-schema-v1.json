@@ -50,7 +50,11 @@
               }
             }
           },
-          "timeout_seconds": { "type": "integer", "minimum": 1 }
+          "timeout_seconds": { "type": "integer", "minimum": 1 },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
         }
       }
     }

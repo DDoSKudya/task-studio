@@ -18,19 +18,26 @@ import {
   isCurrentLesson as matchCurrentLesson,
   isLessonDone as lessonIsDone,
   isStepPassedLocally,
+  isTopicComplete,
   labInstructionsFromContent,
   moduleDoneCount,
+  outlineTopicsCompleted,
   quizChoicesFromContent,
   quizQuestionFromContent,
   resolveStepVideoPoster,
   resolveStepVideoSrc,
   sessionFeedbackMessage,
+  stepKindMark,
   stepNeedsPassToAdvance,
   taskRubricFromContent,
 } from '~/utils/session'
 
 const route = useRoute()
 const { t, te } = useI18n()
+
+function lessonKindMark(kind: string) {
+  return stepKindMark(kind, t, te)
+}
 const config = useRuntimeConfig()
 const { settings, fetchMe } = useAuth()
 const { getSession, getStep, navigate, skipStudy, submit } = useSessions()
@@ -234,6 +241,7 @@ const labInstructions = computed(() =>
 const stepContent = computed(() => step.value?.content ?? null)
 
 const pageTitle = computed(() => session.value?.pack_title ?? t('session.loading'))
+useAppPageTitle(pageTitle)
 const phaseLabel = computed(() => {
   const phase = step.value?.phase
   if (!phase) {
@@ -256,6 +264,17 @@ const isStudyStep = computed(
 )
 
 const outline = computed((): OutlineTopic[] => session.value?.outline ?? [])
+
+const phaseProgress = computed(() => session.value?.phase_progress ?? [])
+
+const topicsCompleted = computed(() =>
+  outlineTopicsCompleted(
+    outline.value,
+    phaseProgress.value,
+    passedStepIds.value,
+    completedStepIds.value,
+  ),
+)
 
 const passedStepIds = computed(() => new Set(session.value?.passed_step_ids ?? []))
 const completedStepIds = computed(() => new Set(session.value?.completed_step_ids ?? []))
@@ -292,6 +311,15 @@ const showAssistant = computed(
   () => Boolean(step.value?.tutor?.enabled || session.value?.policies.tutor_enabled),
 )
 
+function topicComplete(topic: OutlineTopic) {
+  return isTopicComplete(
+    topic,
+    phaseProgress.value,
+    passedStepIds.value,
+    completedStepIds.value,
+  )
+}
+
 function moduleDone(topic: OutlineTopic) {
   return moduleDoneCount(topic, passedStepIds.value, completedStepIds.value)
 }
@@ -311,7 +339,7 @@ function isCurrentLesson(topicId: string, stepId: string) {
 </script>
 
 <template>
-  <PageShell :title="pageTitle" :meta="phaseLabel" fill>
+  <PageShell :title="pageTitle" :meta="phaseLabel" fill preserve-title-case>
     <div class="session-topbar">
       <NuxtLink class="link-back" to="/catalog">
         <ChevronLeftIcon class="icon-sm" />
@@ -335,7 +363,12 @@ function isCurrentLesson(topicId: string, stepId: string) {
       :data-assistant="showAssistant || undefined"
     >
       <aside class="session-syllabus" :aria-label="t('session.program')">
-        <h2 class="session-syllabus-title">{{ t('session.program') }}</h2>
+        <h2 class="session-syllabus-title">
+          {{ t('session.program') }}
+          <span v-if="outline.length" class="session-syllabus-progress">
+            {{ topicsCompleted }} / {{ outline.length }}
+          </span>
+        </h2>
         <div class="stepik-program session-program">
           <article
             v-for="topic in outline"
@@ -347,10 +380,10 @@ function isCurrentLesson(topicId: string, stepId: string) {
               <h3 class="stepik-module-title">
                 {{ topic.index }}. {{ topic.title }}
               </h3>
-              <span class="stepik-module-progress">
+              <span class="stepik-module-progress" :aria-label="topicComplete(topic) ? t('session.topicDone') : undefined">
                 <span
                   class="stepik-progress-dot"
-                  :data-done="moduleDone(topic) > 0 || undefined"
+                  :data-done="topicComplete(topic) || undefined"
                   aria-hidden="true"
                 />
                 {{ moduleDone(topic) }} / {{ topic.steps.length }}
@@ -371,7 +404,7 @@ function isCurrentLesson(topicId: string, stepId: string) {
                   @click="goToTarget({ topic: lesson.topic_id, phase: lesson.phase, step: lesson.step_id })"
                 >
                   <span class="stepik-lesson-mark" aria-hidden="true">
-                    {{ lesson.kind.slice(0, 1).toUpperCase() }}
+                    {{ lessonKindMark(lesson.kind) }}
                   </span>
                   <span class="stepik-lesson-title">
                     {{ lesson.index_label }} {{ lesson.title }}
@@ -384,7 +417,8 @@ function isCurrentLesson(topicId: string, stepId: string) {
         </aside>
 
       <section class="session-main">
-        <Transition name="page-cyber" mode="out-in">
+        <div class="session-lesson-host">
+          <Transition name="page-cyber" mode="out-in">
         <article
           :key="step.step_id"
           class="session-lesson"
@@ -529,7 +563,8 @@ function isCurrentLesson(topicId: string, stepId: string) {
             </div>
           </div>
         </article>
-        </Transition>
+          </Transition>
+        </div>
 
         <footer class="session-actionbar">
           <div class="session-actionbar-row">

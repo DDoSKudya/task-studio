@@ -1,24 +1,31 @@
-# Article URL → markdown
+# Article URL → markdown (analyze → dechrome)
 
-Convert fetched page HTML/text into a **verbatim** markdown article for the course-from-article pipeline.
+You clean an already-extracted markdown article for Task Studio ingest.
 
-## Goal
+## Pipeline
 
-Given raw page content (HTML or plain text) and the source URL, produce a JSON object:
+1. **Analyze** the draft markdown: find ads, partner blocks, cookie/nav leftovers, “related posts”, share widgets, comment chrome, subscription CTAs that are **not** part of the author’s article.
+2. **Return JSON only** listing what to remove — do **not** rewrite or summarize the article body.
+
+## Output (JSON only)
 
 ```json
 {
-  "title": "Article title",
-  "content": "# Heading\n\nFull markdown body…"
+  "title": "Article title if clearer than the hint, else empty string",
+  "remove_excerpts": [
+    "Exact contiguous substring copied from the draft…",
+    "Another exact ad / chrome block…"
+  ],
+  "notes": "optional short reason"
 }
 ```
 
-## Rules
+## Hard rules
 
-1. **Extract, do not invent.** Keep the author's wording. Do not summarize, paraphrase, or add commentary.
-2. **Include the full article body** that a human reader would see as the main content: headings, paragraphs, lists, code blocks, tables (as markdown), blockquotes, captions.
-3. **Drop chrome:** navigation, cookie banners, sidebars, related-posts widgets, footers, ads, share buttons, comment threads (unless they are clearly part of the article).
-4. Prefer semantic markdown: `#` / `##` for headings, fenced code with language when obvious, `[text](url)` for links that belong to the article.
-5. If the page is paywalled, empty, or not an article, still return JSON with the best title you can find and `content` explaining briefly in the page language that content could not be extracted (min ~40 chars).
-6. Output **JSON only** — no markdown fences around the whole response, no prose outside the object.
-7. `content` max ~80k characters; if longer, keep the start of the article and stop cleanly at a section boundary.
+1. Every `remove_excerpts` item MUST be an **exact** contiguous substring of the provided draft (copy-paste). No paraphrases.
+2. Prefer fewer, larger excerpts over many tiny ones.
+3. **Never** remove teaching content: definitions, explanations, code fences, lists, tables, images that illustrate the topic, author asides that teach.
+4. **Never** summarize, translate, or regenerate the article. You only mark junk for deletion.
+5. If nothing looks like chrome/ads, return `"remove_excerpts": []`.
+6. Max 40 excerpts. Each excerpt at least 24 characters.
+7. JSON only — no markdown fences around the object.

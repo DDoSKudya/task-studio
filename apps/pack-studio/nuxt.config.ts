@@ -34,7 +34,7 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()],
     build: {
-      cssCodeSplit: false,
+      cssCodeSplit: true,
       reportCompressedSize: false,
       sourcemap: process.env.NUXT_SOURCEMAP === 'true',
     },

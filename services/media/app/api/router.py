@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from app.api.asset_ids import require_safe_asset_id
 from app.api.deps import MinioClient, Settings
 from app.api.media_upload import MediaUploadResponse, upload_media_asset
@@ -27,9 +29,15 @@ async def get_media_asset(
 ) -> StreamingResponse:
     require_safe_asset_id(asset_id)
     object_key = user_object_key(user_id, asset_id)
-    if not object_exists(client, settings, object_key):
+    exists = await asyncio.to_thread(object_exists, client, settings, object_key)
+    if not exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
-    stream, content_type, length = get_object_stream(client, settings, object_key)
+    stream, content_type, length = await asyncio.to_thread(
+        get_object_stream,
+        client,
+        settings,
+        object_key,
+    )
     headers: dict[str, str] = {}
     if length is not None:
         headers["content-length"] = str(length)
@@ -49,7 +57,7 @@ async def delete_media_asset(
 ) -> Response:
     require_safe_asset_id(asset_id)
     object_key = user_object_key(user_id, asset_id)
-    remove_object(client, settings, object_key)
+    await asyncio.to_thread(remove_object, client, settings, object_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

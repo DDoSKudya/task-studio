@@ -13,6 +13,7 @@ import {
 } from '~/utils/analytics'
 
 const { t, locale } = useI18n()
+useAppPageTitle(computed(() => t('nav.analytics')))
 const { fetchProgress, fetchSkips, fetchAttempts } = useAnalytics()
 const toasts = useToasts()
 

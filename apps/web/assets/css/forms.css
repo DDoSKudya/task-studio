@@ -8,6 +8,18 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.form-field .field,
+.form-field .field-input,
+.form-field .field-textarea,
+.form-field .field-select,
+.form-field input:not([type='checkbox']):not([type='radio']),
+.form-field textarea,
+.form-field select {
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
 }
 
 .field-required {

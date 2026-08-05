@@ -11,6 +11,7 @@ from studio_contracts.studio_schemas import CourseFromArticleRequest
 from .practice_generate import generate_code_tasks, generate_open_tasks
 from .progress import _stage_event
 from .quiz_generate import generate_quizzes
+from .source_exercise_harvest import HarvestedExercise
 
 
 def _tests_count(task: dict[str, object]) -> int:
@@ -32,8 +33,10 @@ async def _iter_quizzes_and_code_parallel(
     quiz_steps_out: list[dict[str, object]],
     code_steps_out: list[dict[str, object]],
     domain: str = "code",
+    practice_is_open: bool = False,
+    exercise_seeds: list[HarvestedExercise] | None = None,
 ) -> AsyncIterator[dict[str, object]]:
-    practice_is_open = domain in {"language", "general"}
+    practice_is_open = practice_is_open or domain in {"language", "general"}
     practice_stage = "tasks" if practice_is_open else "code"
     yield _stage_event(
         stage="quizzes",
@@ -72,6 +75,7 @@ async def _iter_quizzes_and_code_parallel(
             chapters=chapters,
             outcomes=outcomes,
             theory_steps=theory_steps,
+            exercise_seeds=exercise_seeds,
         )
         if len(steps) < 3:
             raise TutorError(
@@ -99,6 +103,7 @@ async def _iter_quizzes_and_code_parallel(
                 compact=False,
                 chapters=chapters,
                 outcomes=outcomes,
+                exercise_seeds=exercise_seeds,
             )
         if len(steps) < 3:
             raise TutorError(

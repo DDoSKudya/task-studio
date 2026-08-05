@@ -30,10 +30,6 @@ def mark_earlier_phases_complete(
     for phase in order[:to_index]:
         if phase == "study":
             progress.study_completed = True
-        elif phase == "practice":
-            progress.practice_completed = True
-        elif phase == "assess":
-            progress.assess_completed = True
 
 
 def mark_step_completed(learning_session: Session, step_id: str) -> None:

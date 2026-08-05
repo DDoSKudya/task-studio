@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from studio_common.system_auth import SystemAuthRelaxed as SystemAuth
+from studio_common.system_auth import verify_system_token
+
+__all__ = [
+    "DbSession",
+    "UserId",
+    "SystemAuth",
+    "get_db",
+    "get_user_id",
+    "verify_system_token",
+]
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -44,14 +54,5 @@ def get_user_id(
         ) from exc
 
 
-def verify_system_token(
-    x_system_token: Annotated[str | None, Header(alias="X-System-Token")] = None,
-) -> None:
-    expected = os.getenv("ORCHESTRATOR_SYSTEM_TOKEN", "").strip()
-    if expected and x_system_token != expected:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid system token")
-
-
 type DbSession = Annotated[AsyncSession, Depends(get_db)]
 type UserId = Annotated[uuid.UUID, Depends(get_user_id)]
-type SystemAuth = Annotated[None, Depends(verify_system_token)]

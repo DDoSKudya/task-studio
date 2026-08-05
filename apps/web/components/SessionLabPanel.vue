@@ -10,7 +10,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { submit, listAttempts } = useSessions()
+const { submit, getAttempt } = useSessions()
 const toasts = useToasts()
 
 const running = ref(false)
@@ -28,8 +28,7 @@ function stopPolling() {
 onBeforeUnmount(stopPolling)
 
 async function pollAttempts(attemptId: string) {
-  const attempts = await listAttempts(props.sessionId)
-  const attempt = attempts.find((row) => row.id === attemptId)
+  const attempt = await getAttempt(props.sessionId, attemptId)
   if (!attempt?.result) {
     return
   }

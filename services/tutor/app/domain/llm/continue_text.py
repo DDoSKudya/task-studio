@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import httpx
 from app.domain.llm.client import complete_chat_result
+from app.domain.llm.prose_dedupe import continuation_is_restart
 from app.domain.llm.result import ChatCompletionResult
 from app.domain.llm.target import LlmTarget
 
 _CONTINUE_SYSTEM = (
     "You continue unfinished assistant output for Task Studio. "
     "Emit ONLY the missing continuation — no preamble, no restart, no markdown fences "
-    "around the whole answer unless the unfinished text already opened one."
+    "around the whole answer unless the unfinished text already opened one. "
+    "Never repeat headings or paragraphs already present in the unfinished text."
 )
 
 
@@ -47,6 +49,9 @@ async def complete_text_until_done(
         chunk = result.content
         if not chunk:
             break
+        assembled = "".join(parts)
+        if assembled and continuation_is_restart(assembled, chunk):
+            break
         parts.append(chunk)
         if not result.truncated:
             break
@@ -58,7 +63,10 @@ async def complete_text_until_done(
             {"role": "assistant", "content": assembled},
         ]
         current_system = _CONTINUE_SYSTEM
-        current_user = "Continue exactly from where you stopped. Output ONLY the continuation."
+        current_user = (
+            "Continue exactly from where you stopped. "
+            "Output ONLY the new continuation — do not repeat earlier paragraphs."
+        )
 
     return "".join(parts)
 

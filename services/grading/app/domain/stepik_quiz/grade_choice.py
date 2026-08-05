@@ -48,9 +48,18 @@ async def grade_via_stepik(
         reply={"choices": reply_flags},
     )
     status = str(submission.get("status") or "").casefold()
+    if status in {"evaluation", "pending", ""}:
+        details: dict[str, object] = {
+            "checker": "stepik",
+            "status": "still_evaluating",
+            "actual": choice_index,
+            "external_step_id": external_id,
+            "gradable": False,
+        }
+        return False, "evaluation still in progress", details
     passed = status in {"correct", "passed", "ok"}
     feedback = _submission_feedback(submission, fallback=None if passed else "incorrect answer")
-    details: dict[str, object] = {
+    details = {
         "checker": "stepik",
         "status": status,
         "actual": choice_index,

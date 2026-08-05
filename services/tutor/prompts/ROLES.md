@@ -52,6 +52,21 @@ prompts/
 Composer: `app.domain.prompts.build_system_prompt(PromptRequest)`.  
 Learner turn wrapper: `format_learner_turn` (`<learner_message>` + `<response_contract>`).
 
+## AI contours (product — do not mix)
+
+Isolated harness invocations, **not** shared chat transcripts:
+
+| Contour | Domain package | `LlmTaskKind` | History | Notes |
+| --- | --- | --- | --- | --- |
+| **A** URL → article | `fetch_article_from_url` | `chat` (dechrome; rescue if thin) | no | Direct/reader MD → optional LLM rescue if &lt;80 chars → LLM marks ads → local delete |
+| **B** Article → course | `course_from_article` | `course_topic_bundle` | no | Staged JSON; own corpus clip |
+| **C** Grade fallback | `grade` | `grade` → chat model lane | no | After Stepik/Piston/local fail |
+| **D** Learner chat / hints | `chat` | `chat` / `hints` | client history only | Coaching; never grades |
+
+Shared transport: `app.domain.llm` + user provider settings.  
+Shared **policy** routing: `OLLAMA_MODEL_CHAT` vs `OLLAMA_MODEL_COURSE` (`OLLAMA_TASK_ROUTING`).  
+Do **not** share conversation_id / history across B↔C↔D. Do **not** reintroduce LLM into A.
+
 ## Role × skills × provider
 
 | Mode | Role | Always | Conditional | Provider |
@@ -61,8 +76,8 @@ Learner turn wrapper: `format_learner_turn` (`<learner_message>` + `<response_co
 | Hints | `contextual_hints` | `socratic`, `atypical-cases`, `negative-constraints`, `kind-*` | `few-shot-hints` (external) / `few-shot-hints-compact` (Ollama); sql/token-budget | same |
 | Grade check | `grade_check` | `grade-json-contract`, `grade-duty`, `grade-evidence`, `negative-constraints`, `grade-quiz`/`grade-code`/`grade-task`/`grade-lab` | `sql-coach` + `token-budget` if needed | ollama-quality / external |
 | Pack Studio | `pack_studio` | (JSON contract + shape example in role) | — | — |
-| Article URL → MD | `article_from_url` | `url-to-markdown`, `anti-hallucination-source`, `negative-constraints` | `token-budget` if Ollama | ollama-quality / external |
-| Article → course | `course_from_article` | `course-stage-json`, `anti-hallucination-source`, `pack-manifest-contract`, `negative-constraints` | stage: `article-consistency` / `curriculum-synthesis` / `expand-dense-prose` + `diagram-craft` / `book-polish` / `quiz-assessment-design` / `code-task-ladder`; `token-budget` if Ollama; video steps from extracted URLs | ollama-quality / external |
+| Article URL → MD | `article_from_url` | `url-to-markdown`, `article-dechrome`, `anti-hallucination-source`, `negative-constraints` | `token-budget` if Ollama | ollama-quality / external |
+| Article → course | `course_from_article` | `course-stage-json`, `anti-hallucination-source`, `pack-manifest-contract`, `negative-constraints`, `instructional-design` | stage: `article-consistency` / `curriculum-synthesis` / `expand-dense-prose` + `diagram-craft` / `book-polish` / `quiz-assessment-design` / `code-task-ladder`; `token-budget` if Ollama; video steps from extracted URLs | ollama-quality / external |
 
 ## Context budgets
 

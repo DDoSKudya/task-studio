@@ -56,13 +56,13 @@ function Get-TsInstallRoot {
 }
 
 function Install-TsArchive {
-  Write-Host (Boot-TsText "dl" "Downloading Task Studio Launcher into $InstallDir …" "Скачивание Task Studio Launcher в $InstallDir …")
+  Write-Host (Boot-TsText "dl" "Downloading Task Studio Launcher into $InstallDir…" "Скачивание Task Studio Launcher в $InstallDir…")
   $parent = Split-Path -Parent $InstallDir
   if ($parent -and -not (Test-Path $parent)) {
     New-Item -ItemType Directory -Path $parent | Out-Null
   }
   if (Test-Path $InstallDir) {
-    Write-Host (Boot-TsText "upd" "Updating existing install…" "Обновление существующей установки…")
+    Write-Host (Boot-TsText "upd" "Updating the existing installation…" "Обновление существующей установки…")
   }
   $work = Join-Path ([System.IO.Path]::GetTempPath()) ("task-studio-bootstrap-" + [guid]::NewGuid().ToString())
   $zipPath = Join-Path $work "src.zip"
@@ -114,7 +114,7 @@ if (-not $root) {
 
 $studioPs1 = Join-Path $root "scripts\studio.ps1"
 if (-not (Test-Path $studioPs1)) {
-  throw (Boot-TsText "miss" "studio.ps1 not found under $root\scripts" "studio.ps1 не найден в $root\scripts")
+  throw (Boot-TsText "miss" "studio.ps1 was not found under $root\scripts." "studio.ps1 не найден в $root\scripts.")
 }
 
 Convert-TsPsTreeToUtf8Bom $root
@@ -128,7 +128,7 @@ if (Test-Path $i18nPath) {
 if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
   Write-Host (Get-TsText boot_ps_prepare)
 } else {
-  Write-Host (Boot-TsText "prep" "Preparing PowerShell execution and desktop shortcut…" "Подготовка PowerShell и ярлыка на рабочий стол…")
+  Write-Host (Boot-TsText "prep" "Preparing PowerShell and the desktop shortcut…" "Подготовка PowerShell и ярлыка на рабочем столе…")
 }
 try {
   Install-TaskStudioDesktopShortcuts -Root $root
@@ -137,13 +137,13 @@ try {
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
     Write-Host (Get-TsText boot_ps_shortcut_fail $msg)
   } else {
-    Write-Host (Boot-TsText "warn" "Warning: desktop shortcut failed — $msg" "Предупреждение: ярлык не создан — $msg")
+    Write-Host (Boot-TsText "warn" "Warning: desktop shortcut was not created — $msg" "Предупреждение: ярлык на рабочем столе не создан — $msg")
   }
   $fallback = Join-Path $root "scripts\studio.cmd"
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
     Write-Host (Get-TsText boot_ps_fallback $fallback)
   } else {
-    Write-Host (Boot-TsText "fb" "  You can still start: $fallback" "  Можно запустить вручную: $fallback")
+    Write-Host (Boot-TsText "fb" "  You can still start with: $fallback" "  Можно запустить вручную: $fallback")
   }
 }
 

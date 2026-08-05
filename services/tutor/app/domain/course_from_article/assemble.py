@@ -9,6 +9,7 @@ from .assemble_fences import (
     _retarget_code_fences,
 )
 from .assemble_manifest import (
+    _assemble_interleaved_manifest,
     _assemble_manifest,
     _code_step_tests_executable,
     _infer_python_entrypoint,
@@ -17,6 +18,7 @@ from .assemble_manifest import (
 
 __all__ = [
     "_FENCE_RE",
+    "_assemble_interleaved_manifest",
     "_assemble_manifest",
     "_code_step_tests_executable",
     "_infer_fence_language",

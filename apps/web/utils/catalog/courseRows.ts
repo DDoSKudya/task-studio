@@ -128,6 +128,58 @@ export function groupCatalogCourseRows(
   return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]))
 }
 
+export const LIBRARY_SOURCE_LOCAL = 'local'
+
+export function isLocalPackSource(source: string | null | undefined): boolean {
+  return !source || source === LIBRARY_SOURCE_LOCAL
+}
+
+export type LibrarySourceRail = {
+  id: string
+  count: number
+}
+
+export function buildLibrarySourceRails(
+  packs: Array<{ source?: string | null }>,
+  incompleteBuildCount = 0,
+): { total: number; sources: LibrarySourceRail[] } {
+  let localCount = incompleteBuildCount
+  const externalCounts = new Map<string, number>()
+
+  for (const pack of packs) {
+    if (isLocalPackSource(pack.source)) {
+      localCount += 1
+    } else if (pack.source) {
+      externalCounts.set(pack.source, (externalCounts.get(pack.source) ?? 0) + 1)
+    }
+  }
+
+  const sources: LibrarySourceRail[] = []
+  if (localCount > 0) {
+    sources.push({ id: LIBRARY_SOURCE_LOCAL, count: localCount })
+  }
+  for (const [id, count] of [...externalCounts.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    sources.push({ id, count })
+  }
+
+  return { total: packs.length + incompleteBuildCount, sources }
+}
+
+export function filterLibraryPacksBySource<T extends { source?: string | null }>(
+  packs: T[],
+  sourceFilter: string,
+): T[] {
+  if (!sourceFilter) {
+    return packs
+  }
+  if (sourceFilter === LIBRARY_SOURCE_LOCAL) {
+    return packs.filter((pack) => isLocalPackSource(pack.source))
+  }
+  return packs.filter((pack) => pack.source === sourceFilter)
+}
+
 export function filterLibraryPacks<T extends { title: string; slug: string; source?: string | null; version: string }>(
   packs: T[],
   query: string,

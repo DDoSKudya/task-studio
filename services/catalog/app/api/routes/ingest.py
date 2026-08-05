@@ -2,17 +2,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.api.deps import DbSession, Settings
-from app.api.mappers import pack_upload_response
 from app.domain.packs import register_imported_pack, upload_pack
-from fastapi import APIRouter, UploadFile, status
+from fastapi import APIRouter, HTTPException, UploadFile, status
 from studio_common.internal import InternalUserId
 from studio_contracts.catalog_schemas import (
     PackUploadResponse,
     RegisterImportedPackRequest,
 )
 
+from ..deps import DbSession, Settings
+from ..mappers import pack_upload_response
+
 router = APIRouter()
+
+
+def _jailed_disk_path(disk_path: str, *, packs_root: Path, user_id: object) -> Path:
+    resolved = Path(disk_path).resolve()
+    jail = (packs_root / str(user_id)).resolve()
+    if not resolved.is_relative_to(jail):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="disk_path outside user pack root",
+        )
+    return resolved
 
 
 @router.post(
@@ -30,7 +42,11 @@ async def register_pack(
         session,
         user_id,
         manifest=body.manifest,
-        disk_path=Path(body.disk_path),
+        disk_path=_jailed_disk_path(
+            body.disk_path,
+            packs_root=settings.packs_root,
+            user_id=user_id,
+        ),
         external_id=body.external_id,
         source=body.source,
         import_report=body.import_report,

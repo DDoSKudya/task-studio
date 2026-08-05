@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 import httpx
 
@@ -30,6 +30,13 @@ _RUNTIME_BY_TRACK: dict[str, str] = {
     "elixir": "elixir",
     "sql": "sql",
 }
+
+
+class ExercismExercise(TypedDict, total=False):
+    slug: str
+    title: str
+    blurb: str
+    type: str
 
 
 def health() -> dict[str, object]:
@@ -84,17 +91,18 @@ def search_remote(*, query: str, **_ctx: object) -> list[dict[str, object]]:
     needle = query.casefold().strip()
     if not needle:
         return []
-    return [
-        item
-        for item in list_catalog()
-        if needle in str(item["title"]).casefold()
-        or needle in str(item.get("description", "")).casefold()
-        or any(
-            needle in str(tag).casefold()
-            for tag in (item.get("tags") if isinstance(item.get("tags"), list) else [])
-            if isinstance(tag, str)
+    matched: list[dict[str, object]] = []
+    for item in list_catalog():
+        title = str(item.get("title") or "").casefold()
+        description = str(item.get("description") or "").casefold()
+        tags_raw = item.get("tags")
+        tags: list[object] = list(tags_raw) if isinstance(tags_raw, list) else []
+        tag_hit = any(
+            isinstance(tag, str) and needle in tag.casefold() for tag in tags
         )
-    ]
+        if needle in title or needle in description or tag_hit:
+            matched.append(item)
+    return matched
 
 
 def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object], dict[str, object]]:
@@ -137,7 +145,11 @@ def _import_live_track(track_slug: str) -> tuple[dict[str, object], dict[str, ob
 
     title = str(track_meta.get("title") or track_slug)
     runtime = _RUNTIME_BY_TRACK.get(track_slug, "python")
-    selected = [item for item in exercises[:_MAX_IMPORT_EXERCISES] if isinstance(item, dict)]
+    selected = [
+        exercise
+        for raw in exercises[:_MAX_IMPORT_EXERCISES]
+        if (exercise := _coerce_exercism_exercise(raw)) is not None
+    ]
     enriched = _enrich_exercises_parallel(track_slug, selected)
 
     steps: dict[str, dict[str, object]] = {}
@@ -181,7 +193,7 @@ def _import_live_track(track_slug: str) -> tuple[dict[str, object], dict[str, ob
             study_ids.append(intro_id)
             full_count += 1
 
-                                                                                     
+
         practice_docs = instructions or blurb or f"Exercism exercise: {step_title}"
         if not instructions and introduction and not blurb:
             practice_docs = (
@@ -281,13 +293,32 @@ def _import_live_track(track_slug: str) -> tuple[dict[str, object], dict[str, ob
     return pack, report
 
 
+def _coerce_exercism_exercise(raw: object) -> ExercismExercise | None:
+    if not isinstance(raw, dict):
+        return None
+    exercise: ExercismExercise = {}
+    slug = raw.get("slug")
+    if isinstance(slug, str) and slug.strip():
+        exercise["slug"] = slug.strip()
+    title = raw.get("title")
+    if isinstance(title, str):
+        exercise["title"] = title
+    blurb = raw.get("blurb")
+    if isinstance(blurb, str):
+        exercise["blurb"] = blurb
+    exercise_type = raw.get("type")
+    if isinstance(exercise_type, str):
+        exercise["type"] = exercise_type
+    return exercise if exercise.get("slug") else None
+
+
 def _enrich_exercises_parallel(
     track_slug: str,
-    exercises: list[dict[str, Any]],
+    exercises: list[ExercismExercise],
 ) -> dict[str, dict[str, str]]:
     results: dict[str, dict[str, str]] = {}
 
-    def _one(exercise: dict[str, Any]) -> tuple[str, dict[str, str]]:
+    def _one(exercise: ExercismExercise) -> tuple[str, dict[str, str]]:
         slug = str(exercise.get("slug") or "").strip()
         if not slug:
             return "", {}
@@ -323,11 +354,19 @@ def _fetch_github_exercise(track: str, kind: str, slug: str) -> dict[str, str]:
         introduction = _http_text(f"{base}/.docs/introduction.md") or ""
         append = _http_text(f"{base}/.docs/instructions.append.md") or ""
         if append:
-            instructions = f"{instructions.rstrip()}\n\n{append.lstrip()}" if instructions else append
+            if instructions:
+                instructions = f"{instructions.rstrip()}\n\n{append.lstrip()}"
+            else:
+                instructions = append
 
-        files = meta.get("files") if isinstance(meta.get("files"), dict) else {}
-        solution_files = files.get("solution") if isinstance(files.get("solution"), list) else []
-        test_files = files.get("test") if isinstance(files.get("test"), list) else []
+        files_raw = meta.get("files")
+        files: dict[str, object] = files_raw if isinstance(files_raw, dict) else {}
+        solution_raw = files.get("solution")
+        test_raw = files.get("test")
+        solution_files: list[object] = (
+            list(solution_raw) if isinstance(solution_raw, list) else []
+        )
+        test_files: list[object] = list(test_raw) if isinstance(test_raw, list) else []
 
         template = ""
         solution_file = ""
@@ -368,7 +407,7 @@ def _fetch_github_exercise(track: str, kind: str, slug: str) -> dict[str, str]:
             "ref": ref,
         }
 
-                                                                                            
+
     other = "concept" if kind == "practice" else "practice"
     if other != kind:
         return _fetch_github_exercise_once(track, other, slug)
@@ -376,7 +415,7 @@ def _fetch_github_exercise(track: str, kind: str, slug: str) -> dict[str, str]:
 
 
 def _fetch_github_exercise_once(track: str, kind: str, slug: str) -> dict[str, str]:
-                                                                     
+
     for ref in _GITHUB_REFS:
         base = _RAW_GITHUB.format(track=track, ref=ref, kind=kind, slug=slug)
         config = _http_text(f"{base}/.meta/config.json")
@@ -386,8 +425,14 @@ def _fetch_github_exercise_once(track: str, kind: str, slug: str) -> dict[str, s
             meta = json.loads(config)
         except json.JSONDecodeError:
             meta = {}
-        files = meta.get("files") if isinstance(meta, dict) and isinstance(meta.get("files"), dict) else {}
-        solution_files = files.get("solution") if isinstance(files.get("solution"), list) else []
+        if not isinstance(meta, dict):
+            meta = {}
+        files_raw = meta.get("files")
+        files: dict[str, object] = files_raw if isinstance(files_raw, dict) else {}
+        solution_raw = files.get("solution")
+        solution_files: list[object] = (
+            list(solution_raw) if isinstance(solution_raw, list) else []
+        )
         instructions = _http_text(f"{base}/.docs/instructions.md") or ""
         introduction = _http_text(f"{base}/.docs/introduction.md") or ""
         template = ""
@@ -414,7 +459,11 @@ def _fetch_github_exercise_once(track: str, kind: str, slug: str) -> dict[str, s
 
 def _http_text(url: str) -> str | None:
     try:
-        with httpx.Client(timeout=_HTTP_TIMEOUT, follow_redirects=True, headers=_headers()) as client:
+        with httpx.Client(
+            timeout=_HTTP_TIMEOUT,
+            follow_redirects=True,
+            headers=_headers(),
+        ) as client:
             response = client.get(url)
             if response.status_code != 200:
                 return None
@@ -427,7 +476,12 @@ def _default_template(runtime: str, title: str) -> str:
     if runtime == "python":
         return f"# {title}\ndef solve():\n    raise NotImplementedError\n"
     if runtime == "javascript":
-        return f"// {title}\nexport function solve() {{\n  throw new Error('Not implemented');\n}}\n"
+        return (
+            f"// {title}\n"
+            "export function solve() {\n"
+            "  throw new Error('Not implemented');\n"
+            "}\n"
+        )
     if runtime == "go":
         return f"// {title}\npackage main\n\nfunc Solve() string {{\n\treturn \"\"\n}}\n"
     if runtime == "sql":

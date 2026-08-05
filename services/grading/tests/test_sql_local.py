@@ -45,7 +45,7 @@ def test_code_reply_candidates_python_does_not_lead_with_solve_sql() -> None:
         {"dataset": {"languages": ["python3"]}},
     )
     assert replies[0] == {"language": "python3", "code": "print(1)"}
-    assert not any("solve_sql" in reply for reply in replies)
+    assert all("solve_sql" not in reply for reply in replies)
 
 
 def test_build_sql_seed_from_html_example_table() -> None:
@@ -99,6 +99,7 @@ async def test_grade_code_falls_back_to_sql_local_on_stepik_schema_error(
             "external_step_id": "1",
             "runtime": "sql",
             "tests": [],
+            "expected_stdout": "1|Jax|Alpha\n",
             "body_html": (
                 "<p>из таблицы cadets</p>"
                 "<table><tr><th>id</th><th>name</th></tr>"
@@ -112,3 +113,37 @@ async def test_grade_code_falls_back_to_sql_local_on_stepik_schema_error(
     assert outcome.passed is True
     assert outcome.checker == "sql_local"
     assert outcome.details.get("offline_fallback") is True
+
+
+@pytest.mark.asyncio
+async def test_sql_local_without_oracle_is_ungradable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_creds(*_args: object, **_kwargs: object) -> dict[str, str]:
+        return {}
+
+    async def _fake_stepik(*_args: object, **_kwargs: object) -> tuple[bool, str | None, dict]:
+        raise StepikQuizError("schema error")
+
+    async def _fake_piston(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"passed": True, "stdout": "1\n", "stderr": "", "exit_code": 0}
+
+    monkeypatch.setattr("app.domain.code.grade.fetch_stepik_credentials", _fake_creds)
+    monkeypatch.setattr("app.domain.code.grade.grade_code_via_stepik", _fake_stepik)
+    monkeypatch.setattr("app.domain.sql.grade.execute_piston", _fake_piston)
+
+    outcome = await grade_code(
+        {
+            "kind": "code",
+            "source_platform": "stepik",
+            "external_step_id": "1",
+            "runtime": "sql",
+            "tests": [],
+            "body_html": ("<table><tr><th>id</th></tr><tr><td>1</td></tr></table>"),
+        },
+        {"source": "SELECT 1;"},
+        settings=_settings(),
+        client=AsyncMock(spec=httpx.AsyncClient),
+    )
+    assert outcome.passed is False
+    assert outcome.details.get("gradable") is False

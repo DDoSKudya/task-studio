@@ -38,22 +38,19 @@ describe('studioCourseStream', () => {
     ).toEqual({ kind: 'consistency_gate', event: gate })
   })
 
-  it('flushes a final SSE frame without trailing newline', () => {
+  it('ignores ping keepalive frames', () => {
     const events: CourseStageEvent[] = []
     const state: {
       doneResult: CourseFromArticleResponse | null
       gateEvent: CourseStageEvent | null
       streamError: string | null
     } = { doneResult: null, gateEvent: null, streamError: null }
-    const rest = consumeCourseSseBuffer(
-      'data: {"type":"done","progress":1,"manifest":{"title":"T"},"meta":{"outcomes":[],"warnings":[],"chapters":[]}}',
+    consumeCourseSseBuffer(
+      'data: {"type":"ping"}\n\ndata: {"type":"stage","stage":"theory","status":"running","progress":0.2,"message":"x"}\n\n',
       (event) => events.push(event),
       state,
     )
-    expect(rest.startsWith('data:')).toBe(true)
-    const flushed = consumeCourseSseBuffer(`${rest}\n`, (event) => events.push(event), state)
-    expect(flushed).toBe('')
     expect(events).toHaveLength(1)
-    expect(state.doneResult?.manifest).toEqual({ title: 'T' })
+    expect(events[0]?.type).toBe('stage')
   })
 })

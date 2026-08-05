@@ -18,6 +18,7 @@ from app.domain.llm.target import (
     is_cursor_target,
     is_ollama_target,
     resolve_llm_target,
+    with_task,
 )
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "is_ollama_target",
     "looks_like_unsupported_json_mode",
     "resolve_llm_target",
+    "with_task",
     "stream_chat_completion",
 ]

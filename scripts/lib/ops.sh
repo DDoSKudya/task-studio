@@ -240,6 +240,50 @@ PY
     ui_info "$(ts_t info_jwt)"
   fi
 
+  systok=""
+  if command -v python3 >/dev/null 2>&1; then
+    systok="$(python3 - <<'PY'
+import re, pathlib, secrets
+text = pathlib.Path(".env").read_text(encoding="utf-8")
+m = re.search(r"^ORCHESTRATOR_SYSTEM_TOKEN=(.*)$", text, re.M)
+raw = (m.group(1).strip().strip('"').strip("'") if m else "")
+if not raw or len(raw) < 16:
+    print(secrets.token_urlsafe(32))
+PY
+)"
+  fi
+  if [[ -n "${systok:-}" ]]; then
+    if grep -q '^ORCHESTRATOR_SYSTEM_TOKEN=' .env; then
+      sed -i.bak "s|^ORCHESTRATOR_SYSTEM_TOKEN=.*|ORCHESTRATOR_SYSTEM_TOKEN=$systok|" .env
+    else
+      printf '\nORCHESTRATOR_SYSTEM_TOKEN=%s\n' "$systok" >> .env
+    fi
+    rm -f .env.bak
+    ui_info "Generated ORCHESTRATOR_SYSTEM_TOKEN"
+  fi
+
+  grafpw=""
+  if command -v python3 >/dev/null 2>&1; then
+    grafpw="$(python3 - <<'PY'
+import re, pathlib, secrets
+text = pathlib.Path(".env").read_text(encoding="utf-8")
+m = re.search(r"^GRAFANA_ADMIN_PASSWORD=(.*)$", text, re.M)
+raw = (m.group(1).strip().strip('"').strip("'") if m else "")
+if not raw or raw == "admin":
+    print(secrets.token_urlsafe(16))
+PY
+)"
+  fi
+  if [[ -n "${grafpw:-}" ]]; then
+    if grep -q '^GRAFANA_ADMIN_PASSWORD=' .env; then
+      sed -i.bak "s|^GRAFANA_ADMIN_PASSWORD=.*|GRAFANA_ADMIN_PASSWORD=$grafpw|" .env
+    else
+      printf '\nGRAFANA_ADMIN_PASSWORD=%s\n' "$grafpw" >> .env
+    fi
+    rm -f .env.bak
+    ui_info "Generated GRAFANA_ADMIN_PASSWORD"
+  fi
+
   if grep -q '^OLLAMA_MODEL=' .env; then
     if grep -qE '^OLLAMA_MODEL=\s*$|^OLLAMA_MODEL=llama3\.2\s*$' .env; then
       sed -i.bak "s|^OLLAMA_MODEL=.*|OLLAMA_MODEL=$OLLAMA_MODEL_DEFAULT|" .env
@@ -275,6 +319,58 @@ PY
       rm -f .env.bak
     fi
   fi
+
+  # P321: HTTPS UI → Secure cookie (не трогаем явный false на http).
+  ui_url="${TASK_STUDIO_UI_URL:-http://localhost}"
+  case "${ui_url}" in
+    https://*|HTTPS://*)
+      if grep -q '^COOKIE_SECURE=' .env; then
+        sed -i.bak 's|^COOKIE_SECURE=.*|COOKIE_SECURE=true|' .env
+      else
+        printf '\nCOOKIE_SECURE=true\n' >> .env
+      fi
+      rm -f .env.bak
+      ;;
+  esac
+
+  preferred_was_80=1
+  prev_port="$(ts_http_port_from_env_file)"
+  if [[ "$prev_port" =~ ^[0-9]+$ && "$prev_port" != "80" ]]; then
+    preferred_was_80=0
+  fi
+  if [[ "${TASK_STUDIO_HTTP_PORT:-}" =~ ^[0-9]+$ && "${TASK_STUDIO_HTTP_PORT}" != "80" ]]; then
+    preferred_was_80=0
+  fi
+  port="$(resolve_ts_http_port)" || ui_die "No free HTTP port for Task Studio UI"
+  if grep -q '^TASK_STUDIO_HTTP_PORT=' .env; then
+    sed -i.bak "s|^TASK_STUDIO_HTTP_PORT=.*|TASK_STUDIO_HTTP_PORT=$port|" .env
+  else
+    printf '\nTASK_STUDIO_HTTP_PORT=%s\n' "$port" >> .env
+  fi
+  rm -f .env.bak
+  file_ui="$(grep -E '^TASK_STUDIO_UI_URL=' .env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/[\"'[:space:]]//g" || true)"
+  case "${file_ui}" in
+    ''|http://localhost|http://localhost:*|http://127.0.0.1|http://127.0.0.1:*|https://localhost|https://localhost:*|https://127.0.0.1|https://127.0.0.1:*)
+      ui_val="$(ts_format_ui_url "$port")"
+      if grep -q '^TASK_STUDIO_UI_URL=' .env; then
+        sed -i.bak "s|^TASK_STUDIO_UI_URL=.*|TASK_STUDIO_UI_URL=$ui_val|" .env
+      else
+        printf '\nTASK_STUDIO_UI_URL=%s\n' "$ui_val" >> .env
+      fi
+      rm -f .env.bak
+      ;;
+  esac
+  probe_val="$(ts_format_ui_probe_url "$port")"
+  if grep -q '^TASK_STUDIO_UI_PROBE_URL=' .env; then
+    sed -i.bak "s|^TASK_STUDIO_UI_PROBE_URL=.*|TASK_STUDIO_UI_PROBE_URL=$probe_val|" .env
+  else
+    printf '\nTASK_STUDIO_UI_PROBE_URL=%s\n' "$probe_val" >> .env
+  fi
+  rm -f .env.bak
+  ts_sync_ui_endpoint_vars "$port"
+  if [[ "$preferred_was_80" -eq 1 && "$port" != "80" ]]; then
+    ui_info "$(ts_t info_http_port_fallback "$port")"
+  fi
 }
 
 ops_prepare_dirs() {
@@ -292,23 +388,49 @@ ops_prepare_dirs() {
 
 ops_compose() {
   if [[ -f .env ]]; then
-    local pname
+    local pname http_port
     pname="$(grep -E '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/[\"'[:space:]]//g" || true)"
     if [[ -n "$pname" ]]; then
       export COMPOSE_PROJECT_NAME="$pname"
     fi
+    http_port="$(ts_http_port_from_env_file)"
+    if [[ "$http_port" =~ ^[0-9]+$ ]]; then
+      export TASK_STUDIO_HTTP_PORT="$http_port"
+    fi
   fi
   export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-task-studio}"
+  export TASK_STUDIO_HTTP_PORT="${TASK_STUDIO_HTTP_PORT:-80}"
   export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-$(ops_default_parallel_limit)}"
   export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
   export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" --env-file .env "$@"
 }
 
+ops_compose_container_name() {
+  local service="$1"
+  local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
+  local name=""
+  name="$(
+    ops_compose ps -a --format '{{.Name}}' "$service" 2>/dev/null | head -1 | tr -d '\r'
+  )"
+  if [[ -z "$name" ]]; then
+    name="$(
+      docker ps -a \
+        --filter "label=com.docker.compose.project=${pname}" \
+        --filter "label=com.docker.compose.service=${service}" \
+        --format '{{.Names}}' 2>/dev/null | head -1 | tr -d '\r'
+    )"
+  fi
+  if [[ -z "$name" ]]; then
+    name="${pname}-${service}-1"
+  fi
+  printf '%s\n' "$name"
+}
+
 ops_dump_compose_failure() {
   local log="${TS_PROGRESS_LOG:-}"
   local pname="${COMPOSE_PROJECT_NAME:-task-studio}"
-  local names name status
+  local names name status dumped="" svc
   if [[ -z "$log" ]]; then
     if [[ -n "${TS_LOG_FILE:-}" ]]; then
       log="$TS_LOG_FILE"
@@ -326,7 +448,9 @@ ops_dump_compose_failure() {
     printf '\n'
   } >>"$log" 2>/dev/null || true
 
-  for name in task-studio-catalog-1 task-studio-auth-1 task-studio-postgres-1 task-studio-grading-1; do
+  for svc in catalog auth postgres grading; do
+    name="$(ops_compose_container_name "$svc")"
+    dumped+=" ${name} "
     if docker inspect "$name" >/dev/null 2>&1; then
       status="$(docker inspect --format '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$name" 2>/dev/null || true)"
       {
@@ -344,8 +468,8 @@ ops_dump_compose_failure() {
     [[ -z "$name" ]] && continue
     case "$status" in
       *unhealthy*|*Exited*|*Dead*|*Restarting*)
-        case "$name" in
-          task-studio-catalog-1|task-studio-auth-1|task-studio-postgres-1|task-studio-grading-1) continue ;;
+        case "$dumped" in
+          *" ${name} "*) continue ;;
         esac
         {
           printf '\n----- logs: %s (%s) -----\n' "$name" "$status"
@@ -358,7 +482,8 @@ ops_dump_compose_failure() {
 
 ops_wait_catalog_healthy() {
   local timeout="${1:-180}"
-  local name="task-studio-catalog-1"
+  local name
+  name="$(ops_compose_container_name catalog)"
   local i=0 health status
   while ((i < timeout)); do
     if docker inspect "$name" >/dev/null 2>&1; then
@@ -533,13 +658,57 @@ ops_ensure_stopped() {
   return 0
 }
 
+ops_detect_ollama_accelerator() {
+  local requested="${OLLAMA_ACCELERATOR:-auto}"
+  if [[ "$requested" == "cpu" || "$requested" == "gpu" ]]; then
+    printf '%s' "$requested"
+    return 0
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    printf '%s' "gpu"
+    return 0
+  fi
+  printf '%s' "cpu"
+}
+
+ops_configure_ollama_profile() {
+  local accel profile
+  accel="$(ops_detect_ollama_accelerator)"
+  profile="${OLLAMA_PROFILE:-}"
+  if [[ -z "$profile" ]]; then
+    case "$accel" in
+      gpu) profile="gpu-balanced" ;;
+      *) profile="cpu-balanced" ;;
+    esac
+  fi
+  export OLLAMA_GPU_AVAILABLE="$([[ "$accel" == "gpu" ]] && echo 1 || echo 0)"
+  export OLLAMA_ACCELERATOR="${OLLAMA_ACCELERATOR:-auto}"
+  export OLLAMA_PROFILE="$profile"
+  if [[ -f .env ]]; then
+    grep -q '^OLLAMA_GPU_AVAILABLE=' .env \
+      && sed -i.bak "s|^OLLAMA_GPU_AVAILABLE=.*|OLLAMA_GPU_AVAILABLE=$OLLAMA_GPU_AVAILABLE|" .env \
+      || printf '\nOLLAMA_GPU_AVAILABLE=%s\n' "$OLLAMA_GPU_AVAILABLE" >> .env
+    grep -q '^OLLAMA_PROFILE=' .env \
+      && sed -i.bak "s|^OLLAMA_PROFILE=.*|OLLAMA_PROFILE=$OLLAMA_PROFILE|" .env \
+      || printf '\nOLLAMA_PROFILE=%s\n' "$OLLAMA_PROFILE" >> .env
+  fi
+}
+
 ops_pull_ollama() {
+  ops_configure_ollama_profile
   local model
   model="$(grep -E '^OLLAMA_MODEL=' .env | head -1 | cut -d= -f2- | tr -d '[:space:]')"
   model="${model:-$OLLAMA_MODEL_DEFAULT}"
   ui_info "$(ts_t info_pull_model "$model")"
   ops_compose --profile full exec -T ollama ollama pull "$model" \
     || ui_warn "$(ts_t warn_model_pull "$COMPOSE_FILE" "$model")"
+  local embed
+  embed="$(grep -E '^OLLAMA_MODEL_EMBED=' .env | head -1 | cut -d= -f2- | tr -d '[:space:]')"
+  embed="${embed:-nomic-embed-text}"
+  if [[ -n "$embed" && "$embed" != "$model" ]]; then
+    ops_compose --profile full exec -T ollama ollama pull "$embed" \
+      || ui_warn "$(ts_t warn_model_pull "$COMPOSE_FILE" "$embed")"
+  fi
 }
 
 ops_resolve_root() {
@@ -559,11 +728,28 @@ ops_resolve_root() {
   return 1
 }
 
+ops_install_is_repair() {
+  [[ "$(ops_stack_state)" != "missing" ]]
+}
+
+ops_install_title() {
+  if ops_install_is_repair; then
+    ts_t title_rebuild_packages
+  else
+    ts_t title_install
+  fi
+}
+
 ops_install() {
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
 
-  ts_prog_begin "$(ts_t title_install)"
+  local repair=0
+  if ops_install_is_repair; then
+    repair=1
+  fi
+
+  ts_prog_begin "$(ops_install_title)"
   ts_prog_plan \
     "prepare|$(ts_t stage_prepare)|40" \
     "build|$(ts_t stage_build)|600" \
@@ -608,7 +794,11 @@ ops_install() {
     ts_prog_status "$(ts_t status_skip_metrics)"
   fi
 
-  ts_prog_enter build "$(ts_t status_build_slow)"
+  if [[ "$repair" -eq 1 ]]; then
+    ts_prog_enter build "$(ts_t status_build)"
+  else
+    ts_prog_enter build "$(ts_t status_build_slow)"
+  fi
   # shellcheck disable=SC2086
   if ! ops_compose $profile_args build; then
     ui_die "$(ts_t err_build)"
@@ -620,11 +810,11 @@ ops_install() {
     ui_die "$(ts_t err_up)"
   fi
 
-  ts_prog_enter health "$(ts_t status_waiting_ui "$APP_UI_URL")"
+  ts_prog_enter health "$(ts_t status_waiting_ui "$APP_UI_PROBE_URL")"
   if wait_app_ready 90 5; then
     ts_prog_status "$(ts_t status_ui_ok)"
   else
-    ui_die "$(ts_t err_ui "$APP_UI_URL")"
+    ui_die "$(ts_ui_failure_hint "$APP_UI_URL")"
   fi
 
   ts_prog_enter model "$(ts_t status_pull_model)"
@@ -687,7 +877,7 @@ ops_start() {
     ts_prog_status "$(ts_t status_ui_ok)"
     ts_prog_done
   else
-    ui_die "$(ts_t err_ui "$APP_UI_URL")"
+    ui_die "$(ts_ui_failure_hint "$APP_UI_URL")"
   fi
 }
 
@@ -743,7 +933,7 @@ ops_restart() {
     ts_prog_status "$(ts_t status_ui_ok)"
     ts_prog_done
   else
-    ui_die "$(ts_t err_ui_after_restart "$APP_UI_URL")"
+    ui_die "$(ts_ui_failure_hint "$APP_UI_URL")"
   fi
 }
 
@@ -1068,7 +1258,6 @@ ops_content_sha256() {
       ! -path './data/*' \
       ! -path './.git/*' \
       ! -path './.cursor/*' \
-      ! -path './.plan/*' \
       ! -path './.venv/*' \
       ! -path './node_modules/*' \
       ! -path '*/node_modules/*' \
@@ -1112,13 +1301,19 @@ ops_sync_payload() {
   local src="$1" dst="$2"
   command -v tar >/dev/null 2>&1 || ui_die "$(ts_t err_tar)"
 
-  local parent base work newroot preserve backup rel
+  local parent base work newroot preserve backup rel lock
   parent="$(dirname "$dst")"
   base="$(basename "$dst")"
+  lock="$parent/.task-studio-update.lock"
   work="$parent/.task-studio-update.$$"
   newroot="$work/newroot"
   preserve="$work/preserve"
   backup="$work/backup"
+
+  exec 9>"$lock"
+  if ! flock -n 9; then
+    ui_die "$(ts_t err_update_in_progress 2>/dev/null || echo 'update already in progress')"
+  fi
 
   rm -rf "$work"
   mkdir -p "$newroot" "$preserve"
@@ -1390,7 +1585,7 @@ ops_update_apply() {
   if wait_app_ready 90 5; then
     ts_prog_status "$(ts_t status_ui_ok)"
   else
-    ui_warn "$(ts_t warn_ui_after_update "$APP_UI_URL")"
+    ui_warn "$(ts_ui_failure_hint "$APP_UI_URL")"
   fi
   ensure_script_permissions "$ROOT"
   create_desktop_shortcuts "$ROOT" || true

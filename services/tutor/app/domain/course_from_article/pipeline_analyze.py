@@ -9,8 +9,13 @@ from app.domain.errors import TutorError
 from fastapi import status
 from studio_contracts.studio_schemas import CourseFromArticleRequest
 
-from .constants import _MAX_CHAPTERS
-from .messages import _analyze_chapter_user_message, _analyze_user_message
+from .constants import _MAX_CHAPTERS, _MAX_CHAPTERS_COMPACT
+from .course_locale import normalize_course_locale
+from .messages import (
+    _analyze_chapter_user_message,
+    _analyze_user_message,
+    _expand_outline_user_message,
+)
 from .normalize import (
     _normalize_book_spine,
     _normalize_chapters,
@@ -18,6 +23,7 @@ from .normalize import (
 )
 from .pipeline_hooks import _stage_json
 from .progress import _band_progress, _stage_event
+from .source_images import attach_source_images_to_chapters
 from .textutil import _as_str, _slug, _string_list
 
 
@@ -27,10 +33,55 @@ class AnalyzeStageResult:
     book_spine: dict[str, str] = field(default_factory=dict)
     outcomes: list[str] = field(default_factory=list)
     domain: str = "general"
+    course_profile: str = ""
     pack_id: str = "article-course"
     title: str = "Article Course"
     locale: str = "en"
     warning: str | None = None
+
+
+def _analyze_outline_max_tokens(*, compact: bool, chapter_cap: int) -> int:
+    per_chapter = 55 if compact else 90
+    base = 900 if compact else 2400
+    ceiling = 2800 if compact else 12_000
+    return min(ceiling, base + max(1, chapter_cap) * per_chapter)
+
+
+async def _expand_chapters_toward_target(
+    client: httpx.AsyncClient,
+    target: object,
+    *,
+    body: CourseFromArticleRequest,
+    compact: bool,
+    article: str,
+    chapters: list[dict[str, str]],
+    chapter_cap: int,
+) -> list[dict[str, str]]:
+    if len(chapters) >= chapter_cap:
+        return chapters
+    # Не раздуваем outline, если на слайд останется меньше ~2.5k символов корпуса.
+    if len(article) < chapter_cap * 2_500:
+        return chapters
+    # Добиваем только заметный недобор (иначе оставляем честный analyze).
+    if len(chapters) >= max(2, int(chapter_cap * 0.7)):
+        return chapters
+    payload = await _stage_json(
+        client,
+        target,
+        compact=compact,
+        stage="analyze",
+        user_message=_expand_outline_user_message(
+            body,
+            article,
+            chapters=chapters,
+            target=chapter_cap,
+        ),
+        max_tokens=_analyze_outline_max_tokens(compact=compact, chapter_cap=chapter_cap),
+    )
+    expanded = _normalize_chapters(payload.get("chapters"))
+    if len(expanded) <= len(chapters):
+        return chapters
+    return expanded[:chapter_cap] if len(expanded) > chapter_cap else expanded
 
 
 def _chapter_detail_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -40,7 +91,13 @@ def _chapter_detail_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
 
     if "chapters" in payload or "pack_id" in payload or "book_spine" in payload:
         return None
-    if payload.get("source_excerpt") or payload.get("purpose") or payload.get("bridge_from_prev"):
+    detail_keys = (
+        "source_excerpt",
+        "purpose",
+        "learning_objective",
+        "bridge_from_prev",
+    )
+    if any(payload.get(key) for key in detail_keys):
         return payload
     return None
 
@@ -104,20 +161,40 @@ async def iter_analyze_stage(
         detail={"locale": body.locale, "audience": body.audience, "article_count": len(sources)},
     )
 
+    wanted = body.effective_theory_count()
+    hard_max = _MAX_CHAPTERS_COMPACT if compact else _MAX_CHAPTERS
+    chapter_cap = min(max(1, int(wanted or hard_max)), hard_max)
+
     analysis = await _stage_json(
         client,
         target,
         compact=compact,
         stage="analyze",
-        user_message=_analyze_user_message(body, article, sources=sources),
-        max_tokens=2200 if compact else 3600,
+        user_message=_analyze_user_message(body, article, sources=sources, compact=compact),
+        max_tokens=_analyze_outline_max_tokens(compact=compact, chapter_cap=chapter_cap),
     )
     chapters = _normalize_chapters(analysis.get("chapters"))
     if not chapters:
         raise TutorError(status.HTTP_502_BAD_GATEWAY, "course analyze returned no chapters")
-    if len(chapters) > _MAX_CHAPTERS:
-        result.warning = f"trimmed chapters to {_MAX_CHAPTERS}"
-        chapters = chapters[:_MAX_CHAPTERS]
+    if len(chapters) > chapter_cap:
+        result.warning = f"trimmed chapters to {chapter_cap}"
+        chapters = chapters[:chapter_cap]
+    elif wanted is not None and len(chapters) < chapter_cap:
+        chapters = await _expand_chapters_toward_target(
+            client,
+            target,
+            body=body,
+            compact=compact,
+            article=article,
+            chapters=chapters,
+            chapter_cap=chapter_cap,
+        )
+        if len(chapters) < chapter_cap:
+            result.warning = (
+                f"sources supported {len(chapters)} of {chapter_cap} requested theory slides"
+            )
+        else:
+            result.warning = f"expanded outline to {chapter_cap} theory slides"
 
     book_spine = _normalize_book_spine(analysis.get("book_spine"))
     outcomes = _string_list(analysis.get("outcomes"))
@@ -132,10 +209,10 @@ async def iter_analyze_stage(
         or _as_str(analysis.get("title"))
         or "article-course"
     )
+    locale = normalize_course_locale(body.locale)
     title = (
         _as_str(body.title) or _as_str(analysis.get("title")) or pack_id.replace("-", " ").title()
     )
-    locale = _as_str(analysis.get("locale")) or body.locale
 
     units = 1 + len(chapters)
     skeleton = [{"id": c["id"], "title": c["title"]} for c in chapters]
@@ -156,7 +233,7 @@ async def iter_analyze_stage(
         },
     )
 
-    enriched: list[dict[str, str]] = []
+    enriched = []
     total = len(chapters)
     for index, chapter in enumerate(chapters):
         yield _stage_event(
@@ -194,10 +271,13 @@ async def iter_analyze_stage(
             "title": enriched_chapter["title"],
         }
 
-    result.chapters = enriched
+    result.chapters = attach_source_images_to_chapters(enriched, sources)
     result.book_spine = book_spine
     result.outcomes = outcomes
     result.domain = domain
+    result.course_profile = (
+        _as_str(analysis.get("course_profile")) or _as_str(analysis.get("domain_profile")) or ""
+    )
     result.pack_id = pack_id
     result.title = title
     result.locale = locale

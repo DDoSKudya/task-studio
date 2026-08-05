@@ -119,7 +119,7 @@ function Show-TsMenu {
         Invoke-TsProgress -Title (Get-TsText title_restart) -Action { Invoke-TsRestart }
       }
       "install" {
-        Invoke-TsProgress -Title (Get-TsText title_install) -Action { Invoke-TsInstall }
+        Invoke-TsProgress -Title (Get-TsInstallTitle) -Action { Invoke-TsInstall }
       }
       "update" {
         $script:UpdateReexec = $false

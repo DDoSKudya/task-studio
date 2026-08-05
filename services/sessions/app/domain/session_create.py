@@ -7,9 +7,9 @@ import httpx
 from app.config import SessionsSettings
 from app.domain.catalog_client import fetch_pack_version
 from app.domain.session_errors import SessionError
-from app.infra.models import CourseAssessSession, PhaseProgress, Session
+from app.infra.models import PhaseProgress, Session
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.manifest import first_position, has_course_assess
+from studio_contracts.manifest import first_position
 
 
 async def create_new_session(
@@ -42,14 +42,6 @@ async def create_new_session(
     session.add(learning_session)
     await session.flush()
     session.add(PhaseProgress(session_id=learning_session.id, topic_id=position.topic_id))
-    if has_course_assess(pack_context.manifest):
-        session.add(
-            CourseAssessSession(
-                session_id=learning_session.id,
-                user_id=user_id,
-                status="pending",
-            )
-        )
     await session.commit()
     await session.refresh(learning_session)
     return learning_session

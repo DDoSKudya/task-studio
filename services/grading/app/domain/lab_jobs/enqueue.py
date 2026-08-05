@@ -29,6 +29,8 @@ async def enqueue_lab_job(
     existing = await get_lab_result(session, attempt_id)
     if existing is not None and existing.details.get("status") == "completed":
         return GradingLabSubmitResponse(status="completed", attempt_id=str(attempt_id))
+    if existing is not None and existing.details.get("status") in {"pending", "running"}:
+        return GradingLabSubmitResponse(status="pending", attempt_id=str(attempt_id))
 
     if existing is None:
         session.add(
@@ -37,7 +39,7 @@ async def enqueue_lab_job(
                 checker="lab",
                 passed=False,
                 score=0.0,
-                details={"status": "pending"},
+                details={"status": "pending", "user_id": str(user_id)},
                 duration_ms=0,
             )
         )
@@ -56,6 +58,7 @@ async def enqueue_lab_job(
                 "step": step,
                 "type": "lab",
             },
+            message_id=f"lab-grade:{attempt_id}",
         )
 
     log.info("lab_job_enqueued", attempt_id=str(attempt_id))

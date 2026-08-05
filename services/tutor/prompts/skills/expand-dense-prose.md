@@ -36,16 +36,21 @@ topics listed in `must_not_reteach`. Use `bridge_from_prev` as the opening hinge
 - **Short paragraphs:** 2–4 sentences. Prefer line breaks over walls of text.
 - **Cut filler:** no "in this chapter we will…", "it is important to note…".
 
-## Structure (adapt, do not pad)
+## Structure (Merrill micro-cycle — adapt, do not pad)
 
-1. Hook / pain the reader already feels (3–6 sentences)
-2. Mental model in plain language
-3. Core definition (one crisp claim)
-4. Worked example — keep real code from the article when present
-5. Mermaid diagram when the chapter is structural (see diagram-craft)
-6. Edge / neighboring tool **only if** it clarifies *this* idea
-7. Traps specific to this idea
-8. Short recap (3–5 bullets, no new facts)
+Follow the chapter **`learning_objective`** when present; every section must serve it.
+
+1. **Activation** — hook from prior chapter or a failure (3–5 sentences; no course-wide intro)
+2. **Mental model** — one concrete analogy / picture
+3. **Demonstration** — worked example (real code from source when present)
+4. **Naming** — one crisp definition / terminology after the example
+5. **Mermaid** — only when structural (see diagram-craft); skip decorative diagrams
+6. **Source figure** — at most one `![alt](url)` copied exactly from Source figures when it
+   clarifies this idea (architecture screenshot, UI state, topology). Never invent URLs.
+7. **Trap** — 1–2 beginner mistakes for *this* idea only
+8. **Bridge** — one sentence toward the next chapter (not a full recap)
+
+Cap at **≤6** `##` sections. If a section repeats a prior chapter, delete it.
 
 Use `##` / `###` headings. Prefer several small sections over one long mash.
 Optional callouts as markdown blockquotes for traps or “gap fill” notes:
@@ -80,11 +85,29 @@ Good (aim for this texture):
 - Code must be **plain source text only** — never HTML, never highlighter tokens,
   never spans/classes like `tok-kw`, `tok-str`, or similar.
 - Keep signatures and APIs faithful to the source article.
+- **Fence integrity (critical):** one example = one fence. Do not close ``` in the middle
+  of a class/function and continue methods as normal paragraphs — Markdown will corrupt
+  `__init__` / `__set__` / `__new__`. Write the whole snippet, then close the fence, then explain.
+- Prefer short complete examples (≤40 lines) over multi-page dumps. If you need a second
+  example, finish the first fence, write a short bridge sentence, open a new fence.
+
+## Source images
+
+- When the prompt lists **Source figures**, you may paste **at most 1–2** markdown images
+  into this chapter — only if they illustrate the current idea.
+- Copy the `![alt](url)` line **verbatim**. Do not invent, rewrite, or hotlink unrelated assets.
+- Prefer diagrams/screenshots over logos, avatars, and decorative banners.
+- Videos belong in separate `kind: video` steps — never embed video iframes in theory markdown.
 
 ## Quality
 
 - Expand explanations; do not paste the article unchanged.
 - Keep factual API names and signatures from the source.
+- Preserve the article's conceptual spine (definitions, contrasts, real examples) —
+  do not thin it into generic fluff that could fit any topic.
 - Preserve useful tables and code fences; add connective tissue around them.
-- Length: enough to teach **this** chapter goal (roughly 500–1100 words), not a book dump.
+- Length: enough to teach **this** chapter goal (roughly 400–900 words of prose),
+  not a book dump — shorter beats padded.
 - Output field `content` is a markdown string for a theory step.
+- **No drills in theory:** worked examples are fine; numbered assignments, quizzes,
+  «Проверьте себя», and answer keys are forbidden here.

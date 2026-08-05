@@ -6,8 +6,8 @@ on:
       tag:
         description: Image tag
         required: true
-        default: latest
-  push:
+        default: ""
+    10|  push:
     tags:
       - "v*"
 
@@ -34,7 +34,12 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            tag="${{ inputs.tag }}"
+            if [ -z "$tag" ] || [ "$tag" = "latest" ]; then
+              echo "Refuse publishing with empty or 'latest' tag on workflow_dispatch" >&2
+              exit 1
+            fi
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Resolve registry settings

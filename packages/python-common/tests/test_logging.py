@@ -59,3 +59,24 @@ def test_configure_logging_includes_service_and_request_id(
     payload = json.loads(_last_log_line(capsys))
     assert payload["service"] == "catalog"
     assert payload["request_id"] == "trace-99"
+
+
+def test_configure_logging_redacts_secret_fields(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("LOG_FORMAT", "json")
+    configure_logging("auth")
+    structlog.get_logger().info(
+        "settings_saved",
+        api_key="super-secret",
+        password="hunter2",
+        nested={"refresh_token": "abc", "locale": "ru"},
+        token_count=3,
+    )
+    payload = json.loads(_last_log_line(capsys))
+    assert payload["api_key"] == "***"
+    assert payload["password"] == "***"
+    assert payload["nested"]["refresh_token"] == "***"
+    assert payload["nested"]["locale"] == "ru"
+    assert payload["token_count"] == 3

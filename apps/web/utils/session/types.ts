@@ -10,6 +10,11 @@ export type SessionSummary = {
   updated_at: string
 }
 
+export type PackProgressItem = SessionSummary & {
+  chapter_title: string
+  progress_percent: number
+}
+
 export type PhaseProgress = {
   topic_id: string
   study_completed: boolean

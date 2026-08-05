@@ -12,6 +12,7 @@ ImportJobStatus = Literal[
     "normalizing",
     "building",
     "done",
+    "partial",
     "failed",
 ]
 
@@ -40,6 +41,7 @@ class ImportReport(BaseModel):
     skipped: int = Field(ge=0)
     warnings: list[_ImportWarning] = Field(default_factory=list)
     fidelity_percent: float = Field(default=0.0, ge=0, le=100)
+    truncated: bool = False
 
 
 class AdapterCapabilities(BaseModel):

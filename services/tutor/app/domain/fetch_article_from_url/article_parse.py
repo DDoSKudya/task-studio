@@ -6,8 +6,6 @@ from studio_contracts.studio_schemas import CourseArticleVideo, FetchArticleFrom
 
 from .videos import _MAX_VIDEOS, extract_video_refs
 
-_MAX_MD_CHARS = 80_000
-
 
 def parse_article_json(
     raw: str,
@@ -40,8 +38,6 @@ def article_response_from_dict(
     content = str(parsed.get("content") or "").strip()
     if len(content) < 40:
         raise TutorError(status.HTTP_502_BAD_GATEWAY, "extracted article too short")
-    if len(content) > _MAX_MD_CHARS:
-        content = content[:_MAX_MD_CHARS]
     merged = extract_video_refs(content, *(video.url for video in (videos or [])))
     if videos:
         ordered: list[CourseArticleVideo] = []

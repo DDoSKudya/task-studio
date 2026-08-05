@@ -4,10 +4,9 @@ import html
 import json
 import os
 import re
+from collections.abc import Mapping, Sequence
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
-from collections.abc import Mapping, Sequence
 from urllib.parse import urljoin
 
 import httpx
@@ -19,6 +18,14 @@ _TOKEN_URL = "https://stepik.org/oauth2/token/"
 _HTTP_TIMEOUT = httpx.Timeout(60.0, connect=15.0)
 _BATCH_SIZE = 40
 _MAX_STEPS = 150
+
+
+def _as_object_list(value: object) -> list[object]:
+    return list(value) if isinstance(value, list) else []
+
+
+def _as_object_dict(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, dict) else {}
 _CATALOG_TEXT_LIMIT = 400
 _STEP_TEXT_LIMIT = 50_000
 _HTML_LIMIT = 200_000
@@ -87,6 +94,22 @@ _TOPIC_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Security", ("security", "безопасн", "информационн")),
     ("Go", ("golang", " go ")),
 )
+_STUDY_BLOCKS = frozenset({"text", "video"})
+_CODE_BLOCKS = frozenset({"code", "sql", "linux-code"})
+_QUIZ_BLOCKS = frozenset(
+    {
+        "choice",
+        "matching",
+        "sorting",
+        "table",
+        "string",
+        "number",
+        "math",
+        "free-answer",
+        "dataset",
+    }
+)
+_SQL_RECOVERY_BLOCKS = frozenset({"string", "free-answer", "dataset"})
 
 
 def health() -> dict[str, object]:
@@ -323,6 +346,7 @@ def _import_fixture(course_id: str) -> tuple[dict[str, object], dict[str, object
         ),
         "skipped": 0,
         "warnings": [],
+        "truncated": False,
     }
     return pack, report
 
@@ -344,7 +368,9 @@ def _import_live(
             raise ValueError(msg)
 
         title = str(course.get("title") or f"Stepik {course_id}")
-        section_ids = [str(item) for item in course.get("sections") or [] if item is not None]
+        section_ids = [
+            str(item) for item in _as_object_list(course.get("sections")) if item is not None
+        ]
         sections_by_id = _fetch_resources(client, "sections", section_ids, token=token)
 
         unit_ids: list[str] = []
@@ -352,7 +378,9 @@ def _import_live(
             section = sections_by_id.get(section_id)
             if not section:
                 continue
-            unit_ids.extend(str(uid) for uid in section.get("units") or [] if uid is not None)
+            unit_ids.extend(
+                str(uid) for uid in _as_object_list(section.get("units")) if uid is not None
+            )
         units_by_id = _fetch_resources(client, "units", unit_ids, token=token)
 
         lesson_ids: list[str] = []
@@ -370,12 +398,16 @@ def _import_live(
             lesson = lessons_by_id.get(lesson_id)
             if not lesson:
                 continue
-            step_ids.extend(str(sid) for sid in lesson.get("steps") or [] if sid is not None)
+            step_ids.extend(
+                str(sid) for sid in _as_object_list(lesson.get("steps")) if sid is not None
+            )
 
         truncated = len(step_ids) > _MAX_STEPS
         limited_step_ids = step_ids[:_MAX_STEPS]
         sources = _fetch_step_sources(client, limited_step_ids, token=token)
-        sources_by_id = {str(item.get("id")): item for item in sources if item.get("id") is not None}
+        sources_by_id = {
+            str(item.get("id")): item for item in sources if item.get("id") is not None
+        }
 
         topics: list[dict[str, object]] = []
         steps: dict[str, dict[str, object]] = {}
@@ -389,23 +421,24 @@ def _import_live(
             topic_id = f"section-{section_id}"
             study_ids: list[str] = []
             practice_ids: list[str] = []
+            assess_ids: list[str] = []
 
-            for unit_id in [str(uid) for uid in section.get("units") or [] if uid is not None]:
+            for unit_id in [
+                str(uid) for uid in _as_object_list(section.get("units")) if uid is not None
+            ]:
                 unit = units_by_id.get(unit_id) or {}
                 lesson_id = unit.get("lesson")
                 if lesson_id is None:
                     continue
                 lesson = lessons_by_id.get(str(lesson_id)) or {}
-                for raw_sid in lesson.get("steps") or []:
+                for raw_sid in _as_object_list(lesson.get("steps")):
                     sid = str(raw_sid)
                     if sid not in sources_by_id or sid in imported_step_ids:
                         continue
                     mapped_id = f"step-{sid}"
-                    phase_guess = _phase_for_source(sources_by_id[sid])
                     built, fidelity, warning = _map_step_source(
                         sources_by_id[sid],
                         step_id=mapped_id,
-                        phase=phase_guess,
                         fallback_title=str(lesson.get("title") or ""),
                     )
                     steps[mapped_id] = built
@@ -414,22 +447,25 @@ def _import_live(
                         full += 1
                     else:
                         partial += 1
-                                                                                         
-                    if phase_guess == "study":
-                        study_ids.append(mapped_id)
-                    else:
-                        practice_ids.append(mapped_id)
+                    phase = str(built.get("phase") or "study")
+                    match phase:
+                        case "assess":
+                            assess_ids.append(mapped_id)
+                        case "practice":
+                            practice_ids.append(mapped_id)
+                        case _:
+                            study_ids.append(mapped_id)
                     if warning:
                         warnings.append({"step": mapped_id, "reason": warning})
 
-            if study_ids or practice_ids:
+            if study_ids or practice_ids or assess_ids:
                 topics.append(
                     {
                         "id": topic_id,
                         "title": str(section.get("title") or topic_id),
                         "study": study_ids,
                         "practice": practice_ids,
-                        "assess": [],
+                        "assess": assess_ids,
                     }
                 )
 
@@ -437,7 +473,10 @@ def _import_live(
             warnings.append(
                 {
                     "step": "course",
-                    "reason": f"imported first {_MAX_STEPS} of {len(step_ids)} steps",
+                    "reason": (
+                        f"imported first {_MAX_STEPS} of {len(step_ids)} steps; "
+                        "import status is partial"
+                    ),
                 }
             )
 
@@ -462,6 +501,7 @@ def _import_live(
             "imported_partial": partial,
             "skipped": max(0, len(step_ids) - len(steps)),
             "warnings": warnings,
+            "truncated": truncated,
         }
         return pack, report
 
@@ -472,8 +512,8 @@ def _fetch_resources(
     ids: list[str],
     *,
     token: str | None = None,
-) -> dict[str, dict[str, Any]]:
-    result: dict[str, dict[str, Any]] = {}
+) -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
     unique_ids = list(dict.fromkeys(ids))
     for offset in range(0, len(unique_ids), _BATCH_SIZE):
         chunk = unique_ids[offset : offset + _BATCH_SIZE]
@@ -481,7 +521,7 @@ def _fetch_resources(
             continue
         params = [("ids[]", item) for item in chunk]
         payload = _api_get(client, resource, token=token, params=params)
-        rows = payload.get(resource) or []
+        rows = _as_object_list(payload.get(resource))
         for row in rows:
             if isinstance(row, dict) and row.get("id") is not None:
                 result[str(row["id"])] = row
@@ -493,21 +533,21 @@ def _fetch_step_sources(
     step_ids: list[str],
     *,
     token: str | None = None,
-) -> list[dict[str, Any]]:
-                                                                                         
+) -> list[dict[str, object]]:
+
     if not step_ids:
         return []
 
-    by_id: dict[str, dict[str, Any]] = {}
+    by_id: dict[str, dict[str, object]] = {}
     for offset in range(0, len(step_ids), _BATCH_SIZE):
         chunk = step_ids[offset : offset + _BATCH_SIZE]
         params = [("ids[]", step_id) for step_id in chunk]
         payload = _api_get(client, "steps", token=token, params=params)
-        for item in payload.get("steps") or []:
+        for item in _as_object_list(payload.get("steps")):
             if isinstance(item, dict) and item.get("id") is not None:
                 by_id[str(item["id"])] = item
 
-                                                                                        
+
     for sid, step in list(by_id.items()):
         if not _looks_truncated(_block_text(step)):
             continue
@@ -515,13 +555,14 @@ def _fetch_step_sources(
             payload = _api_get(client, f"steps/{sid}", token=token)
         except httpx.HTTPError:
             continue
-        rows = payload.get("steps") or []
-        if not rows or not isinstance(rows[0], dict):
+        rows = _as_object_list(payload.get("steps"))
+        first = rows[0] if rows else None
+        if not isinstance(first, dict):
             continue
-        if len(_block_text(rows[0])) > len(_block_text(step)):
-            by_id[sid] = rows[0]
+        if len(_block_text(first)) > len(_block_text(step)):
+            by_id[sid] = first
 
-                                                               
+
     if token:
         for offset in range(0, len(step_ids), _BATCH_SIZE):
             chunk = step_ids[offset : offset + _BATCH_SIZE]
@@ -530,20 +571,20 @@ def _fetch_step_sources(
                 payload = _api_get(client, "step-sources", token=token, params=params)
             except httpx.HTTPError:
                 continue
-            for item in payload.get("step-sources") or []:
+            for item in _as_object_list(payload.get("step-sources")):
                 if not isinstance(item, dict) or item.get("id") is None:
                     continue
                 sid = str(item["id"])
                 current = by_id.get(sid)
                 by_id[sid] = _merge_step_payload(current, item) if current else item
 
-                                                                                    
+
     _hydrate_choice_datasets(client, by_id, token=token)
 
     return [by_id[sid] for sid in step_ids if sid in by_id]
 
 
-def _block_text(source: dict[str, Any]) -> str:
+def _block_text(source: dict[str, object]) -> str:
     block = source.get("block")
     if not isinstance(block, dict):
         return ""
@@ -560,13 +601,11 @@ def _looks_truncated(text: str) -> bool:
         stripped = text.rstrip()
         if not stripped.endswith((".", "!", "?", "…", ">", '"', "'", "»")):
             return True
-    if "<" in text and text.count("<") > text.count(">"):
-        return True
-    return False
+    return "<" in text and text.count("<") > text.count(">")
 
 
 def _step_title(
-    source: dict[str, Any],
+    source: dict[str, object],
     *,
     block_name: str,
     fallback_title: str,
@@ -576,49 +615,52 @@ def _step_title(
     weak = {"", block_name, "text", "video", "code", "choice", "quiz", "string", "number"}
     if raw.casefold() not in {item.casefold() for item in weak}:
         return raw
-    lesson_title = fallback_title.strip()
-    if lesson_title:
+    if lesson_title := fallback_title.strip():
         return lesson_title
     heading = re.search(
         r"(?is)<h[1-3][^>]*>(.*?)</h[1-3]>",
-        str((source.get("block") or {}).get("text") or ""),
+        str(_as_object_dict(source.get("block")).get("text") or ""),
     )
-    if heading:
-        cleaned = _plain_text(heading.group(1), limit=120)
-        if cleaned:
-            return cleaned
+    if heading and (cleaned := _plain_text(heading[1], limit=120)):
+        return cleaned
     return raw or block_name or step_id
 
 
 def _map_step_source(
-    source: dict[str, Any],
+    source: dict[str, object],
     *,
     step_id: str,
-    phase: str,
     fallback_title: str = "",
 ) -> tuple[dict[str, object], str, str | None]:
     block = source.get("block")
     block_dict = block if isinstance(block, dict) else {}
     block_name = str(block_dict.get("name") or "text").strip().casefold()
-    title = _step_title(source, block_name=block_name, fallback_title=fallback_title, step_id=step_id)
+    title = _step_title(
+        source,
+        block_name=block_name,
+        fallback_title=fallback_title,
+        step_id=step_id,
+    )
     raw_html = str(block_dict.get("text") or "")
     text = _plain_text(raw_html, limit=_STEP_TEXT_LIMIT) or title
     study = _study_fields(raw_html, fallback_text=text)
-    safe_phase = phase if phase in {"study", "practice", "assess"} else "study"
+    phase, _ = _classify_stepik_source(source)
 
     if block_name == "text":
-                                                                              
-                                                                    
         if _text_looks_like_code_task(text, raw_html, title=title):
             runtime, runtime_version, template = _extract_code_template(block_dict)
-            if runtime == "python" and not template and _sqlish_text(f"{title}\n{text}\n{raw_html}"):
+            if (
+                runtime == "python"
+                and not template
+                and _sqlish_text(f"{title}\n{text}\n{raw_html}")
+            ):
                 runtime, runtime_version = "sql", "15"
             return (
                 {
                     "id": step_id,
                     "kind": "code",
                     "title": title,
-                    "phase": "practice" if safe_phase == "study" else safe_phase,
+                    "phase": phase,
                     "fidelity": "partial",
                     "payload": {
                         **study,
@@ -637,7 +679,7 @@ def _map_step_source(
                 "id": step_id,
                 "kind": "theory",
                 "title": title,
-                "phase": safe_phase,
+                "phase": phase,
                 "fidelity": "full",
                 "payload": study,
             },
@@ -659,7 +701,7 @@ def _map_step_source(
                 "id": step_id,
                 "kind": "video",
                 "title": title,
-                "phase": safe_phase,
+                "phase": phase,
                 "fidelity": fidelity,
                 "payload": payload,
             },
@@ -667,16 +709,17 @@ def _map_step_source(
             warning,
         )
 
-    if block_name in {"code", "sql", "linux-code"}:
+    if block_name in _CODE_BLOCKS:
         runtime, runtime_version, template = _extract_code_template(block_dict)
-        if block_name == "sql" or (runtime == "python" and not template and _sqlish_text(f"{title}\n{text}")):
+        sqlish = _sqlish_text(f"{title}\n{text}")
+        if block_name == "sql" or (runtime == "python" and not template and sqlish):
             runtime, runtime_version = "sql", "15"
         return (
             {
                 "id": step_id,
                 "kind": "code",
                 "title": title,
-                "phase": safe_phase,
+                "phase": phase,
                 "fidelity": "partial",
                 "payload": {
                     **study,
@@ -685,7 +728,9 @@ def _map_step_source(
                     "template": template,
                     "tests": [],
                     "stepik_language": _stepik_language_hint(block_dict, runtime),
-                    "stepik_reply": "solve_sql" if runtime == "sql" or block_name == "sql" else "code",
+                    "stepik_reply": (
+                        "solve_sql" if runtime == "sql" or block_name == "sql" else "code"
+                    ),
                 },
             },
             "partial",
@@ -711,7 +756,7 @@ def _map_step_source(
                 "id": step_id,
                 "kind": "quiz",
                 "title": title,
-                "phase": safe_phase,
+                "phase": phase,
                 "fidelity": fidelity,
                 "payload": payload,
             },
@@ -719,15 +764,14 @@ def _map_step_source(
             warning,
         )
 
-    if block_name in {"matching", "sorting", "table", "string", "number", "math", "free-answer", "dataset"}:
-                                                                                                
-        if block_name in {"string", "free-answer", "dataset"} and _sqlish_text(f"{title}\n{text}\n{raw_html}"):
+    if block_name in _QUIZ_BLOCKS:
+        if block_name in _SQL_RECOVERY_BLOCKS and _sqlish_text(f"{title}\n{text}\n{raw_html}"):
             return (
                 {
                     "id": step_id,
                     "kind": "code",
                     "title": title,
-                    "phase": safe_phase,
+                    "phase": phase,
                     "fidelity": "partial",
                     "payload": {
                         **study,
@@ -747,7 +791,7 @@ def _map_step_source(
                 "id": step_id,
                 "kind": "quiz",
                 "title": title,
-                "phase": safe_phase,
+                "phase": phase,
                 "fidelity": "partial",
                 "payload": {
                     **study,
@@ -759,15 +803,17 @@ def _map_step_source(
             f"{block_name} quiz options are not fully imported",
         )
 
-                                                                                           
     if _text_looks_like_code_task(text, raw_html, title=title):
-        runtime, runtime_version = ("sql", "15") if _sqlish_text(f"{title}\n{text}") else ("python", "3.12")
+        if _sqlish_text(f"{title}\n{text}"):
+            runtime, runtime_version = "sql", "15"
+        else:
+            runtime, runtime_version = "python", "3.12"
         return (
             {
                 "id": step_id,
                 "kind": "code",
                 "title": title,
-                "phase": safe_phase if safe_phase != "study" else "practice",
+                "phase": phase,
                 "fidelity": "partial",
                 "payload": {
                     **study,
@@ -787,7 +833,7 @@ def _map_step_source(
             "id": step_id,
             "kind": "theory",
             "title": title,
-            "phase": safe_phase,
+            "phase": phase,
             "fidelity": "partial",
             "payload": {
                 **study,
@@ -802,8 +848,9 @@ def _map_step_source(
 def _study_fields(raw_html: str, *, fallback_text: str) -> dict[str, object]:
     body_html, images, examples = _prepare_study_html(raw_html)
     if not body_html:
-                                                                                                    
-        plain_source = _plain_text_preserve_columns(raw_html, limit=_STEP_TEXT_LIMIT) or fallback_text
+        plain_source = (
+            _plain_text_preserve_columns(raw_html, limit=_STEP_TEXT_LIMIT) or fallback_text
+        )
         if plain_source.strip():
             body_html = _plain_text_as_html(plain_source)
     payload: dict[str, object] = {
@@ -819,29 +866,27 @@ def _study_fields(raw_html: str, *, fallback_text: str) -> dict[str, object]:
 
 
 def _plain_text_as_html(text: str) -> str:
-                                                                                           
-                                                                                   
     cleaned = text.replace("\r\n", "\n").strip()
     if not cleaned:
         return ""
-    as_table = _ascii_table_to_html(cleaned)
-    if as_table:
+    if as_table := _ascii_table_to_html(cleaned):
         return as_table
 
     chunks = [part.strip() for part in re.split(r"\n\s*\n+", cleaned) if part.strip()]
     parts: list[str] = []
     for chunk in chunks:
-        table = _ascii_table_to_html(chunk)
-        if table:
+        if table := _ascii_table_to_html(chunk):
             parts.append(table)
             continue
         lines = [line.rstrip() for line in chunk.split("\n") if line.strip()]
         tabular = [line for line in lines if "\t" in line or re.search(r"\s{2,}", line)]
-        if len(lines) >= 2 and len(tabular) == len(lines):
-            table = _ascii_table_to_html("\n".join(lines))
-            if table:
-                parts.append(table)
-                continue
+        if (
+            len(lines) >= 2
+            and len(tabular) == len(lines)
+            and (table := _ascii_table_to_html("\n".join(lines)))
+        ):
+            parts.append(table)
+            continue
         body = chunk
         if len(body) > 220 and "\n" not in body:
             sentences = re.split(r"(?<=[.!?…])\s+", body)
@@ -863,7 +908,8 @@ def _plain_text_as_html(text: str) -> str:
             for line in lines:
                 parts.append(f"<p>{html.escape(line.strip())}</p>")
             continue
-        parts.append(f"<p>{html.escape(re.sub(r'[ \t]{2,}', ' ', body).strip())}</p>")
+        collapsed = re.sub(r"[ \t]{2,}", " ", body).strip()
+        parts.append(f"<p>{html.escape(collapsed)}</p>")
     return "".join(parts)
 
 
@@ -890,18 +936,18 @@ def _ascii_table_to_html(block: str) -> str:
     tr = "".join(
         "<tr>" + "".join(f"<td>{html.escape(cell)}</td>" for cell in row) + "</tr>" for row in body
     )
-    return f'<div class="table-wrap"><table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table></div>'
+    return (
+        f'<div class="table-wrap"><table><thead><tr>{th}</tr></thead>'
+        f"<tbody>{tr}</tbody></table></div>"
+    )
 
 
 def _prepare_study_html(raw_html: str) -> tuple[str, list[str], list[dict[str, str]]]:
     if not raw_html or not raw_html.strip():
         return "", [], []
     sanitizer = _StudyHtmlSanitizer(base_url=_STEPIK_ORIGIN)
-    try:
-        sanitizer.feed(raw_html)
-        sanitizer.close()
-    except Exception:
-        return "", [], []
+    sanitizer.feed(raw_html)
+    sanitizer.close()
     body = sanitizer.result()[:_HTML_LIMIT]
     return body, sanitizer.images, sanitizer.code_examples
 
@@ -1001,11 +1047,11 @@ class _StudyHtmlSanitizer(HTMLParser):
         return urljoin(self._base_url, value)
 
 
-def _extract_video_meta(block: dict[str, Any]) -> tuple[str | None, str | None]:
+def _extract_video_meta(block: dict[str, object]) -> tuple[str | None, str | None]:
     return _extract_video_url(block), _extract_video_poster(block)
 
 
-def _extract_video_url(block: dict[str, Any]) -> str | None:
+def _extract_video_url(block: dict[str, object]) -> str | None:
     video = block.get("video")
     if isinstance(video, str) and video.startswith(("http://", "https://")):
         return video
@@ -1042,7 +1088,7 @@ def _extract_video_url(block: dict[str, Any]) -> str | None:
     return _video_url_from_text(str(block.get("text") or ""))
 
 
-def _extract_video_poster(block: dict[str, Any]) -> str | None:
+def _extract_video_poster(block: dict[str, object]) -> str | None:
     video = block.get("video")
     if not isinstance(video, dict):
         return None
@@ -1084,7 +1130,7 @@ def _video_url_from_text(text: str) -> str | None:
     return None
 
 
-def _extract_code_template(block: dict[str, Any]) -> tuple[str, str, str]:
+def _extract_code_template(block: dict[str, object]) -> tuple[str, str, str]:
     source = block.get("source")
     container = source if isinstance(source, dict) else {}
     templates = _coerce_templates(container.get("templates_data"))
@@ -1163,8 +1209,8 @@ def _runtime_from_lang(language: str) -> tuple[str, str]:
     return "python", "3.12"
 
 
-def _merge_step_payload(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
-                                                                                      
+def _merge_step_payload(base: dict[str, object], overlay: dict[str, object]) -> dict[str, object]:
+
     merged = dict(base)
     for key, value in overlay.items():
         if key == "block" and isinstance(value, dict):
@@ -1183,7 +1229,7 @@ def _merge_step_payload(base: dict[str, Any], overlay: dict[str, Any]) -> dict[s
     return merged
 
 
-def _merge_step_block(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+def _merge_step_block(base: dict[str, object], overlay: dict[str, object]) -> dict[str, object]:
     out = dict(base)
     out.update({key: value for key, value in overlay.items() if value is not None})
     base_text = str(base.get("text") or "")
@@ -1215,18 +1261,20 @@ def _merge_step_block(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str
 
 def _hydrate_choice_datasets(
     client: httpx.Client,
-    steps_by_id: dict[str, dict[str, Any]],
+    steps_by_id: dict[str, dict[str, object]],
     *,
     token: str | None = None,
 ) -> None:
-                                                                                   
-    pending = [
-        sid
-        for sid, step in steps_by_id.items()
-        if isinstance(step.get("block"), dict)
-        and str(step["block"].get("name") or "").casefold() == "choice"
-        and not _extract_choice_quiz(step["block"])[0]
-    ]
+
+    pending: list[str] = []
+    for sid, step in steps_by_id.items():
+        block = step.get("block")
+        if not isinstance(block, dict):
+            continue
+        if str(block.get("name") or "").casefold() != "choice":
+            continue
+        if not _extract_choice_quiz(block)[0]:
+            pending.append(sid)
     if not pending:
         return
     _ensure_stepik_csrf(client)
@@ -1235,7 +1283,7 @@ def _hydrate_choice_datasets(
         if not dataset:
             continue
         step = steps_by_id[sid]
-        block = dict(step["block"])
+        block = _as_object_dict(step.get("block"))
         block["dataset"] = dataset
         steps_by_id[sid] = {**step, "block": block}
 
@@ -1254,7 +1302,7 @@ def _fetch_attempt_dataset(
     step_id: str,
     *,
     token: str | None = None,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     csrf = client.cookies.get("csrftoken")
     headers = {
         "Accept": "application/json",
@@ -1290,12 +1338,12 @@ def _fetch_attempt_dataset(
     return dataset
 
 
-def _extract_choice_quiz(block: dict[str, Any]) -> tuple[list[str], int | None]:
-                                                                                       
-    option_rows: list[dict[str, Any]] = []
+def _extract_choice_quiz(block: dict[str, object]) -> tuple[list[str], int | None]:
+
+    option_rows: list[dict[str, object]] = []
     string_rows: list[str] = []
 
-    containers: list[Any] = [block.get("source"), block.get("dataset"), block.get("options")]
+    containers: list[object] = [block.get("source"), block.get("dataset"), block.get("options")]
     for container in containers:
         if isinstance(container, list):
             for option in container:
@@ -1334,18 +1382,27 @@ def _extract_choice_quiz(block: dict[str, Any]) -> tuple[list[str], int | None]:
     return [item for item in cleaned_strings if item], None
 
 
-def _phase_for_source(source: dict[str, Any]) -> str:
+def _classify_stepik_source(source: dict[str, object]) -> tuple[str, str]:
     block = source.get("block")
     block_dict = block if isinstance(block, dict) else {}
     block_name = str(block_dict.get("name") or "text").strip().casefold()
-    if block_name in {"text", "video"}:
-        raw_html = str(block_dict.get("text") or "")
-        title = str(source.get("title") or "")
-        text = _plain_text(raw_html, limit=4_000) or title
+    raw_html = str(block_dict.get("text") or "")
+    title = str(source.get("title") or "")
+    text = _plain_text(raw_html, limit=_STEP_TEXT_LIMIT) or title
+
+    if block_name in _STUDY_BLOCKS:
         if block_name == "text" and _text_looks_like_code_task(text, raw_html, title=title):
-            return "practice"
-        return "study"
-    return "practice"
+            return "practice", block_name
+        return "study", block_name
+    if block_name in _CODE_BLOCKS:
+        return "practice", block_name
+    if block_name in _QUIZ_BLOCKS:
+        if block_name in _SQL_RECOVERY_BLOCKS and _sqlish_text(f"{title}\n{text}\n{raw_html}"):
+            return "practice", block_name
+        return "assess", block_name
+    if _text_looks_like_code_task(text, raw_html, title=title):
+        return "practice", block_name
+    return "study", block_name
 
 
 def _text_looks_like_code_task(text: str, raw_html: str, *, title: str = "") -> bool:
@@ -1375,7 +1432,7 @@ def _sqlish_text(blob: str) -> bool:
     )
 
 
-def _stepik_language_hint(block: dict[str, Any], runtime: str) -> str:
+def _stepik_language_hint(block: dict[str, object], runtime: str) -> str:
     source = block.get("source")
     container = source if isinstance(source, dict) else {}
     languages = container.get("languages")
@@ -1486,7 +1543,7 @@ def _api_get(
     *,
     token: str | None = None,
     params: Mapping[str, str] | Sequence[tuple[str, str]] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     headers: dict[str, str] = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -1511,7 +1568,7 @@ def _api_post(
     *,
     token: str | None = None,
     body: Mapping[str, object],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
@@ -1598,7 +1655,7 @@ def _courses_to_catalog(
     return items
 
 
-def _course_author(course: dict[str, Any]) -> str:
+def _course_author(course: dict[str, object]) -> str:
     authors = course.get("authors") or course.get("instructors") or []
     if isinstance(authors, list) and authors:
         first = authors[0]
@@ -1618,7 +1675,7 @@ def _course_author(course: dict[str, Any]) -> str:
     return ""
 
 
-def _course_language(course: dict[str, Any]) -> str:
+def _course_language(course: dict[str, object]) -> str:
     for key in ("language", "default_language"):
         value = course.get(key)
         if isinstance(value, str) and value.strip():
@@ -1632,7 +1689,7 @@ def _infer_tags(title: str, description: str, language: str) -> list[str]:
     for label, needles in _TOPIC_HINTS:
         if any(needle in hay for needle in needles):
             tags.append(label)
-                                                                       
+
     return tags[:6]
 
 

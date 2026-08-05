@@ -4,10 +4,13 @@ import httpx
 from app.config import IntegrationsSettings
 from app.domain.credentials import fetch_platform_credentials
 from app.infra.models import ImportJob
+from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_integration_sdk.registry import AdapterModule
 
 from .catalog_register import register_with_catalog
+from .errors import JobError
 from .execute_pipeline import build_and_register_import
 from .lifecycle import _mark_failed, _set_status
 from .paths import resolve_upload_archive
@@ -22,11 +25,24 @@ async def run_import_job(
     adapter: AdapterModule,
     job: ImportJob,
 ) -> ImportJob:
-    if job.status in {"done", "failed"}:
+    if job.status in {"done", "partial", "failed"}:
         return job
     try:
         return await _execute_import(session, client, settings, adapter, job)
-    except Exception as exc:
+    except (
+        httpx.HTTPError,
+        ValidationError,
+        SQLAlchemyError,
+        OSError,
+        TimeoutError,
+        ConnectionError,
+        JobError,
+        ValueError,
+        TypeError,
+        KeyError,
+        LookupError,
+        RuntimeError,
+    ) as exc:
         await _mark_failed(session, job, exc)
         raise
 

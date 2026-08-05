@@ -107,7 +107,7 @@ test:
       packages/contracts/tests
     services=(
       auth catalog media studio-api grading sessions tutor cursor-proxy
-      integrations analytics lab-runner orchestrator
+      integrations analytics lab-runner orchestrator search
     )
     for svc in "${services[@]}"; do
       root="services/${svc}"

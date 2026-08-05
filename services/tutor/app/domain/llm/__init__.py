@@ -1,1 +1,35 @@
-from app.domain.llm.service import *  # noqa: F403
+from app.domain.llm.service import (
+    ChatCompletionResult,
+    LlmTarget,
+    complete_chat_completion,
+    complete_chat_result,
+    complete_json_chat_completion,
+    complete_json_chat_result,
+    complete_json_raw_until_done,
+    complete_text_until_done,
+    decrypt_tutor_api_key,
+    is_cursor_target,
+    is_ollama_target,
+    looks_like_unsupported_json_mode,
+    resolve_llm_target,
+    stream_chat_completion,
+    with_task,
+)
+
+__all__ = [
+    "ChatCompletionResult",
+    "LlmTarget",
+    "complete_chat_completion",
+    "complete_chat_result",
+    "complete_json_chat_completion",
+    "complete_json_chat_result",
+    "complete_json_raw_until_done",
+    "complete_text_until_done",
+    "decrypt_tutor_api_key",
+    "is_cursor_target",
+    "is_ollama_target",
+    "looks_like_unsupported_json_mode",
+    "resolve_llm_target",
+    "with_task",
+    "stream_chat_completion",
+]

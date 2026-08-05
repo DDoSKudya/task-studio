@@ -8,6 +8,7 @@ from app.domain.llm.probe_common import (
     probe_external,
     resolve_installed_model,
 )
+from app.domain.ollama.runtime_policy import models_to_warm
 from studio_contracts.tutor_schemas import TutorLlmStatus
 
 __all__ = [
@@ -52,31 +53,39 @@ async def probe_ollama(client: httpx.AsyncClient, config: TutorConfig) -> TutorL
             default_model=config.ollama_model or None,
         )
     models = parse_ollama_model_names(payload)
-    default = config.ollama_model or None
+    policy = config.ollama_runtime
+    preferred = config.ollama_model or None
     if not models:
         return TutorLlmStatus(
             ok=False,
             provider="ollama",
-            detail="Ollama is up, but no models are installed. Pull one (e.g. llama3.2).",
+            detail="Ollama is up, but no models are installed. Pull one (e.g. qwen2.5:3b).",
             models=[],
-            default_model=default,
+            default_model=preferred,
         )
-    resolved = resolve_installed_model(default, models)
-    if default and resolved is None:
-        detail = (
-            f"Ollama is up, but model {default!r} is not pulled. Available: {', '.join(models[:8])}"
+
+    resolved = resolve_installed_model(preferred, models)
+    missing_preferred = bool(preferred and resolved is None)
+    missing_profile = [
+        name for name in models_to_warm(policy) if not model_is_available(name, models)
+    ]
+    fallback = resolved or models[0]
+    notes: list[str] = []
+    if missing_preferred and preferred:
+        notes.append(f"preferred model {preferred!r} not pulled; using {fallback!r}")
+    elif missing_profile:
+        notes.append(
+            f"profile={policy.profile} missing optional model(s): {', '.join(missing_profile[:4])}"
         )
-        return TutorLlmStatus(
-            ok=False,
-            provider="ollama",
-            detail=detail,
-            models=models,
-            default_model=default,
-        )
+
+    detail = f"Ollama is available ({len(models)} model(s))"
+    if notes:
+        detail = f"{detail}. {'; '.join(notes)}"
+
     return TutorLlmStatus(
         ok=True,
         provider="ollama",
-        detail=f"Ollama is available ({len(models)} model(s))",
+        detail=detail,
         models=models,
-        default_model=resolved or default,
+        default_model=fallback,
     )

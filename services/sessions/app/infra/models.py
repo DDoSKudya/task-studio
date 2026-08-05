@@ -3,7 +3,18 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -14,8 +25,16 @@ class Base(DeclarativeBase):
 
 class Session(Base):
     __tablename__ = "sessions"
-    __table_args__ = {"schema": "sessions"}
-
+    __table_args__ = (
+        Index(
+            "uq_sessions_active_user_pack",
+            "user_id",
+            "pack_version_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+        {"schema": "sessions"},
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     pack_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -57,8 +76,17 @@ class Session(Base):
 
 class Attempt(Base):
     __tablename__ = "attempts"
-    __table_args__ = {"schema": "sessions"}
-
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "topic_id",
+            "phase",
+            "step_id",
+            "attempt_number",
+            name="uq_attempts_session_topic_phase_step_number",
+        ),
+        {"schema": "sessions"},
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -113,3 +141,17 @@ class CourseAssessSession(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     session: Mapped[Session] = relationship(back_populates="course_assess")
+
+
+class AnalyticsOutbox(Base):
+    __tablename__ = "analytics_outbox"
+    __table_args__ = {"schema": "sessions"}
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

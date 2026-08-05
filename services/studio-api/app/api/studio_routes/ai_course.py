@@ -1,18 +1,67 @@
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from app.api.upstream_stream import COURSE_FROM_ARTICLE_TIMEOUT, stream_response_body
 from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
-from app.upstream import parse_upstream, upstream_detail
-from fastapi import APIRouter, Depends, HTTPException
+from app.upstream import parse_upstream, parse_upstream_list, upstream_detail
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
-from studio_contracts.studio_schemas import CourseFromArticleRequest, CourseFromArticleResponse
+from studio_contracts.studio_schemas import (
+    CourseBuildDetail,
+    CourseBuildSummary,
+    CourseFromArticleRequest,
+    CourseFromArticleResponse,
+)
 
 router = APIRouter()
 
 type Settings = Annotated[StudioApiSettings, Depends(get_settings)]
+
+
+@router.get("/ai/course-builds", response_model=list[CourseBuildSummary])
+async def list_course_builds(
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> list[CourseBuildSummary]:
+    response = await client.get(
+        f"{settings.tutor_service_url}/internal/v1/tutor/studio/course-builds",
+        headers={"X-User-Id": str(user_id)},
+    )
+    return parse_upstream_list(response, CourseBuildSummary)
+
+
+@router.get("/ai/course-builds/{build_id}", response_model=CourseBuildDetail)
+async def get_course_build(
+    build_id: uuid.UUID,
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> CourseBuildDetail:
+    response = await client.get(
+        f"{settings.tutor_service_url}/internal/v1/tutor/studio/course-builds/{build_id}",
+        headers={"X-User-Id": str(user_id)},
+    )
+    return parse_upstream(response, CourseBuildDetail)
+
+
+@router.delete("/ai/course-builds/{build_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def discard_course_build(
+    build_id: uuid.UUID,
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> Response:
+    response = await client.delete(
+        f"{settings.tutor_service_url}/internal/v1/tutor/studio/course-builds/{build_id}",
+        headers={"X-User-Id": str(user_id)},
+    )
+    if response.is_error:
+        raise HTTPException(status_code=response.status_code, detail=upstream_detail(response))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/ai/course-from-article", response_model=CourseFromArticleResponse)

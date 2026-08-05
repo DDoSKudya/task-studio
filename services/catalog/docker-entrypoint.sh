@@ -30,4 +30,26 @@ while [ "$i" -lt 12 ]; do
   sleep "$i"
 done
 
-exec uvicorn app.main:app --host "${HOST}" --port "${PORT}"
+run_uvicorn() {
+  exec uvicorn app.main:app --host "${HOST}" --port "${PORT}"
+}
+
+if [ "$(id -u)" -eq 0 ]; then
+  if chown -R appuser:appuser "${PACKS_ROOT}" 2>/dev/null; then
+    echo "catalog-entrypoint: packs owned by appuser (uid 10001)" >&2
+  else
+    chmod -R a+rwX "${PACKS_ROOT}" 2>/dev/null || true
+    echo "catalog-entrypoint: WARN chown packs failed; left world-writable fallback" >&2
+  fi
+  if command -v runuser >/dev/null 2>&1; then
+    exec runuser -u appuser -- env \
+      HOST="${HOST}" \
+      PORT="${PORT}" \
+      PACKS_ROOT="${PACKS_ROOT}" \
+      CATALOG_MIGRATIONS_DONE="${CATALOG_MIGRATIONS_DONE:-}" \
+      uvicorn app.main:app --host "${HOST}" --port "${PORT}"
+  fi
+  echo "catalog-entrypoint: WARN runuser missing; staying root" >&2
+fi
+
+run_uvicorn

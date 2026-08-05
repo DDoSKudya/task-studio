@@ -162,3 +162,26 @@ export function platformHintText(
   return message?.trim() ? message : fallback
 }
 
+export type PackContentTagId = 'theory' | 'video' | 'quiz' | 'practice'
+
+export function packContentTags(pack: {
+  has_theory?: boolean
+  has_video?: boolean
+  has_quiz?: boolean
+  has_practice?: boolean
+}): PackContentTagId[] {
+  const tags: PackContentTagId[] = []
+  if (pack.has_theory) {
+    tags.push('theory')
+  }
+  if (pack.has_video) {
+    tags.push('video')
+  }
+  if (pack.has_quiz) {
+    tags.push('quiz')
+  }
+  if (pack.has_practice) {
+    tags.push('practice')
+  }
+  return tags
+}

@@ -145,6 +145,21 @@ def test_negative_constraints_in_chat_and_course() -> None:
     assert "diagram-craft" in skills
 
 
+def test_course_compact_skips_chat_token_budget() -> None:
+    prompts = load_service_module("app.domain.prompts")
+    course = prompts.PromptRequest(
+        mode="course_from_article",
+        phase=None,
+        step_kind="analyze",
+        step_title="analyze",
+        compact=True,
+        sql_aware=False,
+    )
+    skills = prompts.skills_for(course)
+    assert "curriculum-synthesis" in skills
+    assert "token-budget" not in skills
+
+
 def test_hints_compact_uses_compact_few_shot() -> None:
     prompts = load_service_module("app.domain.prompts")
     compact = prompts.PromptRequest(

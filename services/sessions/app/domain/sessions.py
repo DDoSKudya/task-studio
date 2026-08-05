@@ -9,9 +9,11 @@ from app.domain.session_lifecycle import (
     start_session,
 )
 from app.domain.session_navigation import navigate_session, skip_study
+from app.domain.session_pack_progress import list_pack_progress
 from app.domain.session_passed import list_passed_step_ids
 from app.domain.session_submission import (
     complete_attempt,
+    get_attempt,
     list_attempts,
     submit_step,
 )
@@ -22,8 +24,10 @@ __all__ = [
     "abandon_sessions_for_pack_versions",
     "complete_attempt",
     "fetch_pack_version",
+    "get_attempt",
     "get_owned_session",
     "list_attempts",
+    "list_pack_progress",
     "list_passed_step_ids",
     "list_sessions",
     "navigate_session",

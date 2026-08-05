@@ -31,6 +31,64 @@ TS_UI_SCREEN_READY=0
 TS_UI_GEOM=""
 TS_UI_PROG_FP=""
 TS_UI_MENU_PREV=-1
+TS_LAUNCHER_VERSION=""
+TS_LAUNCHER_BUILD=""
+TS_LAUNCHER_VERSION_LOADED=0
+
+ui_launcher_version_file() {
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  printf '%s\n' "$here/../launcher-version.json"
+}
+
+ui_launcher_load_version() {
+  [[ "${TS_LAUNCHER_VERSION_LOADED:-0}" == "1" ]] && return 0
+  TS_LAUNCHER_VERSION_LOADED=1
+  TS_LAUNCHER_VERSION=""
+  TS_LAUNCHER_BUILD=""
+  local path
+  path="$(ui_launcher_version_file)"
+  [[ -f "$path" ]] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    local parsed
+    parsed="$(
+      python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1],encoding="utf-8"))
+v=str(d.get("version") or "").strip()
+b=d.get("build","")
+print(v)
+print("" if b is None else str(b).strip())
+' "$path" 2>/dev/null || true
+    )"
+    TS_LAUNCHER_VERSION="$(printf '%s\n' "$parsed" | sed -n '1p')"
+    TS_LAUNCHER_BUILD="$(printf '%s\n' "$parsed" | sed -n '2p')"
+    return 0
+  fi
+  TS_LAUNCHER_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$path" | head -1)"
+  TS_LAUNCHER_BUILD="$(sed -n 's/.*"build"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$path" | head -1)"
+}
+
+ui_chrome_app_title() {
+  local base="Task Studio Launcher"
+  declare -f ts_t >/dev/null 2>&1 && base="$(ts_t app_title)"
+  ui_launcher_load_version
+  if [[ -n "${TS_LAUNCHER_VERSION:-}" ]]; then
+    printf '%s · %s\n' "$base" "$TS_LAUNCHER_VERSION"
+  else
+    printf '%s\n' "$base"
+  fi
+}
+
+ui_chrome_footer() {
+  local base="$1"
+  ui_launcher_load_version
+  if [[ -n "${TS_LAUNCHER_BUILD:-}" ]]; then
+    printf '%s · build %s\n' "$base" "$TS_LAUNCHER_BUILD"
+  else
+    printf '%s\n' "$base"
+  fi
+}
 
 ui_supports_color() {
   { [[ -t 2 ]] || [[ -t 1 ]]; } && [[ "${NO_COLOR:-}" == "" ]] && [[ "${TERM:-}" != "dumb" ]]
@@ -113,6 +171,107 @@ ui_pad() {
     return
   fi
   printf '%s%*s' "$text" "$((width - len))" ""
+}
+
+ui_box_size_prefs() {
+  local cols rows pref_w pref_h
+  read -r cols rows < <(ui_term_size)
+  pref_w=$((cols - 4))
+  ((pref_w < 56)) && pref_w=56
+  pref_h=$((rows - 2))
+  ((pref_h < 18)) && pref_h=18
+  printf '%s %s\n' "$pref_w" "$pref_h"
+}
+
+ui_wrap_text() {
+  local text="$1" max_w="$2"
+  if [[ -z "$text" ]]; then
+    return 0
+  fi
+  ((max_w < 4)) && max_w=4
+  local rest="$text"
+  while ((${#rest} > max_w)); do
+    local break_at=$max_w
+    local chunk="${rest:0:$max_w}"
+    if [[ "$chunk" == *" "* ]]; then
+      local i=$max_w
+      while ((i > 0)) && [[ "${rest:$((i - 1)):1}" != " " ]]; do
+        i=$((i - 1))
+      done
+      if ((i > 0)); then
+        break_at=$i
+      fi
+    fi
+    local line="${rest:0:$break_at}"
+    line="${line%"${line##*[![:space:]]}"}"
+    printf '%s\n' "$line"
+    rest="${rest:$break_at}"
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+  done
+  if [[ -n "$rest" ]]; then
+    printf '%s\n' "$rest"
+  fi
+}
+
+ui_wrap_text_limited() {
+  local text="$1" max_w="$2" max_lines="$3"
+  local -a lines=()
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] && lines+=("$line")
+  done < <(ui_wrap_text "$text" "$max_w")
+  if ((max_lines > 0 && ${#lines[@]} > max_lines)); then
+    local -a trimmed=()
+    local i=0
+    for ((i = 0; i < max_lines; i++)); do
+      trimmed+=("${lines[$i]}")
+    done
+    lines=("${trimmed[@]}")
+    local last_idx=$((max_lines - 1))
+    local last="${lines[$last_idx]}"
+    if ((${#last} > max_w)); then
+      if ((max_w <= 3)); then
+        last="${last:0:max_w}"
+      else
+        last="${last:0:$((max_w - 3))}..."
+      fi
+      lines[$last_idx]="$last"
+    fi
+  fi
+  printf '%s\n' "${lines[@]}"
+}
+
+ui_progress_body_max_lines() {
+  local height="$1"
+  local max=$((height - 6))
+  ((max < 6)) && max=6
+  printf '%s\n' "$max"
+}
+
+ui_draw_wrapped_in_box() {
+  local start_row="$1" left="$2" width="$3" text="$4" style="${5:-normal}" max_lines="${6:-0}"
+  local inner=$((width - 4))
+  ((inner < 4)) && inner=4
+  local -a lines=()
+  local line
+  if ((max_lines > 0)); then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -n "$line" ]] && lines+=("$line")
+    done < <(ui_wrap_text_limited "$text" "$inner" "$max_lines")
+  else
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -n "$line" ]] && lines+=("$line")
+    done < <(ui_wrap_text "$text" "$inner")
+  fi
+  if ((${#lines[@]} == 0)); then
+    lines+=("")
+  fi
+  local row="$start_row"
+  for line in "${lines[@]}"; do
+    ui_draw_line_in_box "$row" "$left" "$width" "$line" "$style"
+    row=$((row + 1))
+  done
+  printf '%s\n' "$row"
 }
 
 ui_goto() {
@@ -240,7 +399,8 @@ ui_draw_frame() {
   local top="$1" left="$2" height="$3" width="$4" title="$5"
   local footer="${6:-}"
   if [[ -z "$footer" ]]; then
-    if declare -f ts_t >/dev/null 2>&1; then footer="$(ts_t menu_footer)"; else footer="arrows move / Enter select / q quit"; fi
+    if declare -f ts_t >/dev/null 2>&1; then footer="$(ts_t menu_footer)"; else footer="↑↓ move · Enter select · q quit"; fi
+    footer="$(ui_chrome_footer "$footer")"
   fi
   local chrome="${7:-1}"
   local r inner=$((width - 2))
@@ -337,8 +497,6 @@ ui_choose() {
       value="$item"
       label="$item"
     fi
-    label="${label//—/-}"
-    label="${label//–/-}"
     values+=("$value")
     labels+=("$label")
   done
@@ -351,14 +509,10 @@ ui_choose() {
   local tty selected=0 count=${#labels[@]}
   tty="$(ui_tty)"
 
-  local max_label=0
-  for label in "${labels[@]}"; do
-    ((${#label} > max_label)) && max_label=${#label}
-  done
-  local pref_w=$((max_label + 12))
-  ((pref_w < 56)) && pref_w=56
-  ((pref_w > 72)) && pref_w=72
-  local pref_h=$((count + 9))
+  local need_h=$((count + 9))
+  local pref_w pref_h
+  read -r pref_w pref_h < <(ui_box_size_prefs)
+  ((pref_h < need_h)) && pref_h=$need_h
 
   local top left height width geom
   read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
@@ -379,6 +533,8 @@ ui_choose() {
 
   while true; do
     if [[ "$managed" -eq 1 ]]; then
+      read -r pref_w pref_h < <(ui_box_size_prefs)
+      ((pref_h < need_h)) && pref_h=$need_h
       read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
       list_top=$((top + 4))
       if [[ "$geom" != "$top $left $height $width" ]]; then
@@ -390,10 +546,9 @@ ui_choose() {
       ui_sync_begin
       if [[ "$need_full" -eq 1 ]]; then
         local menu_ft
-        if declare -f ts_t >/dev/null 2>&1; then menu_ft="$(ts_t menu_footer)"; else menu_ft="arrows move / Enter select / q quit"; fi
-        local app_title="Task Studio Launcher"
-        declare -f ts_t >/dev/null 2>&1 && app_title="$(ts_t app_title)"
-        ui_draw_frame "$top" "$left" "$height" "$width" "$app_title" "$menu_ft" 1
+        if declare -f ts_t >/dev/null 2>&1; then menu_ft="$(ts_t menu_footer)"; else menu_ft="↑↓ move · Enter select · q quit"; fi
+        menu_ft="$(ui_chrome_footer "$menu_ft")"
+        ui_draw_frame "$top" "$left" "$height" "$width" "$(ui_chrome_app_title)" "$menu_ft" 1
         ui_draw_line_in_box $((top + 2)) "$left" "$width" "$prompt" gold
         ui_draw_line_in_box $((top + 3)) "$left" "$width" "" muted
         for i in "${!labels[@]}"; do
@@ -520,9 +675,8 @@ ui_pause() {
     ui_manager_enter
     local footer_enter
     if declare -f ts_t >/dev/null 2>&1; then footer_enter="$(ts_t enter_continue)"; else footer_enter="Enter = continue"; fi
-    local app_title="Task Studio Launcher"
-    declare -f ts_t >/dev/null 2>&1 && app_title="$(ts_t app_title)"
-    ui_draw_frame "$top" "$left" "$height" "$width" "$app_title" "$footer_enter"
+    footer_enter="$(ui_chrome_footer "$footer_enter")"
+    ui_draw_frame "$top" "$left" "$height" "$width" "$(ui_chrome_app_title)" "$footer_enter"
     ui_draw_line_in_box $((top + 2)) "$left" "$width" "$message" gold
     ui_draw_line_in_box $((top + 3)) "$left" "$width" "" muted
     ui_draw_line_in_box $((top + 4)) "$left" "$width" "[ Enter ]" selected
@@ -577,6 +731,8 @@ ui_progress_panel_paint() {
   phase="$(ts_prog_get phase run)"
   error="$(ts_prog_get error "")"
   read -r pct eta_sec < <(ts_prog_compute)
+  local chrome_title
+  chrome_title="$(ui_chrome_app_title)"
   if [[ "$phase" == "done" ]]; then
     pct=100
     eta_sec=0
@@ -615,22 +771,42 @@ ui_progress_panel_paint() {
   footer="$(ts_t prog_footer_idle 2>/dev/null || echo 'progress / Enter when done')"
   [[ "$phase" == "run" ]] && footer="$(ts_t prog_footer_run 2>/dev/null || echo 'working… please wait')"
   [[ "$phase" == "error" || "$phase" == "done" ]] && footer="${TS_UI_RETURN_FOOTER:-$(ts_t prog_footer_return 2>/dev/null || echo 'Enter = back / auto in 5s')}"
+  footer="$(ui_chrome_footer "$footer")"
 
-  fp="${title}|${group}|${status_line}|${phase}|${error}|${pct}|${eta_text}|${footer}|${spin}"
+  local log_hint
+  if [[ "$phase" == "error" ]]; then
+    log_hint="$(ts_t prog_log_hint "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Full log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")"
+  else
+    log_hint="$(ts_t prog_details "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")"
+  fi
+
+  local body_max
+  body_max="$(ui_progress_body_max_lines "$height")"
+  local status_max=3
+  local log_max=2
+  if ((body_max < 12)); then
+    status_max=2
+    log_max=1
+  fi
+
+  local frame_title="$chrome_title"
+  if [[ -n "$title" && "$title" != "$default_title" ]]; then
+    frame_title="$chrome_title · $title"
+  fi
+
+  fp="${title}|${group}|${status_line}|${phase}|${error}|${pct}|${eta_text}|${footer}|${spin}|${log_hint}"
   if [[ "$mode" == "update" && "$fp" == "${TS_UI_PROG_FP:-}" ]]; then
     return 0
   fi
   TS_UI_PROG_FP="$fp"
 
   ui_sync_begin
-  local app_title="Task Studio Launcher"
-  declare -f ts_t >/dev/null 2>&1 && app_title="$(ts_t app_title)"
   if [[ "$mode" == "full" ]]; then
-    ui_draw_frame "$top" "$left" "$height" "$width" "$app_title · $title" "$footer" 1
+    ui_draw_frame "$top" "$left" "$height" "$width" "$frame_title" "$footer" 1
   else
     ui_goto "$top" "$left"
     printf '%s%s' "$TS_TITLE_BG" "$TS_TITLE_FG$TS_BOLD" >&2
-    printf '%s' "$(ui_pad "  $app_title · $title" "$width")" >&2
+    printf '%s' "$(ui_pad "  $frame_title" "$width")" >&2
     printf '%s' "$TS_RESET" >&2
     ui_goto $((top + height - 1)) "$left"
     printf '%s%s' "$TS_FOOT_BG" "$TS_MUTED" >&2
@@ -638,16 +814,24 @@ ui_progress_panel_paint() {
     printf '%s' "$TS_RESET" >&2
   fi
 
-  ui_draw_line_in_box $((top + 2)) "$left" "$width" "" muted
-  ui_draw_line_in_box $((top + 3)) "$left" "$width" "$group" gold
-  ui_draw_line_in_box $((top + 4)) "$left" "$width" "$status_line" muted
-  ui_draw_line_in_box $((top + 5)) "$left" "$width" "" muted
-  ui_draw_line_in_box $((top + 6)) "$left" "$width" "[${bar}] ${pct_text}" selected
-  ui_draw_line_in_box $((top + 7)) "$left" "$width" "$eta_text" muted
-  ui_draw_line_in_box $((top + 8)) "$left" "$width" "" muted
+  local body_row=$((top + 2))
+  ui_draw_line_in_box "$body_row" "$left" "$width" "" muted
+  body_row=$((body_row + 1))
+  ui_draw_line_in_box "$body_row" "$left" "$width" "$group" gold
+  body_row=$((body_row + 1))
+  body_row="$(ui_draw_wrapped_in_box "$body_row" "$left" "$width" "$status_line" muted "$status_max")"
+  ui_draw_line_in_box "$body_row" "$left" "$width" "" muted
+  body_row=$((body_row + 1))
+  ui_draw_line_in_box "$body_row" "$left" "$width" "[${bar}] ${pct_text}" selected
+  body_row=$((body_row + 1))
+  ui_draw_line_in_box "$body_row" "$left" "$width" "$eta_text" muted
+  body_row=$((body_row + 1))
+  ui_draw_line_in_box "$body_row" "$left" "$width" "" muted
+  body_row=$((body_row + 1))
 
   if [[ "$phase" == "error" ]]; then
-    ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_error_label 2>/dev/null || echo Error)" danger
+    ui_draw_line_in_box "$body_row" "$left" "$width" "$(ts_t prog_error_label 2>/dev/null || echo Error)" danger
+    body_row=$((body_row + 1))
     local -a excerpt_lines=()
     local eline
     while IFS= read -r eline || [[ -n "$eline" ]]; do
@@ -656,25 +840,26 @@ ui_progress_panel_paint() {
     if ((${#excerpt_lines[@]} == 0)); then
       excerpt_lines=("${error:-$(ts_t prog_unknown_error 2>/dev/null || echo 'Unknown error')}")
     fi
-    local ei=0
+    local ei=0 excerpt_max=3
+    ((body_max < 12)) && excerpt_max=2
     for eline in "${excerpt_lines[@]}"; do
-      ui_draw_line_in_box $((top + 10 + ei)) "$left" "$width" "$eline" danger
+      ((ei >= excerpt_max)) && break
+      body_row="$(ui_draw_wrapped_in_box "$body_row" "$left" "$width" "$eline" danger 2)"
       ei=$((ei + 1))
     done
-    while ((ei < 5)); do
-      ui_draw_line_in_box $((top + 10 + ei)) "$left" "$width" "" muted
-      ei=$((ei + 1))
-    done
-    ui_draw_line_in_box $((top + 15)) "$left" "$width" "$(ts_t prog_log_hint "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Full log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
+    body_row="$(ui_draw_wrapped_in_box "$body_row" "$left" "$width" "$log_hint" muted "$log_max")"
   elif [[ "$phase" == "done" ]]; then
-    ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_completed 2>/dev/null || echo 'Completed successfully')" ok
-    ui_draw_line_in_box $((top + 10)) "$left" "$width" "" muted
-    ui_draw_line_in_box $((top + 11)) "$left" "$width" "$(ts_t prog_details "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
+    ui_draw_line_in_box "$body_row" "$left" "$width" "$(ts_t prog_completed 2>/dev/null || echo 'Completed successfully')" ok
+    body_row=$((body_row + 1))
+    body_row="$(ui_draw_wrapped_in_box "$body_row" "$left" "$width" "$log_hint" muted "$log_max")"
   else
-    ui_draw_line_in_box $((top + 9)) "$left" "$width" "$(ts_t prog_details "${TS_PROGRESS_LOG:-data/logs/studio-last.log}" 2>/dev/null || echo "Log: ${TS_PROGRESS_LOG:-data/logs/studio-last.log}")" muted
-    ui_draw_line_in_box $((top + 10)) "$left" "$width" "" muted
-    ui_draw_line_in_box $((top + 11)) "$left" "$width" "" muted
+    body_row="$(ui_draw_wrapped_in_box "$body_row" "$left" "$width" "$log_hint" muted "$log_max")"
   fi
+
+  while ((body_row < top + height - 2)); do
+    ui_draw_line_in_box "$body_row" "$left" "$width" "" muted
+    body_row=$((body_row + 1))
+  done
   ui_sync_end
 }
 
@@ -700,10 +885,7 @@ ui_run_progress() {
   ts_prog_write "title=$title" "phase=run" "group=$title" "status=" "pct_lo=0" "pct_hi=5" \
     "stage_t0=$(date +%s)" "stage_est=10" "stages_left_est=0" "error=" "pct=0"
 
-  read -r cols rows < <(ui_term_size)
-  pref_w=64
-  pref_h=20
-  ((cols < 70)) && pref_w=$((cols - 4))
+  read -r pref_w pref_h < <(ui_box_size_prefs)
   read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
   geom="$top $left $height $width"
 
@@ -727,6 +909,7 @@ ui_run_progress() {
 
   if ui_supports_color; then
     while kill -0 "$pid" 2>/dev/null; do
+      read -r pref_w pref_h < <(ui_box_size_prefs)
       read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
       if [[ "$geom" != "$top $left $height $width" ]]; then
         geom="$top $left $height $width"
@@ -815,7 +998,7 @@ ui_show_text() {
   local -a lines=("$@")
   local tty top left height width pref_w pref_h
   tty="$(ui_tty)"
-  pref_w=64
+  read -r pref_w pref_h < <(ui_box_size_prefs)
   pref_h=$((${#lines[@]} + 8))
   read -r top left height width < <(ui_center_box "$pref_w" "$pref_h")
 
@@ -824,6 +1007,7 @@ ui_show_text() {
     ui_paint_screen
     local enter_back="Enter = back"
     declare -f ts_t >/dev/null 2>&1 && enter_back="$(ts_t enter_back)"
+    enter_back="$(ui_chrome_footer "$enter_back")"
     ui_draw_frame "$top" "$left" "$height" "$width" "$title" "$enter_back"
     local i
     for i in "${!lines[@]}"; do

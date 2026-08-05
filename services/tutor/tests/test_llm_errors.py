@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import httpx
-from app.domain.llm.errors import llm_http_error_message
+from app.domain.llm.errors import llm_http_error_message, sanitize_provider_error_body
 
 
 def test_llm_http_error_message_reads_cursor_detail() -> None:
@@ -45,3 +45,53 @@ def test_llm_http_error_message_falls_back_to_status() -> None:
     response = httpx.Response(502, request=request, text="")
     exc = httpx.HTTPStatusError("boom", request=request, response=response)
     assert llm_http_error_message(exc) == "LLM HTTP 502"
+
+
+def test_llm_http_error_message_openai_tier_capacity() -> None:
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    response = httpx.Response(
+        429,
+        request=request,
+        json={
+            "error": {
+                "message": "Service tier capacity exceeded for this model.",
+                "type": "request_tier_capacity_exceeded",
+                "code": "3505",
+            }
+        },
+    )
+    exc = httpx.HTTPStatusError("boom", request=request, response=response)
+    message = llm_http_error_message(exc)
+    assert "capacity exceeded" in message.casefold()
+    assert "openai" in message.casefold()
+    assert "cursor" not in message.casefold()
+    assert "токен" in message.casefold() or "тариф" in message.casefold()
+
+
+def test_llm_http_error_message_sanitizes_cloudflare_520_html() -> None:
+    request = httpx.Request("POST", "https://api.mistral.ai/v1/chat/completions")
+    html = (
+        "<!DOCTYPE html><html><head>"
+        "<TITLE>MISTRAL.AI | 520: WEB SERVER IS RETURNING AN UNKNOWN ERROR</TITLE>"
+        "</head><body>cloudflare</body></html>"
+    )
+    response = httpx.Response(520, request=request, text=html)
+    exc = httpx.HTTPStatusError("boom", request=request, response=response)
+    message = llm_http_error_message(exc)
+    assert "<html" not in message.casefold()
+    assert "520" in message
+    assert "MISTRAL" in message.upper() or "unavailable" in message.casefold()
+    assert "cloudflare" in message.casefold() or "провайдер" in message.casefold()
+
+
+def test_sanitize_provider_error_body_keeps_plain_text() -> None:
+    assert sanitize_provider_error_body('{"error":"nope"}') == '{"error":"nope"}'
+
+
+def test_is_transient_includes_cloudflare_520() -> None:
+    from app.domain.llm.retry import is_transient_llm_error
+
+    request = httpx.Request("POST", "https://api.mistral.ai/v1/chat/completions")
+    response = httpx.Response(520, request=request, text="x")
+    exc = httpx.HTTPStatusError("boom", request=request, response=response)
+    assert is_transient_llm_error(exc)

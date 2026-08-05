@@ -490,7 +490,8 @@
   width: 100%;
   min-height: 0;
   flex: 1;
-  height: min(100%, calc(100vh - 9.5rem));
+  height: min(100%, calc(100dvh - 9.5rem));
+  max-height: calc(100dvh - 9.5rem);
   animation: session-fade-up 380ms var(--ease-emphasis) both;
 }
 
@@ -535,6 +536,18 @@
   text-transform: uppercase;
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.session-syllabus-progress{
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
 .session-syllabus .session-program{
@@ -681,9 +694,26 @@
   position: relative;
 }
 
-.session-main > .session-lesson{
+.session-main > .session-lesson-host{
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.session-lesson-host > .session-lesson{
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.session-lesson-host > .page-cyber-leave-active{
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
 }
 
 .session-main::before{
@@ -772,7 +802,7 @@
 .session-lesson-code .session-step-code{
   flex: 1 1 auto;
   min-height: 0;
-  gap: 0.75rem;
+  gap: 1.15rem;
 }
 
 .session-code-statement{
@@ -780,7 +810,8 @@
   max-height: min(38vh, 22rem);
   min-height: 0;
   overflow: auto;
-  padding-right: 0.25rem;
+  padding: 0 0.25rem 0.35rem 0;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .session-lesson-header{
@@ -1067,6 +1098,16 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.session-step-stack > .quiz-panel{
+  margin-top: 0.35rem;
+}
+
+.session-step-stack > .study-body + .quiz-panel{
+  margin-top: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .session-step-video{
@@ -1616,25 +1657,27 @@
 .quiz-panel{
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1.35rem;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .quiz-question{
-  margin: 0;
-  padding: 0;
+  margin: 0 0 0.15rem;
+  padding: 0 0 0.85rem;
+  border-bottom: 1px solid var(--color-border-subtle);
   font-size: 1.05rem;
   font-weight: 650;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--color-text);
 }
 
 .quiz-options{
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.7rem;
+  margin-top: 0.15rem;
 }
 
 .quiz-option{
@@ -1849,16 +1892,50 @@
 
 .study-mermaid{
   margin: 0 0 1.25rem;
-  padding: 0.85rem 1rem;
-  overflow-x: auto;
+  padding: 0.85rem 1rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--op-violet, #8b5cf6) 35%, var(--color-border));
   background: var(--color-surface-inset);
+  outline: none;
+}
+
+.study-mermaid:focus-visible{
+  border-color: color-mix(in srgb, var(--op-violet, #8b5cf6) 70%, var(--color-border));
+}
+
+.study-mermaid-viewport{
+  overflow: auto;
+  max-height: min(70vh, 28rem);
+  overscroll-behavior: contain;
+}
+
+.study-mermaid-canvas{
+  transform-origin: center top;
+  transition: transform 0.05s linear;
+  width: 100%;
+  min-height: 4rem;
+}
+
+.study-mermaid-canvas svg{
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  height: auto !important;
+  margin: 0 auto;
+}
+
+.study-mermaid-hint{
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text-muted, #94a3b8) 90%, transparent);
+  user-select: none;
 }
 
 .study-mermaid svg{
   display: block;
   max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: auto !important;
   margin: 0 auto;
 }
 
@@ -2652,5 +2729,3 @@
     transition: none !important;
   }
 }
-
-

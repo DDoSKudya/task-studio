@@ -99,6 +99,25 @@ async def test_llm_disabled_keeps_ungradable() -> None:
 
 
 @pytest.mark.asyncio
+async def test_llm_grade_requires_user_id() -> None:
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.post = AsyncMock()
+    from app.domain.llm.grade import try_llm_grade
+
+    outcome = await try_llm_grade(
+        client,
+        _settings(),
+        step={"kind": "quiz", "title": "Q"},
+        submission={"choice_index": 0},
+        kind="quiz",
+        user_id=None,
+        started=__import__("time").perf_counter(),
+    )
+    assert outcome is None
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_soft_accepts_mid_confidence() -> None:
     class _Resp:
         is_error = False
@@ -122,7 +141,7 @@ async def test_soft_accepts_mid_confidence() -> None:
         step={"kind": "quiz", "title": "Q"},
         submission={"choice_index": 0},
         kind="quiz",
-        user_id=None,
+        user_id=__import__("uuid").uuid4(),
         started=__import__("time").perf_counter(),
     )
     assert outcome is not None

@@ -1,10 +1,44 @@
 import tailwindcss from '@tailwindcss/vite'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+type AppVersionFile = {
+  version?: string
+  build?: number | string
+  channel?: string
+}
+
+function loadAppVersion(): Required<AppVersionFile> {
+  const fallback = {
+    version: '0.0.0-develop',
+    build: 0,
+    channel: 'develop',
+  }
+  try {
+    const root = dirname(fileURLToPath(import.meta.url))
+    const raw = JSON.parse(
+      readFileSync(join(root, 'app-version.json'), 'utf8'),
+    ) as AppVersionFile
+    return {
+      version: String(raw.version || fallback.version),
+      build: Number(raw.build) || 0,
+      channel: String(raw.channel || fallback.channel),
+    }
+  } catch {
+    return fallback
+  }
+}
+
+const appVersion = loadAppVersion()
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-11',
   css: ['~/assets/css/main.css'],
   app: {
     head: {
+      title: 'Task Studio',
+      titleTemplate: '%s · Task Studio',
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
   },
@@ -17,14 +51,9 @@ export default defineNuxtConfig({
     typeCheck: process.env.NUXT_TYPE_CHECK !== 'false',
     tsConfig: {
       compilerOptions: {
-        types: ['node', 'vidstack/vue'],
+        types: ['node'],
       },
       exclude: ['**/*.spec.ts', 'e2e/**', 'playwright.config.ts'],
-    },
-  },
-  vue: {
-    compilerOptions: {
-      isCustomElement: (tag) => tag.startsWith('media-'),
     },
   },
   modules: [
@@ -32,7 +61,7 @@ export default defineNuxtConfig({
     '@nuxtjs/i18n',
   ],
   build: {
-    transpile: ['vidstack', 'mermaid'],
+    transpile: ['mermaid'],
   },
 
   sourcemap: process.env.NUXT_SOURCEMAP === 'true',
@@ -71,6 +100,9 @@ export default defineNuxtConfig({
     apiBaseInternal: process.env.API_BASE_INTERNAL || 'http://studio-api:8000',
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
+      appVersion: process.env.NUXT_PUBLIC_APP_VERSION || appVersion.version,
+      appBuild: process.env.NUXT_PUBLIC_APP_BUILD || String(appVersion.build),
+      appChannel: process.env.NUXT_PUBLIC_APP_CHANNEL || appVersion.channel,
     },
   },
   i18n: {

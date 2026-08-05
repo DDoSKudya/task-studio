@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import io
+import shutil
 import zipfile
 from pathlib import Path
 from uuid import UUID
@@ -44,24 +46,25 @@ async def ensure_local_pack_root(
         raise RuntimeError("empty pack archive from media")
 
     staging = target.parent / f".hydrate-{safe_version}"
-    if staging.exists():
-        _rmtree(staging)
-    staging.mkdir(parents=True, exist_ok=True)
     try:
-        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-            archive.extractall(staging)
-        if target.exists():
-            _rmtree(target)
-        staging.rename(target)
+        await asyncio.to_thread(_hydrate_archive, payload, staging, target)
     except (OSError, zipfile.BadZipFile) as exc:
-        _rmtree(staging)
         log.warning("pack_hydrate_failed", pack_id=str(pack_id), error=str(exc))
         raise RuntimeError("failed to hydrate pack from media") from exc
 
     return str(target)
 
 
-def _rmtree(path: Path) -> None:
-    import shutil
-
-    shutil.rmtree(path, ignore_errors=True)
+def _hydrate_archive(payload: bytes, staging: Path, target: Path) -> None:
+    if staging.exists():
+        shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            archive.extractall(staging)
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        staging.rename(target)
+    except (OSError, zipfile.BadZipFile):
+        shutil.rmtree(staging, ignore_errors=True)
+        raise

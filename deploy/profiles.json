@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "memory_mb": {
+    "db": 1024,
+    "cache": 512,
+    "broker": 512,
+    "app": 768,
+    "search": 1024,
+    "analytics_db": 2048,
+    "heavy_ml": 8192,
+    "code_runner": 2048,
+    "lsp": 1024
+  },
+  "service_class": {
+    "postgres": "db",
+    "redis": "cache",
+    "rabbitmq": "broker",
+    "meilisearch": "search",
+    "clickhouse": "analytics_db",
+    "ollama": "heavy_ml",
+    "piston": "code_runner",
+    "lsp-pyright": "lsp",
+    "lsp-typescript": "lsp",
+    "lsp-gopls": "lsp",
+    "lsp-sqls": "lsp"
+  },
+  "compose_env": {
+    "MEM_LIMIT_DB": "1024m",
+    "MEM_LIMIT_CACHE": "512m",
+    "MEM_LIMIT_BROKER": "512m",
+    "MEM_LIMIT_SEARCH": "1024m",
+    "MEM_LIMIT_ANALYTICS_DB": "2048m",
+    "MEM_LIMIT_HEAVY_ML": "8192m",
+    "MEM_LIMIT_CODE_RUNNER": "2048m",
+    "MEM_LIMIT_LSP": "1024m"
+  },
+  "profiles": {
+    "minimal": [
+      "postgres",
+      "redis",
+      "rabbitmq",
+      "traefik",
+      "nginx",
+      "auth",
+      "catalog",
+      "sessions",
+      "studio-api",
+      "minio",
+      "media",
+      "web"
+    ],
+    "study": [
+      "postgres",
+      "redis",
+      "rabbitmq",
+      "traefik",
+      "nginx",
+      "auth",
+      "catalog",
+      "sessions",
+      "studio-api",
+      "grading",
+      "integrations",
+      "meilisearch",
+      "search",
+      "clickhouse",
+      "analytics",
+      "tutor",
+      "minio",
+      "media",
+      "lab-runner",
+      "web"
+    ],
+    "full": ["*"]
+  }
+}

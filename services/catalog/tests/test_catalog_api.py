@@ -70,3 +70,30 @@ async def test_users_do_not_share_catalog(catalog_client: AsyncClient) -> None:
     )
     assert len(first_list.json()) == 1
     assert second_list.json() == []
+
+
+@pytest.mark.asyncio
+async def test_delete_pack(catalog_client: AsyncClient) -> None:
+    user_id = str(uuid.uuid4())
+    headers = {"X-User-Id": user_id}
+
+    created = await catalog_client.post(
+        "/internal/v1/catalog/packs/upload",
+        headers=headers,
+        files={"pack": ("sample.studio-pack", build_sample_pack_bytes(), "application/zip")},
+    )
+    assert created.status_code == 201
+
+    listed_before = await catalog_client.get("/internal/v1/catalog/packs", headers=headers)
+    listed_body_before = listed_before.json()
+    assert listed_before.status_code == 200
+    assert len(listed_body_before) == 1
+
+    pack_id = listed_body_before[0]["id"]
+
+    deleted = await catalog_client.delete(f"/internal/v1/catalog/packs/{pack_id}", headers=headers)
+    assert deleted.status_code == 204
+
+    listed_after = await catalog_client.get("/internal/v1/catalog/packs", headers=headers)
+    assert listed_after.status_code == 200
+    assert listed_after.json() == []

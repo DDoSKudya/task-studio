@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from app.infra.models import ImportJob
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.integration_schemas import ImportJobStatus
 
@@ -26,14 +26,23 @@ async def get_import_job(
     *,
     user_id: uuid.UUID,
     job_id: uuid.UUID,
+    for_update: bool = False,
 ) -> ImportJob:
-    job = await session.get(ImportJob, job_id)
+    stmt = select(ImportJob).where(ImportJob.id == job_id)
+    if for_update:
+        stmt = stmt.with_for_update(skip_locked=True)
+    result = await session.execute(stmt)
+    job = result.scalar_one_or_none()
     if job is None or job.user_id != user_id:
         raise JobError("import job not found")
     return job
 
 
 async def claim_import_job(session: AsyncSession, job: ImportJob) -> bool:
+    if job.status not in {"pending", "fetching", "normalizing", "building"}:
+        return False
+    if job.status != "pending":
+        return True
     result = await session.execute(
         update(ImportJob)
         .where(ImportJob.id == job.id, ImportJob.status == "pending")
@@ -41,8 +50,8 @@ async def claim_import_job(session: AsyncSession, job: ImportJob) -> bool:
         .returning(ImportJob.id)
     )
     claimed = result.scalar_one_or_none() is not None
-    await session.commit()
     if claimed:
+        await session.flush()
         await session.refresh(job)
     return claimed
 

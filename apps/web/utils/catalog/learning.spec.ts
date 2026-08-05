@@ -3,9 +3,10 @@ import {
   emptyPackLearning,
   indexSessionsForPacks,
   matchSessionForPack,
+  packLearningFromProgress,
   packLearningFromSession,
 } from './learning'
-import type { SessionSummary } from '../session/types'
+import type { PackProgressItem, SessionSummary } from '../session/types'
 
 const base = (overrides: Partial<SessionSummary>): SessionSummary => ({
   id: 's1',
@@ -39,5 +40,21 @@ describe('catalog/learning', () => {
         chapter: 'Done',
       }).progress,
     ).toBe(100)
+  })
+
+  it('builds learning from pack-progress item', () => {
+    const item: PackProgressItem = {
+      ...base({ id: 'p1' }),
+      chapter_title: ' Chapter One ',
+      progress_percent: 42,
+    }
+    expect(packLearningFromProgress(item, 'empty')).toEqual({
+      progress: 42,
+      phase: 'study',
+      chapter: 'Chapter One',
+      updatedAt: '2026-01-02T00:00:00Z',
+      sessionId: 'p1',
+      status: 'active',
+    })
   })
 })

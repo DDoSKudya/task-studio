@@ -27,16 +27,16 @@ _t() {
   local en="" ru=""
   case "$key" in
     err) en="Error: %s"; ru="Ошибка: %s" ;;
-    downloading) en="Downloading Task Studio Launcher into %s …"; ru="Скачивание Task Studio Launcher в %s …" ;;
-    updating) en="Updating existing install…"; ru="Обновление существующей установки…" ;;
-    err_curl) en="curl not found."; ru="curl не найден." ;;
-    err_tar) en="tar not found."; ru="tar не найден." ;;
-    err_download) en="Could not download Task Studio archive."; ru="Не удалось скачать архив Task Studio." ;;
-    err_unpack) en="Could not unpack Task Studio archive."; ru="Не удалось распаковать архив Task Studio." ;;
-    err_layout) en="Downloaded archive has unexpected layout."; ru="Скачанный архив имеет неожиданный формат." ;;
-    studio_missing) en="studio.sh not found under %s/scripts"; ru="studio.sh не найден в %s/scripts" ;;
-    shortcuts) en="Installing console and desktop shortcut…"; ru="Установка консоли и ярлыка на рабочий стол…" ;;
-    shortcut_warn) en="Warning: could not create desktop shortcut (you can still run: bash %s/scripts/studio.sh)."; ru="Предупреждение: не удалось создать ярлык (можно запустить: bash %s/scripts/studio.sh)." ;;
+    downloading) en="Downloading Task Studio Launcher into %s…"; ru="Скачивание Task Studio Launcher в %s…" ;;
+    updating) en="Updating the existing installation…"; ru="Обновление существующей установки…" ;;
+    err_curl) en="curl was not found."; ru="curl не найден." ;;
+    err_tar) en="tar was not found."; ru="tar не найден." ;;
+    err_download) en="Could not download the Task Studio archive."; ru="Не удалось скачать архив Task Studio." ;;
+    err_unpack) en="Could not unpack the Task Studio archive."; ru="Не удалось распаковать архив Task Studio." ;;
+    err_layout) en="The downloaded archive has an unexpected layout."; ru="Скачанный архив имеет неожиданную структуру." ;;
+    studio_missing) en="studio.sh was not found under %s/scripts."; ru="studio.sh не найден в %s/scripts." ;;
+    shortcuts) en="Installing the console entry and desktop shortcut…"; ru="Установка пункта консоли и ярлыка на рабочем столе…" ;;
+    shortcut_warn) en="Warning: could not create a desktop shortcut. You can still run: bash %s/scripts/studio.sh"; ru="Предупреждение: не удалось создать ярлык. Можно запустить вручную: bash %s/scripts/studio.sh" ;;
     starting) en="Starting Task Studio Launcher…"; ru="Запуск Task Studio Launcher…" ;;
     *) en="$key"; ru="$key" ;;
   esac

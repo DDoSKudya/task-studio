@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.domain.ollama.quality_lang import (
     LANGUAGE_NAMES,
     ReplyLanguage,
+    has_script_mixing,
     has_unexpected_scripts,
     infer_reply_language,
     language_mismatch,
@@ -16,6 +17,7 @@ __all__ = [
     "infer_reply_language",
     "prose_without_code",
     "has_unexpected_scripts",
+    "has_script_mixing",
     "language_mismatch",
     "needs_quality_retry",
     "pick_better_reply",

@@ -52,7 +52,7 @@ async def build_and_register_import(
         import_report=report_json,
     )
 
-    job.status = "done"
+    job.status = "partial" if report.truncated else "done"
     job.pack_version_id = registered.version_id
     job.report = report_json
     job.error = None

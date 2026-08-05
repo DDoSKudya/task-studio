@@ -6,6 +6,7 @@ import {
   looksLikeMarkdown,
   markdownToStudyHtml,
   plainToStudyHtml,
+  repairMarkdownFences,
   repairMojibake,
   sanitizeStudyHtml,
   studyBodyToHtml,
@@ -104,6 +105,16 @@ describe('sanitizeStudyHtml', () => {
     expect(html).not.toMatch(/style=/i)
     expect(html).not.toMatch(/\scolor=/i)
   })
+
+  it('strips script and event handlers via DOMPurify', () => {
+    const html = sanitizeStudyHtml(
+      '<p>ok</p><script>alert(1)</script><img src="x" onerror="alert(1)" /><a href="javascript:alert(1)">x</a>',
+    )
+    expect(html).toContain('<p>ok</p>')
+    expect(html).not.toMatch(/<script/i)
+    expect(html).not.toMatch(/onerror=/i)
+    expect(html).not.toMatch(/javascript:/i)
+  })
 })
 
 describe('repairMojibake', () => {
@@ -197,6 +208,36 @@ describe('markdownToStudyHtml', () => {
     expect(html).toContain('<code>Article</code>')
   })
 
+  it('heals premature python fence close so dunders stay in code', () => {
+    const md = [
+      'Пример:',
+      '',
+      '```python',
+      'class FieldDescriptor:',
+      '    def __init__(self, field_type):',
+      '        self.field_type = field_type',
+      '',
+      '    def __get__(self, instance, owner):',
+      '        return self.value',
+      '```',
+      '',
+      'def __set__(self, instance, value):',
+      '    if not isinstance(value, self.field_type):',
+      '        raise TypeError("bad")',
+      '    self.value = value',
+      '',
+      'class User:',
+      '    name = FieldDescriptor(str)',
+      '```',
+      '',
+      'Дальше объясняется идея.',
+    ].join('\n')
+    const html = markdownToStudyHtml(md)
+    expect(html).toContain('def __set__(self, instance, value):')
+    expect(html).not.toContain('<strong>set</strong>')
+    expect(html).toContain('<pre><code class="language-python">')
+  })
+
   it('repairs double-backtick fences from LLM corruption', () => {
     const md = [
       'Шаблон:',
@@ -233,6 +274,76 @@ describe('markdownToStudyHtml', () => {
     expect(html).toContain('<pre><code')
     expect(html).not.toContain('```')
     expect(html).not.toContain('# Частые')
+  })
+
+  it('unwraps theory slides wrongly fenced as text', () => {
+    const md = [
+      '```text',
+      '1. Сборка данных: камера как входной буфер',
+      '',
+      'Камера даёт поток кадров.',
+      '',
+      'graph TD',
+      'A["Камера"] --> B["Поток кадров"]',
+      'B --> C["Модель"]',
+      '',
+      '## 2. Обработка сигналов: уверенность и пороги',
+      '',
+      '### Пороги уверенности',
+      '',
+      '*минимальный уровень уверенности*',
+      '',
+      '| Порог | Действие |',
+      '|-------|----------|',
+      '| ниже 50% | Отбросить |',
+      '',
+      '**Пример:** порог 0.7',
+      '',
+      '## 3. Отказоустойчивость',
+      '```',
+    ].join('\n')
+    const html = studyBodyToHtml(md)
+    expect(html).toContain('<h2')
+    expect(html).toContain('Обработка сигналов')
+    expect(html).toContain('<table>')
+    expect(html).toContain('language-mermaid')
+    expect(html).not.toContain('## 2.')
+    expect(html).not.toContain('**Пример:**')
+  })
+
+  it('closes fences when LLM uses ```text as closing marker', () => {
+    const md = [
+      '#### Создание сети',
+      '',
+      'Команда:',
+      '',
+      '```bash',
+      'docker network create my-network',
+      '```text',
+      '',
+      'Эта команда создаёт виртуальную сеть.',
+      '',
+      '### 2. Уязвимости зависимостей',
+      '',
+      '**Пример:** сканер',
+      '',
+      '```bash',
+      'docker run --network my-network postgres',
+      '```text',
+      '',
+      'Флаги: `-d` и `--name`.',
+    ].join('\n')
+    expect(repairMarkdownFences(md)).toContain('```\n\nЭта команда')
+    expect(repairMarkdownFences(md)).not.toMatch(/```text\n\nЭта/)
+    const html = studyBodyToHtml(md)
+    expect(html).toContain('<h3')
+    expect(html).toContain('Уязвимости зависимостей')
+    expect(html).toContain('<strong>Пример:</strong>')
+    expect(html).toContain('language-bash')
+    expect(html).toContain('docker network create my-network')
+    expect(html).not.toContain('```text')
+    expect(html).not.toContain('### 2.')
+    expect(html).not.toContain('**Пример:**')
   })
 })
 

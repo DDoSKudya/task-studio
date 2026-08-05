@@ -18,6 +18,22 @@ _UNEXPECTED_SCRIPT_RE = re.compile(
 )
 _CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Cyrillic glued to Latin inside one token: «Комputer», «видаении» is pure Cyrillic.
+_MIXED_SCRIPT_TOKEN_RE = re.compile(
+    r"(?=[\w]*[A-Za-z])(?=[\w]*[\u0400-\u04ff])[\w\u0400-\u04ff]{3,}"
+)
+# Common mangled / misspelled tech nouns that should be clean Russian in RU courses.
+_TRANSLIT_NOISE_RE = re.compile(
+    r"(?i)("
+    r"\bkomputer\b|\bcomputor\b|\bcompputer\b|"
+    r"комputer|кomputer|"
+    r"видаен|"
+    r"\bvideenii\b|\bvidaenii\b|"
+    r"klassifikat|"
+    r"segmenats|"
+    r"detekts"
+    r")"
+)
 
 LANGUAGE_NAMES: dict[ReplyLanguage, str] = {
     "ru": "Russian",
@@ -44,6 +60,13 @@ def has_unexpected_scripts(text: str) -> bool:
     return bool(_UNEXPECTED_SCRIPT_RE.search(prose_without_code(text)))
 
 
+def has_script_mixing(text: str) -> bool:
+    prose = prose_without_code(text)
+    if _MIXED_SCRIPT_TOKEN_RE.search(prose):
+        return True
+    return bool(_TRANSLIT_NOISE_RE.search(prose))
+
+
 def language_mismatch(text: str, language: ReplyLanguage) -> bool:
     prose = prose_without_code(text)
     letters = [ch for ch in prose if ch.isalpha()]
@@ -57,4 +80,6 @@ def language_mismatch(text: str, language: ReplyLanguage) -> bool:
 
 
 def needs_quality_retry(text: str, language: ReplyLanguage) -> bool:
-    return has_unexpected_scripts(text) or language_mismatch(text, language)
+    if has_unexpected_scripts(text) or language_mismatch(text, language):
+        return True
+    return bool(language == "ru" and has_script_mixing(text))

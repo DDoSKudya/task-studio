@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import AsyncIterator
 
 import httpx
+from app.domain.course_build import CourseBuildStore
 from app.domain.errors import TutorError
 from fastapi import status
 from studio_contracts.studio_schemas import CourseFromArticleRequest
@@ -25,6 +27,33 @@ __all__ = [
 ]
 
 
+def _persist_theory(
+    store: CourseBuildStore | None,
+    *,
+    user_id: uuid.UUID | None,
+    build_id: uuid.UUID | None,
+    chapter_id: str,
+    step: dict[str, object],
+    done: int,
+    chapter_total: int,
+    band_theory: tuple[float, float],
+    title: str,
+) -> None:
+    if store is None or user_id is None or build_id is None:
+        return
+    store.save_theory_step(user_id, build_id, chapter_id, step)
+    store.patch_meta(
+        user_id,
+        build_id,
+        stage="theory",
+        chapters_done=done,
+        chapter_total=chapter_total,
+        progress=_band_progress(band_theory, done, chapter_total),
+        message=f"Theory ready: {title}",
+        clear_error=True,
+    )
+
+
 async def _iter_theory_expansion(
     client: httpx.AsyncClient,
     target: object,
@@ -36,8 +65,95 @@ async def _iter_theory_expansion(
     book_spine: dict[str, str],
     band_theory: tuple[float, float],
     theory_steps: list[dict[str, object]],
+    store: CourseBuildStore | None = None,
+    user_id: uuid.UUID | None = None,
+    build_id: uuid.UUID | None = None,
 ) -> AsyncIterator[dict[str, object]]:
     chapter_total = len(chapters)
+    saved: dict[str, dict[str, object]] = {}
+    if store is not None and user_id is not None and build_id is not None:
+        for chapter in chapters:
+            if loaded := store.load_theory_steps(user_id, build_id, [chapter["id"]]):
+                saved[chapter["id"]] = loaded[0]
+
+    if saved:
+        generated: dict[str, dict[str, object]] = dict(saved)
+        done = 0
+        for index, chapter in enumerate(chapters):
+            chapter_id = chapter["id"]
+            if chapter_id in saved:
+                done += 1
+                yield _stage_event(
+                    stage="theory",
+                    status="done",
+                    progress=_band_progress(band_theory, done, chapter_total),
+                    message=f"Theory restored: {chapter['title']}",
+                    message_key="theoryRestored",
+                    message_params={"title": chapter["title"]},
+                    index=index + 1,
+                    total=chapter_total,
+                    detail={"chapter_id": chapter_id, "restored": True},
+                )
+                continue
+            yield _stage_event(
+                stage="theory",
+                status="running",
+                progress=_band_progress(band_theory, done, chapter_total),
+                message=f"Expanding chapter: {chapter['title']}",
+                message_key="theoryExpanding",
+                message_params={"title": chapter["title"]},
+                index=index + 1,
+                total=chapter_total,
+                detail={
+                    "chapter_id": chapter_id,
+                    "chapter_title": chapter["title"],
+                    "mode": "serial",
+                },
+            )
+            step = await _expand_one_theory_chapter(
+                client,
+                target,
+                body=body,
+                compact=compact,
+                chapter=chapter,
+                chapters=chapters,
+                outcomes=outcomes,
+                book_spine=book_spine,
+                index=index,
+            )
+            generated[chapter_id] = step
+            done += 1
+            _persist_theory(
+                store,
+                user_id=user_id,
+                build_id=build_id,
+                chapter_id=chapter_id,
+                step=step,
+                done=done,
+                chapter_total=chapter_total,
+                band_theory=band_theory,
+                title=str(step.get("title") or chapter["title"]),
+            )
+            yield _stage_event(
+                stage="theory",
+                status="done",
+                progress=_band_progress(band_theory, done, chapter_total),
+                message=f"Theory ready: {step.get('title')}",
+                message_key="theoryReady",
+                message_params={"title": step.get("title") or ""},
+                index=index + 1,
+                total=chapter_total,
+                detail={
+                    "step_id": step.get("id"),
+                    "title": step.get("title"),
+                    "content_chars": len(str(step.get("content") or "")),
+                    "mode": "serial",
+                },
+            )
+        for chapter in chapters:
+            theory_steps.append(generated[chapter["id"]])
+        return
+
     serial_n = _theory_serial_count(chapter_total, compact=compact)
     done = 0
 
@@ -71,6 +187,17 @@ async def _iter_theory_expansion(
         )
         theory_steps.append(step)
         done += 1
+        _persist_theory(
+            store,
+            user_id=user_id,
+            build_id=build_id,
+            chapter_id=chapter["id"],
+            step=step,
+            done=done,
+            chapter_total=chapter_total,
+            band_theory=band_theory,
+            title=str(step.get("title") or chapter["title"]),
+        )
         yield _stage_event(
             stage="theory",
             status="done",
@@ -123,6 +250,17 @@ async def _iter_theory_expansion(
             )
             theory_steps.append(step)
             done += 1
+            _persist_theory(
+                store,
+                user_id=user_id,
+                build_id=build_id,
+                chapter_id=chapter["id"],
+                step=step,
+                done=done,
+                chapter_total=chapter_total,
+                band_theory=band_theory,
+                title=str(step.get("title") or chapter["title"]),
+            )
             yield _stage_event(
                 stage="theory",
                 status="done",
@@ -188,6 +326,17 @@ async def _iter_theory_expansion(
         index, chapter = remaining[slot]
         ordered[slot] = step
         done += 1
+        _persist_theory(
+            store,
+            user_id=user_id,
+            build_id=build_id,
+            chapter_id=chapter["id"],
+            step=step,
+            done=done,
+            chapter_total=chapter_total,
+            band_theory=band_theory,
+            title=str(step.get("title") or chapter["title"]),
+        )
         yield _stage_event(
             stage="theory",
             status="done",

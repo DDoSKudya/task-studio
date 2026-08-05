@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from app.infra.clickhouse import fetch_daily_progress
 from app.infra.models import DailyUserProgress
 from clickhouse_connect.driver.client import Client
+from clickhouse_connect.driver.exceptions import ClickHouseError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.analytics_schemas import DailyProgressPoint, ProgressResponse
@@ -45,7 +46,7 @@ async def get_progress(
                 user_id=user_id,
                 since_day=since,
             )
-        except Exception:
+        except (ClickHouseError, OSError, ConnectionError, TimeoutError):
             ch_rows = []
         for day_raw, sessions, steps in ch_rows:
             day = day_raw if isinstance(day_raw, date) else date.fromisoformat(str(day_raw))

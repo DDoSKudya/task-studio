@@ -5,6 +5,9 @@ on:
     branches: [main, develop]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,6 +28,14 @@ jobs:
         run: uv run ruff format --check packages/python-common packages/contracts services scripts
       - name: Mypy
         run: uv run mypy packages/python-common/src
+      - name: basedpyright (scoped)
+        run: >
+          uv run basedpyright
+          packages/python-common/src
+          packages/contracts/studio_contracts
+          || uv run pyright
+          packages/python-common/src
+          packages/contracts/studio_contracts
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Launcher checks
@@ -90,7 +101,7 @@ jobs:
             packages/contracts/tests
           services=(
             auth catalog media studio-api grading sessions tutor cursor-proxy
-            integrations analytics lab-runner orchestrator
+            integrations analytics lab-runner orchestrator search
           )
           for svc in "${services[@]}"; do
             root="services/${svc}"
@@ -116,3 +127,13 @@ jobs:
           npm ci
           npm run lint
           npm run test
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -10,6 +10,7 @@ from studio_contracts.studio_schemas import CourseFromArticleRequest
 from .practice_generate import generate_code_tasks, generate_open_tasks
 from .progress import _stage_event
 from .quiz_generate import generate_quizzes
+from .source_exercise_harvest import HarvestedExercise
 from .stages_parallel import _iter_quizzes_and_code_parallel, _tests_count
 
 __all__ = [
@@ -32,6 +33,7 @@ async def _iter_quizzes_stage(
     theory_steps: list[dict[str, object]],
     band_quizzes: tuple[float, float],
     quiz_steps_out: list[dict[str, object]],
+    exercise_seeds: list[HarvestedExercise] | None = None,
 ) -> AsyncIterator[dict[str, object]]:
     yield _stage_event(
         stage="quizzes",
@@ -50,6 +52,7 @@ async def _iter_quizzes_stage(
         chapters=chapters,
         outcomes=outcomes,
         theory_steps=theory_steps,
+        exercise_seeds=exercise_seeds,
     )
     if len(quiz_steps) < 3:
         raise TutorError(status.HTTP_502_BAD_GATEWAY, "course quizzes stage returned too few items")
@@ -82,8 +85,10 @@ async def _iter_practice_stage(
     band_code: tuple[float, float],
     code_steps_out: list[dict[str, object]],
     domain: str,
+    prefer_open: bool = False,
+    exercise_seeds: list[HarvestedExercise] | None = None,
 ) -> AsyncIterator[dict[str, object]]:
-    if domain in {"language", "general"}:
+    if prefer_open or domain in {"language", "general"}:
         async for event in _iter_task_stage(
             client,
             target,
@@ -106,6 +111,7 @@ async def _iter_practice_stage(
         outcomes=outcomes,
         band_code=band_code,
         code_steps_out=code_steps_out,
+        exercise_seeds=exercise_seeds,
     ):
         yield event
 
@@ -169,6 +175,7 @@ async def _iter_code_stage(
     outcomes: list[str],
     band_code: tuple[float, float],
     code_steps_out: list[dict[str, object]],
+    exercise_seeds: list[HarvestedExercise] | None = None,
 ) -> AsyncIterator[dict[str, object]]:
     yield _stage_event(
         stage="code",
@@ -186,6 +193,7 @@ async def _iter_code_stage(
         compact=compact,
         chapters=chapters,
         outcomes=outcomes,
+        exercise_seeds=exercise_seeds,
     )
     if len(code_steps) < 3:
         raise TutorError(status.HTTP_502_BAD_GATEWAY, "course code stage returned too few tasks")

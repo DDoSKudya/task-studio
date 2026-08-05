@@ -1,14 +1,24 @@
 from __future__ import annotations
 
+import importlib.util
 import uuid
 from pathlib import Path
+from types import ModuleType
 
 import httpx
 import pytest
-from integrations_helpers.loaders import load_integrations_module
 from studio_contracts.integration_schemas import ImportReport
 from studio_contracts.pack import validate_manifest
 from studio_integration_sdk.registry import discover_adapters
+
+
+def _load_integrations_module(module_name: str) -> ModuleType:
+    loaders_path = Path(__file__).resolve().parent / "integrations_helpers" / "loaders.py"
+    spec = importlib.util.spec_from_file_location("stepik_pipeline_loaders", loaders_path)
+    assert spec is not None and spec.loader is not None
+    loaders = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaders)
+    return loaders.load_integrations_module(module_name)
 
 
 @pytest.fixture
@@ -22,7 +32,7 @@ def test_discover_all_platform_adapters(modules_root: Path) -> None:
 
 
 def test_stepik_fixture_import_builds_valid_manifest(modules_root: Path, tmp_path: Path) -> None:
-    pack_builder = load_integrations_module("app.domain.pack_builder")
+    pack_builder = _load_integrations_module("app.domain.pack_builder")
     adapter = discover_adapters(modules_root)["stepik"]
     pack_raw, report_raw = adapter.import_course(course_id="123")
     normalized = pack_builder.normalized_from_adapter(pack_raw)
@@ -205,7 +215,6 @@ def test_stepik_map_step_source_keeps_full_text_and_choice_options(
     theory, fidelity, warning = importer._map_step_source(
         {"title": "Theory", "block": {"name": "text", "text": long_html}},
         step_id="s1",
-        phase="study",
     )
     assert fidelity == "full"
     assert warning is None
@@ -243,7 +252,6 @@ def test_stepik_map_step_source_keeps_full_text_and_choice_options(
             },
         },
         step_id="s2",
-        phase="study",
     )
     assert video_fidelity == "full"
     assert video["payload"]["video_url"] == "https://cdn.example/b.mp4"
@@ -264,7 +272,6 @@ def test_stepik_map_step_source_keeps_full_text_and_choice_options(
             },
         },
         step_id="s2b",
-        phase="practice",
     )
     assert code_fidelity == "partial"
     assert code_warning is not None
@@ -288,10 +295,10 @@ def test_stepik_map_step_source_keeps_full_text_and_choice_options(
             },
         },
         step_id="s3",
-        phase="practice",
     )
     assert quiz_fidelity == "full"
     assert quiz_warning is None
+    assert quiz["phase"] == "assess"
     assert quiz["payload"]["choices"] == ["A", "B", "C"]
     assert quiz["payload"]["answer"] == 1
 
@@ -306,10 +313,10 @@ def test_stepik_map_step_source_keeps_full_text_and_choice_options(
             },
         },
         step_id="s4",
-        phase="practice",
     )
     assert quiz_dataset_fidelity == "partial"
     assert quiz_dataset_warning is not None
+    assert quiz_dataset["phase"] == "assess"
     assert quiz_dataset["payload"]["choices"] == ["One", "Two"]
     assert "answer" not in quiz_dataset["payload"]
 
@@ -356,8 +363,230 @@ def test_stepik_hydrates_choice_options_from_attempts(
     built, fidelity, warning = importer._map_step_source(
         steps["10"],
         step_id="step-10",
-        phase="practice",
     )
     assert fidelity == "partial"
     assert warning is not None
+    assert built["phase"] == "assess"
     assert built["payload"]["choices"] == ["Alpha", "Beta", "Gamma"]
+
+
+def test_stepik_classify_keeps_phase_and_kind_aligned(modules_root: Path) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_phase", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    long_code_like = (
+        "<p>Задание: напишите код</p><pre><code>"
+        + ("def solve():\n    return 1\n" * 80)
+        + "</code></pre>"
+    )
+    source = {"title": "Task 1", "block": {"name": "text", "text": long_code_like}}
+    phase, block_name = importer._classify_stepik_source(source)
+    assert block_name == "text"
+    assert phase == "practice"
+    built, fidelity, _warning = importer._map_step_source(source, step_id="step-code-like")
+    assert fidelity == "partial"
+    assert built["kind"] == "code"
+    assert built["phase"] == "practice"
+    assert built["phase"] == phase
+
+    quiz_phase, _ = importer._classify_stepik_source(
+        {"title": "Quiz", "block": {"name": "choice", "text": "<p>Q</p>"}}
+    )
+    assert quiz_phase == "assess"
+
+
+def test_stepik_fixture_maps_quiz_to_assess(modules_root: Path) -> None:
+    adapter = discover_adapters(modules_root)["stepik"]
+    pack_raw, report_raw = adapter.import_course(course_id="123")
+    assert isinstance(pack_raw, dict)
+    assert isinstance(report_raw, dict)
+    topics = pack_raw["topics"]
+    assert isinstance(topics, list) and topics
+    topic = topics[0]
+    assert isinstance(topic, dict)
+    assess = topic["assess"]
+    assert isinstance(assess, list)
+    assert "quiz-types" in assess
+    steps = pack_raw["steps"]
+    assert isinstance(steps, dict)
+    quiz = steps["quiz-types"]
+    assert isinstance(quiz, dict)
+    assert quiz["phase"] == "assess"
+    assert report_raw.get("truncated") is not True
+
+
+def test_stepik_live_truncation_marks_report_truncated(
+    modules_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_trunc", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    monkeypatch.setattr(importer, "_MAX_STEPS", 2)
+
+    class _FakeClient:
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+    monkeypatch.setattr(importer.httpx, "Client", lambda **_kwargs: _FakeClient())
+
+    def _fake_api_get(_client: object, path: str, **_kwargs: object) -> dict[str, object]:
+        if path.startswith("courses/"):
+            return {"courses": [{"id": 1, "title": "Big", "sections": [1]}]}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(importer, "_api_get", _fake_api_get)
+
+    def _fake_fetch_resources(
+        _client: object,
+        resource: str,
+        _ids: list[str],
+        **_kwargs: object,
+    ) -> dict[str, dict[str, object]]:
+        if resource == "sections":
+            return {"1": {"id": 1, "title": "S1", "units": [1]}}
+        if resource == "units":
+            return {"1": {"id": 1, "lesson": 1}}
+        if resource == "lessons":
+            return {"1": {"id": 1, "title": "L1", "steps": [1, 2, 3]}}
+        return {}
+
+    monkeypatch.setattr(importer, "_fetch_resources", _fake_fetch_resources)
+    monkeypatch.setattr(
+        importer,
+        "_fetch_step_sources",
+        lambda _client, step_ids, **_kwargs: [
+            {
+                "id": int(sid),
+                "title": f"T{sid}",
+                "block": {"name": "text", "text": f"<p>{sid}</p>"},
+            }
+            for sid in step_ids
+        ],
+    )
+
+    pack, report = importer._import_live("1", token="token")
+    assert report["truncated"] is True
+    assert report["skipped"] == 1
+    assert len(pack["steps"]) == 2
+    assert any("partial" in item["reason"] for item in report["warnings"])
+
+
+def test_stepik_live_puts_choice_into_topic_assess(
+    modules_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib.util
+
+    importer_path = modules_root / "stepik" / "importer.py"
+    spec = importlib.util.spec_from_file_location("stepik_importer_assess", importer_path)
+    assert spec is not None and spec.loader is not None
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+
+    class _FakeClient:
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+    monkeypatch.setattr(importer.httpx, "Client", lambda **_kwargs: _FakeClient())
+
+    def _fake_api_get(_client: object, path: str, **_kwargs: object) -> dict[str, object]:
+        if path.startswith("courses/"):
+            return {"courses": [{"id": 1, "title": "Quiz course", "sections": [1]}]}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(importer, "_api_get", _fake_api_get)
+
+    def _fake_fetch_resources(
+        _client: object,
+        resource: str,
+        _ids: list[str],
+        **_kwargs: object,
+    ) -> dict[str, dict[str, object]]:
+        if resource == "sections":
+            return {"1": {"id": 1, "title": "S1", "units": [1]}}
+        if resource == "units":
+            return {"1": {"id": 1, "lesson": 1}}
+        if resource == "lessons":
+            return {"1": {"id": 1, "title": "L1", "steps": [10, 20, 30]}}
+        return {}
+
+    monkeypatch.setattr(importer, "_fetch_resources", _fake_fetch_resources)
+
+    sources = {
+        "10": {
+            "id": 10,
+            "title": "Theory",
+            "block": {"name": "text", "text": "<p>Read me</p>"},
+        },
+        "20": {
+            "id": 20,
+            "title": "Code",
+            "block": {
+                "name": "code",
+                "text": "<p>Implement</p>",
+                "source": {"templates_data": {"python3": "def f():\n    pass\n"}},
+            },
+        },
+        "30": {
+            "id": 30,
+            "title": "Quiz",
+            "block": {
+                "name": "choice",
+                "text": "<p>Pick</p>",
+                "source": {
+                    "options": [
+                        {"text": "A", "is_correct": True},
+                        {"text": "B", "is_correct": False},
+                    ]
+                },
+            },
+        },
+    }
+    monkeypatch.setattr(
+        importer,
+        "_fetch_step_sources",
+        lambda _client, step_ids, **_kwargs: [sources[sid] for sid in step_ids],
+    )
+
+    pack, report = importer._import_live("1", token="token")
+    topic = pack["topics"][0]
+    assert topic["study"] == ["step-10"]
+    assert topic["practice"] == ["step-20"]
+    assert topic["assess"] == ["step-30"]
+    assert pack["steps"]["step-30"]["phase"] == "assess"
+    assert pack["steps"]["step-20"]["phase"] == "practice"
+    assert pack["steps"]["step-10"]["phase"] == "study"
+    assert report["truncated"] is False
+
+
+def test_import_pipeline_marks_truncated_job_partial() -> None:
+    report = ImportReport.model_validate(
+        {
+            "total_items": 2,
+            "imported_full": 2,
+            "imported_partial": 0,
+            "skipped": 1,
+            "warnings": [{"step": "course", "reason": "import status is partial"}],
+            "truncated": True,
+        }
+    )
+    status = "partial" if report.truncated else "done"
+    assert status == "partial"
+    assert report.truncated is True

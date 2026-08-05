@@ -6,6 +6,8 @@ import sys
 
 import structlog
 
+from studio_common.log_redact import redact_log_event
+
 _LOG_LEVEL = logging.INFO
 _SHARED_PROCESSORS: list[structlog.types.Processor] = [
     structlog.contextvars.merge_contextvars,
@@ -13,6 +15,7 @@ _SHARED_PROCESSORS: list[structlog.types.Processor] = [
     structlog.processors.TimeStamper(fmt="iso", utc=True),
     structlog.processors.StackInfoRenderer(),
     structlog.processors.format_exc_info,
+    redact_log_event,
 ]
 
 

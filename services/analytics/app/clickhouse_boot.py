@@ -4,6 +4,7 @@ import contextlib
 
 import structlog
 from clickhouse_connect.driver.client import Client
+from clickhouse_connect.driver.exceptions import ClickHouseError
 
 from app.config import AnalyticsSettings
 from app.infra.clickhouse import clickhouse_client
@@ -24,7 +25,7 @@ async def open_clickhouse(
             client,
             settings.clickhouse_database,
         )
-    except Exception as exc:
+    except (ClickHouseError, OSError, ConnectionError, TimeoutError) as exc:
         log.warning("clickhouse_unavailable", error=str(exc))
         if client is not None:
             with contextlib.suppress(Exception):

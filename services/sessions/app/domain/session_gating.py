@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from app.domain.session_completion import session_completed, topic_practice_passed
+from app.domain.session_completion import (
+    session_completed,
+    topic_assess_passed,
+    topic_practice_passed,
+)
 from app.domain.session_errors import SessionError
 from app.domain.session_gate_leave import ensure_can_leave_gated_step, position_index
 from app.domain.session_passed import list_passed_step_ids
@@ -15,10 +19,12 @@ __all__ = [
     "_ensure_can_leave_gated_step",
     "_session_completed",
     "_topic_practice_passed",
+    "_topic_assess_passed",
 ]
 
 _session_completed = session_completed
 _topic_practice_passed = topic_practice_passed
+_topic_assess_passed = topic_assess_passed
 _ensure_can_leave_gated_step = ensure_can_leave_gated_step
 _position_index = position_index
 
@@ -30,6 +36,16 @@ async def _ensure_assess_attempt_allowed(
 ) -> None:
     if policies.assess_max_attempts is None:
         return
+    await session.execute(
+        select(Attempt.id)
+        .where(
+            Attempt.session_id == learning_session.id,
+            Attempt.topic_id == learning_session.current_topic_id,
+            Attempt.phase == "assess",
+            Attempt.step_id == learning_session.current_step_id,
+        )
+        .with_for_update()
+    )
     result = await session.execute(
         select(func.count())
         .select_from(Attempt)

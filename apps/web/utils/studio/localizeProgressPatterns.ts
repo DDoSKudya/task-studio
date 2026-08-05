@@ -49,6 +49,11 @@ export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
     key: 'polishRunning',
   },
   {
+    re: /^Book polish applied to\s+(\d+)\s+chapter\(s\);\s*skipped\s+(\d+)$/i,
+    key: 'polishPartial',
+    params: (m) => ({ count: Number(m[1] || 0), skipped: Number(m[2] || 0) }),
+  },
+  {
     re: /^Book polish applied to\s+(\d+)\s+chapter/i,
     key: 'polishDone',
     params: (m) => ({ count: Number(m[1] || 0) }),
@@ -82,6 +87,10 @@ export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
     key: 'assembleDone',
   },
   {
+    re: /^Course generation complete with incomplete book polish$/i,
+    key: 'generationCompletePartial',
+  },
+  {
     re: /^Course generation complete$/i,
     key: 'generationComplete',
   },
@@ -96,7 +105,10 @@ export const COURSE_ERROR_PATTERNS: Array<{ re: RegExp; key: string }> = [
   { re: /^course code stage returned too few tasks$/i, key: 'codeTooFew' },
   { re: /^no usable articles$/i, key: 'noArticles' },
   { re: /^article too short$/i, key: 'articleTooShort' },
+  { re: /^page has no readable article text$/i, key: 'noReadableArticle' },
+  { re: /^extracted article too short$/i, key: 'extractedTooShort' },
   { re: /^course generation produced no content steps$/i, key: 'noContentSteps' },
   { re: /^course generation failed$/i, key: 'generationFailed' },
   { re: /^invalid manifest$/i, key: 'invalidManifest' },
+  { re: /network\s*error|failed to fetch|load failed|err_network|networkerror/i, key: 'network' },
 ]

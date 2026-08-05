@@ -13,7 +13,9 @@ from studio_contracts.manifest import PhaseName, adjacent_positions, get_step, r
 from studio_contracts.session_schemas import StepContent
 
 _CODE_EDITOR_KEYS = frozenset({"runtime", "runtime_version", "template", "setup"})
-_HIDDEN_STEP_KEYS = frozenset({"answer", "exemplar", "kind"})
+_HIDDEN_STEP_KEYS = frozenset(
+    {"answer", "exemplar", "kind", "tests", "checks", "expected", "oracle"}
+)
 
 
 def build_step_view(learning_session: Session) -> StepContent:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 import socket
 from urllib.parse import urlparse
 
@@ -9,16 +10,39 @@ from fastapi import status
 
 _FETCH_TIMEOUT = 25.0
 _MAX_REDIRECTS = 5
-_MAX_RAW_CHARS = 120_000
+_MAX_BATCH_URLS = 20
+
+_URL_IN_TEXT = re.compile(r"https?://[^\s<>\"'`|,;]+", re.IGNORECASE)
+_TRAILING_PUNCT = ".,;:!?)】」』\"'"
+_URL_LIST_SPLIT = re.compile(r"[\n\r,;|]+")
 
 _BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7",
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
     "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
     "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Linux"',
+}
+
+_READER_HEADERS = {
+    "User-Agent": _BROWSER_HEADERS["User-Agent"],
+    "Accept": "text/markdown,text/plain,*/*;q=0.8",
+    "Accept-Language": _BROWSER_HEADERS["Accept-Language"],
+    "X-Return-Format": "markdown",
 }
 
 
@@ -48,6 +72,13 @@ def is_blocked_host(hostname: str) -> bool:
     return False
 
 
+def _strip_url_noise(raw: str) -> str:
+    text = (raw or "").strip()
+    while text and text[-1] in _TRAILING_PUNCT:
+        text = text[:-1]
+    return text.strip()
+
+
 def validate_public_http_url(url: str) -> str:
     parsed = urlparse(url.strip())
     if parsed.scheme not in {"http", "https"}:
@@ -59,6 +90,39 @@ def validate_public_http_url(url: str) -> str:
     if is_blocked_host(parsed.hostname):
         raise TutorError(status.HTTP_400_BAD_REQUEST, "url host is not allowed")
     return parsed.geturl()
+
+
+def extract_http_urls(*chunks: str, limit: int = _MAX_BATCH_URLS) -> list[str]:
+    """Pull http(s) links from paste: newlines, commas, `;`, `|`, or prose."""
+    found: list[str] = []
+    seen: set[str] = set()
+    cap = max(1, min(limit, _MAX_BATCH_URLS))
+
+    def add(candidate: str) -> None:
+        cleaned = _strip_url_noise(candidate)
+        if not cleaned.startswith(("http://", "https://")):
+            return
+        try:
+            normalized = validate_public_http_url(cleaned)
+        except TutorError:
+            return
+        if normalized in seen:
+            return
+        seen.add(normalized)
+        found.append(normalized)
+
+    for chunk in chunks:
+        if not chunk:
+            continue
+        for line in _URL_LIST_SPLIT.sub("\n", chunk).splitlines():
+            piece = line.strip()
+            if piece.startswith(("http://", "https://")) and " " not in piece:
+                add(piece)
+        for match in _URL_IN_TEXT.finditer(chunk):
+            add(match.group(0))
+            if len(found) >= cap:
+                return found[:cap]
+    return found[:cap]
 
 
 _is_blocked_host = is_blocked_host

@@ -6,9 +6,10 @@ Your job is unity of voice and transitions — not rewriting the course.
 ## Goals
 
 1. Kill repeated intros ("In this chapter we will…", re-defining basics already taught).
-2. Strengthen bridges so chapter N opens as a continuation of N−1.
-3. Align address/voice with `book_spine` (ты/вы, tone, glossary terms).
-4. Keep facts, APIs, examples, and mermaid fences intact.
+2. Cut throat-clearing paragraphs that do not advance the chapter objective.
+3. Strengthen bridges so chapter N opens as a continuation of N−1.
+4. Align address/voice with `book_spine` (ты/вы, tone, glossary terms).
+5. Keep facts, APIs, examples, and mermaid fences intact.
 
 ## Hard limits
 
