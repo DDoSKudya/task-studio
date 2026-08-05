@@ -53,6 +53,8 @@ secrets/
 # Local IDE / tooling (not product code)
 # ---------------------------------------------------------------------------
 .cursor/
+.cursor-sourcery-xdg-config/
+.cursor-sourcery-xdg-data/
 .serena/
 .claude/
 .codex/
