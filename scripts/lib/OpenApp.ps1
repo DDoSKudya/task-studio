@@ -1,7 +1,9 @@
 ﻿#Requires -Version 5.1
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-. (Join-Path $scriptDir 'Health.ps1')
+# Do not use $scriptDir / $ScriptDir — PowerShell is case-insensitive and would
+# clobber studio.ps1 / ProgressWorker.ps1 launcher paths (…/scripts/lib/lib/…).
+$tsOpenAppDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+. (Join-Path $tsOpenAppDir 'Health.ps1')
 
 function Test-HttpOk {
   param(

@@ -167,14 +167,17 @@ if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefa
   }
 }
 
-$inlineLaunch = ($env:TASK_STUDIO_INSTALL_INLINE -eq "1") -or ($Rest -and $Rest.Count -gt 0)
+# Single remaining arg may arrive as a bare string; @() keeps one argv (avoids "help" → "h e l p").
+$launchArgs = @()
+if ($null -ne $Rest) { $launchArgs = @($Rest) }
+$inlineLaunch = ($env:TASK_STUDIO_INSTALL_INLINE -eq "1") -or ($launchArgs.Count -gt 0)
 if ($inlineLaunch) {
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
     Write-Host (Get-TsText boot_starting)
   } else {
     Write-Host (Boot-TsText "start" "Starting Task Studio Launcher…" "Запуск Task Studio Launcher…")
   }
-  $code = Start-TsStudioConsole -Root $root -Arguments $Rest
+  $code = Start-TsStudioConsole -Root $root -Arguments $launchArgs
   exit $code
 }
 

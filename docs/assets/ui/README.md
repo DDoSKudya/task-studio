@@ -8,24 +8,24 @@
 - поля password / secret / token / client id / key;
 - пользовательские названия курсов и тем (`Example course …`, `Example step …`, `TOPIC: EXAMPLE-…`).
 
-| Файл | Экран / действие |
-|------|------------------|
-| `01-login.png` | Вход |
-| `02-register.png` | Регистрация |
-| `11-catalog.png` | Библиотека курсов |
-| `12-catalog-find.png` | Поиск внешних курсов |
-| `12b-catalog-create.png` | Форма «создать из статей» |
-| `13-analytics.png` | Аналитика |
-| `14-settings.png` | Настройки (обзор) |
-| `14b-settings-ai.png` | Параметры ИИ-агента |
-| `14c-settings-editor.png` | Параметры редактора |
+| Файл                           | Экран / действие                   |
+| ------------------------------ | ---------------------------------- |
+| `01-login.png`                 | Вход                               |
+| `02-register.png`              | Регистрация                        |
+| `11-catalog.png`               | Библиотека курсов                  |
+| `12-catalog-find.png`          | Поиск внешних курсов               |
+| `12b-catalog-create.png`       | Форма «создать из статей»          |
+| `13-analytics.png`             | Аналитика                          |
+| `14-settings.png`              | Настройки (обзор)                  |
+| `14b-settings-ai.png`          | Параметры ИИ-агента                |
+| `14c-settings-editor.png`      | Параметры редактора                |
 | `14d-settings-integration.png` | Форма интеграции (секреты очищены) |
-| `15-catalog-detail.png` | Карточка курса |
-| `16-session.png` | Занятие / сессия |
-| `16b-session-actions.png` | Кнопки навигации на шаге |
-| `20-pack-studio.png` | Редактор Pack Studio |
-| `20b-pack-studio-actions.png` | Validate / Build / Upload |
-| `21-pack-studio-login.png` | Вход в Pack Studio |
+| `15-catalog-detail.png`        | Карточка курса                     |
+| `16-session.png`               | Занятие / сессия                   |
+| `16b-session-actions.png`      | Кнопки навигации на шаге           |
+| `20-pack-studio.png`           | Редактор Pack Studio               |
+| `20b-pack-studio-actions.png`  | Validate / Build / Upload          |
+| `21-pack-studio-login.png`     | Вход в Pack Studio                 |
 
 ## Как переснять
 

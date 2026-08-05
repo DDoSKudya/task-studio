@@ -248,6 +248,7 @@ ts_t() {
     err_robocopy) en="robocopy was not found (required for a safe update on Windows)."; ru="robocopy не найден (нужен для безопасного обновления в Windows)." ;;
     err_update_dev) en="Self-update is only for the consumer install (%s). Developer trees are left untouched."; ru="Самообновление доступно только для пользовательской установки (%s). Дерево разработчика не изменяется." ;;
     err_update_check) en="Update check failed: %s"; ru="Проверка обновлений не удалась: %s" ;;
+    err_update_in_progress) en="Another Task Studio update is already in progress."; ru="Другое обновление Task Studio уже выполняется." ;;
     err_stop_before_update) en="Stop the containers before updating."; ru="Остановите контейнеры перед обновлением." ;;
     err_curl) en="curl was not found."; ru="curl не найден." ;;
     err_tar) en="tar was not found."; ru="tar не найден." ;;

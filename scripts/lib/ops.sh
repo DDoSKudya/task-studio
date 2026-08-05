@@ -1297,9 +1297,49 @@ ops_update_preserve_paths() {
     'docker-compose.override.yml'
 }
 
+ops_sync_die() {
+  local msg="$1"
+  if declare -F ui_die >/dev/null 2>&1; then
+    ui_die "$msg"
+  fi
+  printf '%s\n' "$msg" >&2
+  exit 1
+}
+
+# Portable exclusive lock: flock(1) on Linux; mkdir on macOS / hosts without flock.
+ops_sync_acquire_lock() {
+  local lock="$1"
+  OPS_SYNC_LOCK_DIR=""
+  OPS_SYNC_LOCK_FD=""
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"$lock"
+    if ! flock -n 9; then
+      return 1
+    fi
+    OPS_SYNC_LOCK_FD=9
+    return 0
+  fi
+  if mkdir "${lock}.d" 2>/dev/null; then
+    OPS_SYNC_LOCK_DIR="${lock}.d"
+    return 0
+  fi
+  return 1
+}
+
+ops_sync_release_lock() {
+  if [[ -n "${OPS_SYNC_LOCK_DIR:-}" ]]; then
+    rmdir "$OPS_SYNC_LOCK_DIR" 2>/dev/null || true
+    OPS_SYNC_LOCK_DIR=""
+  fi
+  if [[ -n "${OPS_SYNC_LOCK_FD:-}" ]]; then
+    eval "exec ${OPS_SYNC_LOCK_FD}>&-" 2>/dev/null || true
+    OPS_SYNC_LOCK_FD=""
+  fi
+}
+
 ops_sync_payload() {
   local src="$1" dst="$2"
-  command -v tar >/dev/null 2>&1 || ui_die "$(ts_t err_tar)"
+  command -v tar >/dev/null 2>&1 || ops_sync_die "$(ts_t err_tar)"
 
   local parent base work newroot preserve backup rel lock
   parent="$(dirname "$dst")"
@@ -1310,15 +1350,15 @@ ops_sync_payload() {
   preserve="$work/preserve"
   backup="$work/backup"
 
-  exec 9>"$lock"
-  if ! flock -n 9; then
-    ui_die "$(ts_t err_update_in_progress 2>/dev/null || echo 'update already in progress')"
+  if ! ops_sync_acquire_lock "$lock"; then
+    ops_sync_die "$(ts_t err_update_in_progress)"
   fi
 
   rm -rf "$work"
   mkdir -p "$newroot" "$preserve"
 
   if ! tar -C "$src" -cf - . | tar -C "$newroot" -xf -; then
+    ops_sync_release_lock
     rm -rf "$work"
     return 1
   fi
@@ -1332,6 +1372,7 @@ ops_sync_payload() {
   done < <(ops_update_preserve_paths)
 
   if ! mv "$dst" "$backup"; then
+    ops_sync_release_lock
     rm -rf "$work"
     return 1
   fi
@@ -1339,15 +1380,18 @@ ops_sync_payload() {
   if ! mv "$newroot" "$dst"; then
     rm -rf "$dst"
     mv "$backup" "$dst" 2>/dev/null || true
+    ops_sync_release_lock
     rm -rf "$work"
     return 1
   fi
 
   cd "$dst" || {
+    ops_sync_release_lock
     rm -rf "$backup" "$work"
     return 1
   }
   rm -rf "$backup" "$work"
+  ops_sync_release_lock
 }
 
 ops_update_cache_path() {

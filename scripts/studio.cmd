@@ -6,6 +6,9 @@ set ERR=%ERRORLEVEL%
 if not %ERR%==0 (
   echo.
   echo Task Studio Launcher failed with exit code %ERR%.
+  if /I "%CI%"=="true" exit /b %ERR%
+  if /I "%GITHUB_ACTIONS%"=="true" exit /b %ERR%
+  if not "%TASK_STUDIO_NO_PAUSE%"=="" exit /b %ERR%
   pause
 )
 exit /b %ERR%

@@ -227,6 +227,9 @@ function Get-TsText {
     'err_update_check' {
       $en = 'Update check failed: %s'; $ru = 'Проверка обновлений не удалась: %s'
     }
+    'err_update_in_progress' {
+      $en = 'Another Task Studio update is already in progress.'; $ru = 'Другое обновление Task Studio уже выполняется.'
+    }
     'err_update_dev' {
       $en = 'Self-update is only for the consumer install (%s). Developer trees are left untouched.'; $ru = 'Самообновление доступно только для пользовательской установки (%s). Дерево разработчика не изменяется.'
     }

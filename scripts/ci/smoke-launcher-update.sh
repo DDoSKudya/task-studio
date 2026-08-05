@@ -26,6 +26,7 @@ printf 'old\n' >"$dst/obsolete.txt"
 bash -lc '
   set -euo pipefail
   source "'"$ROOT"'/scripts/lib/i18n.sh"
+  source "'"$ROOT"'/scripts/lib/ui.sh"
   source "'"$ROOT"'/scripts/lib/ops.sh"
   ops_sync_payload "$1" "$2"
 ' _ "$src" "$dst"
