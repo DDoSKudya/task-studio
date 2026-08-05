@@ -27,12 +27,20 @@ try {
 
   $env:TASK_STUDIO_ARCHIVE_URL_ZIP = ([System.Uri]$archive).AbsoluteUri
   $env:TASK_STUDIO_DIR = $installDir
+  $env:TASK_STUDIO_NO_PAUSE = "1"
   Push-Location $work
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
   try {
+    # Native stderr must not trip Stop; check exit code explicitly.
     & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
       -Command "& '$bootstrap' help" `
-      2>&1 | Out-Host
+      2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+      throw "bootstrap install.ps1 help exited with code $LASTEXITCODE"
+    }
   } finally {
+    $ErrorActionPreference = $prevEap
     Pop-Location
   }
 

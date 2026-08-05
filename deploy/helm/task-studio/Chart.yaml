@@ -1,6 +1,6 @@
 apiVersion: v2
 name: task-studio
-description: Task Studio self-hosted stack (skeleton chart)
+description: Task Studio Helm chart — EXPERIMENTAL subset (auth + studio-api). Not a full Compose parity. See remediation W0 / P544.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

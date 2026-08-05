@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from app.domain.llm.prose_dedupe import collapse_repeated_prose, strip_throat_clearing
 from studio_contracts.studio_schemas import CourseDeviation
 
 from .assemble import _retarget_code_fences
+from .constants import _MAX_SOURCE_EXCERPT
+from .source_exercise_harvest import strip_theory_exercise_sections
+from .source_images import filter_theory_images
 from .textutil import _as_str, _join_string_list, _slug
 
 
@@ -40,6 +45,7 @@ def _normalize_chapters(raw: object) -> list[dict[str, str]]:
         chapter_id = _slug(_as_str(item.get("id")) or title)
         excerpt = _as_str(item.get("source_excerpt")) or _as_str(item.get("excerpt")) or title
         purpose = _as_str(item.get("purpose")) or ""
+        learning_objective = _as_str(item.get("learning_objective")) or ""
         source_titles_raw = item.get("source_titles")
         source_titles = ""
         if isinstance(source_titles_raw, list):
@@ -51,12 +57,14 @@ def _normalize_chapters(raw: object) -> list[dict[str, str]]:
             {
                 "id": chapter_id,
                 "title": title,
-                "source_excerpt": excerpt[:1200],
-                "purpose": purpose[:240],
+                "source_excerpt": excerpt[:_MAX_SOURCE_EXCERPT],
+                "purpose": purpose[:320],
+                "learning_objective": learning_objective[:320],
                 "source_titles": source_titles[:400],
-                "bridge_from_prev": (_as_str(item.get("bridge_from_prev")) or "")[:240],
+                "bridge_from_prev": (_as_str(item.get("bridge_from_prev")) or "")[:320],
                 "assumes_known": _join_string_list(item.get("assumes_known"), limit=8)[:400],
                 "must_not_reteach": _join_string_list(item.get("must_not_reteach"), limit=8)[:400],
+                "source_images": (_as_str(item.get("source_images")) or "")[:2_000],
             }
         )
     return chapters
@@ -102,13 +110,23 @@ def _normalize_theory_step(raw: dict[str, Any], chapter: dict[str, str]) -> dict
     if not step_id.startswith("theory"):
         step_id = f"theory-{step_id}"
     content = _retarget_code_fences(_as_str(raw.get("content")) or chapter["source_excerpt"])
+    content = strip_theory_exercise_sections(content)
+    content = strip_throat_clearing(collapse_repeated_prose(content))
+    allowed = {
+        match.group(1)
+        for match in re.finditer(r"\((https?://[^)\s]+)\)", chapter.get("source_images") or "")
+    }
+    content, image_urls = filter_theory_images(content, allowed_urls=allowed)
     title = _as_str(raw.get("title")) or chapter["title"]
-    return {
+    step: dict[str, object] = {
         "id": step_id,
         "kind": "theory",
         "title": title,
         "content": content,
     }
+    if image_urls:
+        step["images"] = image_urls
+    return step
 
 
 def _normalize_domain(raw: object, *, article: str, title: str) -> str:

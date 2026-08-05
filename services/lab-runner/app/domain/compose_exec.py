@@ -4,6 +4,13 @@ import subprocess
 from pathlib import Path
 
 
+def compose_service_name(check: dict[str, object]) -> str:
+    service = check.get("service")
+    if isinstance(service, str) and service.strip():
+        return service.strip()
+    return "app"
+
+
 def run_check(
     check: dict[str, object],
     compose_path: Path,
@@ -16,8 +23,9 @@ def run_check(
     if not isinstance(command, str) or not command.strip():
         return False
     expected = expected_exit_code(check)
+    service = compose_service_name(check)
     result = subprocess.run(
-        compose_command(compose_path, project_name, "exec", "-T", "app", "sh", "-lc", command),
+        compose_command(compose_path, project_name, "exec", "-T", service, "sh", "-lc", command),
         capture_output=True,
         text=True,
         timeout=timeout,

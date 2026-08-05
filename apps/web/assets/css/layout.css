@@ -244,6 +244,67 @@
   margin-top: 0.625rem;
 }
 
+.sidebar-version{
+  display: grid;
+  gap: 0.12rem;
+  justify-items: center;
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+  font-family: var(--font-mono);
+  color: rgb(255 255 255 / 0.42);
+  min-width: 0;
+  text-align: center;
+}
+
+.sidebar-version-short,
+.sidebar-version-full,
+.sidebar-version-build{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.sidebar-version-short{
+  display: none;
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: rgb(255 255 255 / 0.5);
+}
+
+.sidebar-version-full{
+  font-size: 0.66rem;
+  font-weight: 650;
+  color: rgb(255 255 255 / 0.58);
+}
+
+.sidebar-version-build{
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.38);
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-version{
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-version-short{
+  display: block;
+}
+
+.sidebar:not(.sidebar-expanded) .sidebar-version-full,
+.sidebar:not(.sidebar-expanded) .sidebar-version-build{
+  display: none;
+}
+
 .language-switcher{
   position: relative;
 }

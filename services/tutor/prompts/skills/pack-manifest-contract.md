@@ -15,4 +15,8 @@ Final assembled pack must be Task Studio manifest schema v1:
 
 Ids: lowercase snake_case / kebab-safe (`[a-z0-9-]+`).
 Video steps (`kind: video` + `video_url`) only when the article HTML/markdown supplies
-a real external player URL (YouTube/Vimeo/direct). Do not invent videos. Lab: omit in v1.
+a real external player URL (YouTube/Vimeo/direct). Do not invent videos. Place them as
+**separate study slides** (not inside theory markdown). Lab: omit in v1.
+
+Theory may embed at most 1–2 source figures as markdown `![alt](https://…)` copied from
+the article — never invent image URLs.

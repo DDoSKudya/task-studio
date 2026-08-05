@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 import httpx
 from app.config import SessionsSettings
 from app.domain.session_errors import SessionError, SubmitOutcome
-from app.domain.session_grading_client import next_attempt_number, upstream_error_detail
+from app.domain.session_grading_client import create_attempt, upstream_error_detail
 from app.domain.session_lab_policy import lab_should_sync_llm
-from app.infra.models import Attempt, Session
+from app.infra.models import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.grading_schemas import GradingCheckResponse, GradingLabSubmitResponse
 
@@ -25,25 +25,16 @@ async def submit_lab(
     settings: SessionsSettings,
     client: httpx.AsyncClient,
 ) -> SubmitOutcome:
-    attempt_number = await next_attempt_number(
+    attempt = await create_attempt(
         session,
-        learning_session.id,
-        learning_session.current_topic_id,
-        learning_session.current_phase,
-        learning_session.current_step_id,
-    )
-    attempt = Attempt(
         session_id=learning_session.id,
         user_id=user_id,
         topic_id=learning_session.current_topic_id,
         phase=learning_session.current_phase,
         step_id=learning_session.current_step_id,
-        attempt_number=attempt_number,
         submission=submission,
         result={"status": "pending"},
     )
-    session.add(attempt)
-    await session.flush()
 
     try:
         response = await client.post(

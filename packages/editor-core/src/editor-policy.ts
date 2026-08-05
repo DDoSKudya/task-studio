@@ -1,3 +1,5 @@
+export const EDITOR_RUNTIMES = ['python', 'javascript', 'go', 'sql'] as const
+
 export type EditorMode = 'full' | 'syntax_only'
 
 export type EditorLanguageSettings = {

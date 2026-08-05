@@ -29,6 +29,8 @@ payload.mkdir(parents=True, exist_ok=True)
 
 for rel in subprocess.check_output(["git", "ls-files"], cwd=root, text=True).splitlines():
     src = root / rel
+    if not src.is_file():
+        continue
     dst = payload / rel
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)

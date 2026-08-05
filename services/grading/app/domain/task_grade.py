@@ -1,1 +1,9 @@
-from app.domain.check.task import *  # noqa: F403
+from app.domain.check.task import (
+    extract_text_submission,
+    grade_task,
+)
+
+__all__ = [
+    "extract_text_submission",
+    "grade_task",
+]

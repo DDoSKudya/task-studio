@@ -5,7 +5,6 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -34,11 +33,13 @@ _TITLE_OVERRIDES: dict[str, str] = {
     "relational-databases": "Relational Databases",
     "python-for-everybody": "Python for Everybody",
     "full-stack-developer": "Full Stack Developer",
-    "javascript-algorithms-and-data-structures-22": "JavaScript Algorithms and Data Structures (New)",
+    "javascript-algorithms-and-data-structures-22": (
+        "JavaScript Algorithms and Data Structures (New)"
+    ),
     "responsive-web-design-22": "Responsive Web Design (New)",
 }
 
-                                                                      
+
 _CODE_TYPES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 20, 25, 26, 27, 28, 29}
 
 
@@ -84,18 +85,17 @@ def search_remote(*, query: str, **_ctx: object) -> list[dict[str, object]]:
     needle = query.casefold().strip()
     if not needle:
         return []
-    return [
-        item
-        for item in list_catalog()
-        if needle in str(item["title"]).casefold()
-        or needle in str(item.get("description", "")).casefold()
-        or needle in str(item.get("external_id", "")).casefold()
-        or any(
-            needle in str(tag).casefold()
-            for tag in (item.get("tags") if isinstance(item.get("tags"), list) else [])
-            if isinstance(tag, str)
-        )
-    ]
+    matched: list[dict[str, object]] = []
+    for item in list_catalog():
+        title = str(item.get("title") or "").casefold()
+        description = str(item.get("description") or "").casefold()
+        external_id = str(item.get("external_id") or "").casefold()
+        tags_raw = item.get("tags")
+        tags: list[object] = list(tags_raw) if isinstance(tags_raw, list) else []
+        tag_hit = any(isinstance(tag, str) and needle in tag.casefold() for tag in tags)
+        if needle in title or needle in description or needle in external_id or tag_hit:
+            matched.append(item)
+    return matched
 
 
 def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object], dict[str, object]]:
@@ -287,13 +287,13 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
 def _fetch_challenges_parallel(
     superblock: str,
     jobs: list[tuple[str, str, str, str, str]],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     if not jobs:
         return {}
 
-    results: dict[str, dict[str, Any]] = {}
+    results: dict[str, dict[str, object]] = {}
 
-    def _one(job: tuple[str, str, str, str, str]) -> tuple[str, dict[str, Any] | None]:
+    def _one(job: tuple[str, str, str, str, str]) -> tuple[str, dict[str, object] | None]:
         step_id, _cid, _title, block_slug, dashed = job
         url = _PAGE_DATA.format(
             superblock=quote(superblock, safe="-"),
@@ -301,18 +301,27 @@ def _fetch_challenges_parallel(
             challenge=quote(dashed, safe="-"),
         )
         try:
-            with httpx.Client(timeout=_HTTP_TIMEOUT, follow_redirects=True, headers=_headers()) as client:
+            with httpx.Client(
+                timeout=_HTTP_TIMEOUT,
+                follow_redirects=True,
+                headers=_headers(),
+            ) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     return step_id, None
                 payload = response.json()
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError):
             return step_id, None
-        node = (
-            payload.get("result", {}).get("data", {}).get("challengeNode", {}).get("challenge")
-            if isinstance(payload, dict)
-            else None
-        )
+        node: object | None = None
+        if isinstance(payload, dict):
+            result = payload.get("result")
+            data = result.get("data") if isinstance(result, dict) else None
+            challenge_node = data.get("challengeNode") if isinstance(data, dict) else None
+            node = (
+                challenge_node.get("challenge")
+                if isinstance(challenge_node, dict)
+                else None
+            )
         if not isinstance(node, dict):
             return step_id, None
         return step_id, node
@@ -334,14 +343,19 @@ def _map_challenge(
     title: str,
     block_slug: str,
     superblock: str,
-    remote: dict[str, Any],
+    remote: dict[str, object],
 ) -> tuple[dict[str, object], str, str | None]:
     description = _as_html(remote.get("description"))
     instructions = _as_html(remote.get("instructions"))
-    tests_raw = remote.get("tests") if isinstance(remote.get("tests"), list) else []
-    files_raw = remote.get("challengeFiles") if isinstance(remote.get("challengeFiles"), list) else []
-    files = [item for item in files_raw if isinstance(item, dict)]
-    questions = remote.get("questions") if isinstance(remote.get("questions"), list) else []
+    tests_raw_obj = remote.get("tests")
+    tests_raw: list[object] = list(tests_raw_obj) if isinstance(tests_raw_obj, list) else []
+    files_raw_obj = remote.get("challengeFiles")
+    files_raw: list[object] = list(files_raw_obj) if isinstance(files_raw_obj, list) else []
+    files: list[dict[str, object]] = [
+        item for item in files_raw if isinstance(item, dict)
+    ]
+    questions_obj = remote.get("questions")
+    questions: list[object] = list(questions_obj) if isinstance(questions_obj, list) else []
     video_id = str(remote.get("videoId") or "").strip()
     video_url = str(remote.get("videoUrl") or "").strip()
     if video_id and not video_url:
@@ -414,12 +428,15 @@ def _map_challenge(
     has_body = bool(body_html.strip())
     if challenge_type in _CODE_TYPES or files or tests_raw or has_body or template.strip():
         warning: str | None = None
+        fidelity = "full" if has_body else "partial"
         if not template.strip():
             template = _default_template(runtime, title)
-            fidelity = "full" if has_body else "partial"
-            warning = "starter file empty; scaffold template used" if has_body else "challenge body empty"
+            warning = (
+                "starter file empty; scaffold template used"
+                if has_body
+                else "challenge body empty"
+            )
         else:
-            fidelity = "full" if has_body else "partial"
             if tests_raw:
                 warning = "FCC browser asserts are imported as text only"
             if not has_body:
@@ -497,7 +514,7 @@ def _compose_body_html(
     *,
     description: str,
     instructions: str,
-    tests: list[Any],
+    tests: list[object],
     video_url: str = "",
 ) -> str:
     parts: list[str] = []
@@ -522,7 +539,7 @@ def _compose_body_html(
     return "\n".join(parts)
 
 
-def _fcc_tests_payload(tests: list[Any]) -> list[dict[str, str]]:
+def _fcc_tests_payload(tests: list[object]) -> list[dict[str, str]]:
     payload: list[dict[str, str]] = []
     for item in tests:
         if not isinstance(item, dict):
@@ -540,7 +557,7 @@ def _fcc_tests_payload(tests: list[Any]) -> list[dict[str, str]]:
     return payload
 
 
-def _quiz_from_questions(questions: list[Any]) -> dict[str, object] | None:
+def _quiz_from_questions(questions: list[object]) -> dict[str, object] | None:
     for item in questions:
         if not isinstance(item, dict):
             continue
@@ -565,7 +582,7 @@ def _quiz_from_questions(questions: list[Any]) -> dict[str, object] | None:
     return None
 
 
-def _template_from_files(files: list[dict[str, Any]], *, runtime: str) -> str:
+def _template_from_files(files: list[dict[str, object]], *, runtime: str) -> str:
     if not files:
         return ""
     chunks: list[str] = []
@@ -584,7 +601,11 @@ def _template_from_files(files: list[dict[str, Any]], *, runtime: str) -> str:
     return "\n\n".join(chunk for chunk in chunks if chunk).strip()
 
 
-def _runtime_for(superblock: str, help_category: str, files: list[dict[str, Any]]) -> tuple[str, str]:
+def _runtime_for(
+    superblock: str,
+    help_category: str,
+    files: list[dict[str, object]],
+) -> tuple[str, str]:
     haystack = f"{superblock} {help_category}".casefold()
     exts = {str(item.get("ext") or "").casefold() for item in files}
     if "py" in exts or "python" in haystack:
@@ -632,7 +653,7 @@ def _html_to_text(value: str) -> str:
     return html.unescape(text).strip()
 
 
-def _graphql(query: str, *, variables: dict[str, object] | None = None) -> dict[str, Any]:
+def _graphql(query: str, *, variables: dict[str, object] | None = None) -> dict[str, object]:
     body: dict[str, object] = {"query": query}
     if variables:
         body["variables"] = variables
@@ -642,14 +663,12 @@ def _graphql(query: str, *, variables: dict[str, object] | None = None) -> dict[
         payload = response.json()
     if not isinstance(payload, dict):
         raise ValueError("invalid graphql response")
-    if payload.get("errors"):
-        raise ValueError(
-            str(
-                payload["errors"][0].get("message")
-                if isinstance(payload["errors"][0], dict)
-                else payload["errors"]
-            )
-        )
+    errors = payload.get("errors")
+    if isinstance(errors, list) and errors:
+        first = errors[0]
+        if isinstance(first, dict):
+            raise ValueError(str(first.get("message") or first))
+        raise ValueError(str(first))
     data = payload.get("data")
     if not isinstance(data, dict):
         raise ValueError("graphql response missing data")

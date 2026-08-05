@@ -33,6 +33,7 @@ async def grade_submission(
         provider_url=settings.provider_url,
         api_key_encrypted=settings.api_key_encrypted,
         model=settings.model,
+        task="grade",
     )
     if target is None:
         return TutorGradeResponse(

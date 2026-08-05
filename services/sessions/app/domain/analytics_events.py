@@ -37,8 +37,23 @@ def submit_event(
     learning_session: Session,
     attempt: Attempt,
     grading: GradingCheckResponse,
+    *,
+    outcome_status: str = "completed",
 ) -> AnalyticsEventMessage:
     step = get_step(learning_session.manifest, attempt.step_id)
+    if outcome_status == "pending" and step.get("kind") == "lab":
+        return analytics_event(
+            learning_session,
+            "lab_queued",
+            topic_id=attempt.topic_id,
+            phase=attempt.phase,
+            step_id=attempt.step_id,
+            payload={
+                "attempt_id": str(attempt.id),
+                "attempt_number": attempt.attempt_number,
+                "status": "pending",
+            },
+        )
     match step.get("kind"):
         case "quiz":
             event_type = "quiz_answered"

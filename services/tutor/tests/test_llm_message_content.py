@@ -35,3 +35,18 @@ def test_chat_payload_includes_response_format() -> None:
     )
     assert payload["response_format"] == {"type": "json_object"}
     assert payload["model"] == "mistral-small"
+    assert "keep_alive" not in payload
+
+
+def test_chat_payload_ollama_num_ctx_keeps_model_warm() -> None:
+    target = LlmTarget("http://ollama:11434/v1", None, "qwen2.5:3b")
+    payload = chat_payload(
+        target,
+        system_prompt="sys",
+        user_message="user",
+        stream=False,
+        num_ctx=2048,
+        max_tokens=900,
+    )
+    assert payload["options"] == {"num_ctx": 2048}
+    assert payload["keep_alive"] == "-1"

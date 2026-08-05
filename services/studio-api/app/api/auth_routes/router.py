@@ -6,6 +6,7 @@ from app.api.auth_routes.support import (
     call_auth,
     clear_auth_cookie,
     prepare_settings_patch,
+    rotate_access_cookie,
     sign_in,
 )
 from app.config import StudioApiSettings, get_settings
@@ -52,8 +53,13 @@ async def logout(response: Response, settings: Settings) -> Response:
     return response
 
 
-@router.get("/me", response_model=MeResponse)
-async def me(user_id: UserId, settings: Settings, client: UpstreamClient) -> MeResponse:
+@router.post("/refresh", response_model=MeResponse)
+async def refresh(
+    response: Response,
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> MeResponse:
     upstream = await call_auth(
         client,
         settings,
@@ -61,7 +67,28 @@ async def me(user_id: UserId, settings: Settings, client: UpstreamClient) -> MeR
         "/internal/v1/auth/me",
         user_id=str(user_id),
     )
-    return parse_upstream(upstream, MeResponse)
+    body = parse_upstream(upstream, MeResponse)
+    rotate_access_cookie(response, user_id, settings)
+    return body
+
+
+@router.get("/me", response_model=MeResponse)
+async def me(
+    response: Response,
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> MeResponse:
+    upstream = await call_auth(
+        client,
+        settings,
+        "get",
+        "/internal/v1/auth/me",
+        user_id=str(user_id),
+    )
+    body = parse_upstream(upstream, MeResponse)
+    rotate_access_cookie(response, user_id, settings)
+    return body
 
 
 @router.patch("/me/settings", response_model=MeResponse)

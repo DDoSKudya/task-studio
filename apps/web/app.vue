@@ -6,6 +6,26 @@ function isAuthShell(path: string, layout: unknown) {
 const route = useRoute()
 const suppressPageTransition = useState('suppress-page-transition', () => false)
 
+const layoutTransition = {
+  name: 'shell-swap',
+  mode: 'out-in' as const,
+}
+
+const authPageTransition = {
+  name: 'auth-page',
+  mode: 'out-in' as const,
+}
+
+const defaultPageTransition = {
+  name: 'page-cyber',
+  mode: 'out-in' as const,
+}
+
+const silentPageTransition = {
+  name: 'page-none',
+  mode: 'out-in' as const,
+}
+
 const router = useRouter()
 router.beforeEach((to, from) => {
   if (!from.matched.length) {
@@ -18,37 +38,31 @@ router.beforeEach((to, from) => {
 })
 
 router.afterEach(() => {
-
-  suppressPageTransition.value = false
+  nextTick(() => {
+    suppressPageTransition.value = false
+  })
 })
-
-const layoutTransition = {
-  name: 'shell-swap',
-  mode: 'out-in' as const,
-}
 
 const pageTransition = computed(() => {
   if (suppressPageTransition.value) {
-    return false
+    return silentPageTransition
   }
   if (isAuthShell(route.path, route.meta.layout)) {
-    return {
-      name: 'auth-page',
-      mode: 'out-in' as const,
-    }
+    return authPageTransition
   }
-  return {
-    name: 'page-cyber',
-    mode: 'out-in' as const,
-  }
+  return defaultPageTransition
 })
+
+function pageKey(r: { path: string }) {
+  return r.path
+}
 </script>
 
 <template>
   <div class="app-root">
     <OpBackdrop />
     <NuxtLayout :transition="layoutTransition">
-      <NuxtPage :transition="pageTransition" />
+      <NuxtPage :transition="pageTransition" :page-key="pageKey" />
     </NuxtLayout>
     <AppToastStack />
   </div>

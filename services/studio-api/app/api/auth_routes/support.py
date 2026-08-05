@@ -6,6 +6,7 @@ from app.api.auth_routes.session import (
     call_auth,
     clear_auth_cookie,
     issue_session,
+    rotate_access_cookie,
     set_auth_cookie,
     sign_in,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "issue_session",
     "load_existing_settings",
     "prepare_settings_patch",
+    "rotate_access_cookie",
     "set_auth_cookie",
     "sign_in",
 ]

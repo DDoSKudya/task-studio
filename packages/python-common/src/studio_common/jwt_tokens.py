@@ -14,7 +14,7 @@ def create_access_token(
     expire_hours: int | None = None,
 ) -> str:
     key = secret or os.environ["JWT_SECRET"]
-    hours = expire_hours if expire_hours is not None else int(os.getenv("JWT_EXPIRE_HOURS", "168"))
+    hours = expire_hours if expire_hours is not None else int(os.getenv("JWT_EXPIRE_HOURS", "12"))
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),

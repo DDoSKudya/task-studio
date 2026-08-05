@@ -8,10 +8,11 @@ import {
 
 import { extractErrorMessage } from '~/utils/api'
 import { buildCourseOutline } from '~/utils/catalog'
+import { stepKindMark } from '~/utils/session'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { getPack, deletePack } = useCatalog()
 const { importFromSearch, getImportJob } = useSearch()
 const discoverCache = useDiscoverCache()
@@ -20,11 +21,16 @@ const toasts = useToasts()
 
 const packId = computed(() => String(route.params.id))
 const pack = ref<Awaited<ReturnType<typeof getPack>> | null>(null)
+useAppPageTitle(computed(() => pack.value?.title ?? t('catalog.courseTitle')))
 const pending = ref(true)
 const starting = ref(false)
 const deleting = ref(false)
 const redownloading = ref(false)
 const loadFailed = ref(false)
+
+function lessonKindMark(kind: string) {
+  return stepKindMark(kind, t, te)
+}
 
 const outline = computed(() =>
   pack.value?.manifest
@@ -134,10 +140,14 @@ async function onRedownload() {
     const deadline = Date.now() + 5 * 60_000
     while (Date.now() < deadline) {
       const job = await getImportJob(accepted.id)
-      if (job.status === 'done') {
+      if (job.status === 'done' || job.status === 'partial') {
         discoverCache.clear()
         await reloadPack()
-        toasts.success(t('search.downloadDone', { title: pack.value.title }))
+        if (job.status === 'partial') {
+          toasts.success(t('search.downloadPartial', { title: pack.value.title }))
+        } else {
+          toasts.success(t('search.downloadDone', { title: pack.value.title }))
+        }
         return
       }
       if (job.status === 'failed') {
@@ -168,6 +178,8 @@ async function onRedownload() {
     :title="pack?.title ?? t('catalog.courseTitle')"
     :meta="pack ? `${pack.slug} · v${pack.active_version.version}` : undefined"
     :fill="false"
+    preserve-title-case
+    preserve-meta-case
   >
     <template #actions>
       <button
@@ -288,7 +300,7 @@ async function onRedownload() {
                 class="stepik-lesson"
               >
                 <span class="stepik-lesson-mark" aria-hidden="true">
-                  {{ lesson.kind.slice(0, 1).toUpperCase() }}
+                  {{ lessonKindMark(lesson.kind) }}
                 </span>
                 <span class="stepik-lesson-title">
                   {{ lesson.indexLabel }} {{ lesson.title }}

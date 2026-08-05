@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Literal, assert_never
 
 import httpx
@@ -7,6 +8,7 @@ from app.config import StudioApiSettings
 from app.upstream import parse_upstream
 from fastapi import Response
 from studio_common.auth_schemas import AuthSuccess, LoginRequest, RegisterRequest
+from studio_common.jwt_tokens import create_access_token
 
 type AuthAction = Literal["register", "login"]
 type AuthHttpMethod = Literal["get", "post", "patch"]
@@ -50,19 +52,28 @@ def clear_auth_cookie(response: Response, settings: StudioApiSettings) -> None:
     response.delete_cookie(key=settings.cookie_name, path="/")
 
 
+def rotate_access_cookie(
+    response: Response,
+    user_id: uuid.UUID | str,
+    settings: StudioApiSettings,
+) -> None:
+    set_auth_cookie(
+        response,
+        create_access_token(
+            user_id,
+            secret=settings.jwt_secret,
+            expire_hours=settings.jwt_expire_hours,
+        ),
+        settings,
+    )
+
+
 def issue_session(
     response: Response,
     body: AuthSuccess,
     settings: StudioApiSettings,
 ) -> AuthSuccess:
-    from studio_common.jwt_tokens import create_access_token
-
-    token = create_access_token(
-        body.user.id,
-        secret=settings.jwt_secret,
-        expire_hours=settings.jwt_expire_hours,
-    )
-    set_auth_cookie(response, token, settings)
+    rotate_access_cookie(response, body.user.id, settings)
     return body
 
 

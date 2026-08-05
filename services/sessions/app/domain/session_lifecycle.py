@@ -14,6 +14,7 @@ from app.domain.session_queries import (
     require_active,
 )
 from app.infra.models import PhaseProgress, Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 __all__ = [
@@ -50,13 +51,20 @@ async def start_session(
         await session.refresh(primary)
         return primary, False
 
-    learning_session = await create_new_session(
-        session,
-        user_id,
-        pack_version_id,
-        settings=settings,
-        client=client,
-    )
+    try:
+        learning_session = await create_new_session(
+            session,
+            user_id,
+            pack_version_id,
+            settings=settings,
+            client=client,
+        )
+    except IntegrityError:
+        await session.rollback()
+        raced = await active_sessions_for_pack(session, user_id, pack_version_id)
+        if raced:
+            return raced[0], False
+        raise
     return learning_session, True
 
 

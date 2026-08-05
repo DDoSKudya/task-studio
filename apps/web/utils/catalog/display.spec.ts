@@ -10,6 +10,7 @@ import {
   inferTagsFromText,
   libraryCardSubtitleText,
   packPrimaryHref,
+  packContentTags,
   platformHintText,
   settingsLinkForPlatform,
   uniqueTags,
@@ -84,5 +85,13 @@ describe('catalog/display', () => {
       }),
     ).toBe('Lesson 1')
     expect(platformHintText(null, 'fallback')).toBe('fallback')
+  })
+
+  it('builds pack content tags from manifest flags', () => {
+    expect(
+      packContentTags({ has_theory: true, has_video: true, has_quiz: false, has_practice: true }),
+    ).toEqual(['theory', 'video', 'practice'])
+    expect(packContentTags({ has_video: true })).toEqual(['video'])
+    expect(packContentTags({})).toEqual([])
   })
 })

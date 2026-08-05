@@ -94,7 +94,7 @@ studio_run_action() {
       ui_run_progress "$(ts_t title_restart)" ops_restart || true
       ;;
     install)
-      ui_run_progress "$(ts_t title_install)" ops_install || true
+      ui_run_progress "$(ops_install_title)" ops_install || true
       ;;
     update)
       TS_UPDATE_REEXEC=0
@@ -216,7 +216,7 @@ main() {
       if { [[ -t 2 ]] || [[ -r /dev/tty ]]; } && ui_supports_color; then
         ui_session_start
         trap 'ui_session_end' EXIT
-        ui_run_progress "$(ts_t title_install)" ops_install "$@" || true
+        ui_run_progress "$(ops_install_title)" ops_install "$@" || true
         trap - EXIT
         ui_session_end
       else

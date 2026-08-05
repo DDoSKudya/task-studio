@@ -53,6 +53,20 @@ class SessionSummary(BaseModel):
     updated_at: datetime
 
 
+class PackProgressItem(BaseModel):
+    id: uuid.UUID
+    pack_version_id: uuid.UUID
+    pack_title: str
+    status: SessionStatus
+    current_topic_id: str
+    current_phase: PhaseName
+    current_step_id: str
+    started_at: datetime
+    updated_at: datetime
+    chapter_title: str
+    progress_percent: int
+
+
 class PhaseProgressInfo(BaseModel):
     topic_id: str
     study_completed: bool

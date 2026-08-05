@@ -30,11 +30,21 @@ Never open on an advanced pattern while a foundation source was provided unused.
 - Order by **learning dependency**, not by source upload order or TOC order alone.
 - Prefer TOC headings as hints, then re-sequence into a teachable arc.
 
-## Chapter titles
+## Chapter titles & objectives
 
 - Course-facing names a learner understands alone (no "Part 1", no file names).
 - One idea per title. Specific beats vague ("Flush vs commit" > "Transactions").
-- Same language as the articles (ru/en).
+- Same language as the request **locale** (ru/en), even when sources are in another language.
+- Each chapter needs **`learning_objective`**: one Bloom verb + one skill
+  ("After this chapter the learner can **predict** when SQLAlchemy emits INSERT").
+- **`purpose`** = where this chapter sits in the arc (one line); **`learning_objective`**
+  = what the learner can **do** after reading (observable, quiz-testable).
+
+## Sizing (avoid bloat)
+
+- Prefer **fewer, denser** chapters over many thin slides.
+- Merge micro-headings that teach the same move; split only when dependency changes.
+- If two chapters would re-teach the same foundation, merge or mark `must_not_reteach`.
 
 ## Anti-patterns (forbidden)
 
@@ -47,7 +57,9 @@ Never open on an advanced pattern while a foundation source was provided unused.
 ## Analyze output extras
 
 For each chapter, `source_excerpt` must be **verbatim** support from the sources
-that justify that chapter (≤1200 chars). Prefer the source that teaches that idea.
+that justify that chapter (≤3500 chars of **teaching** prose). Prefer the source
+that teaches that idea. Skip homework / quiz / answer-key sections — those are
+harvested into assess/practice, not into theory excerpts.
 
 Also emit `book_spine` so later theory chapters share one voice and throughline:
 voice, address (ты/вы/you), throughline, glossary, recurring_metaphors.
@@ -59,3 +71,9 @@ Also emit `domain`:
 - `code` — programming / SQL / tooling articles
 - `language` — learning a natural language
 - `general` — humanities, soft skills, conceptual non-code
+
+## Fidelity
+
+The syllabus must cover the **real concepts and examples** in the sources.
+Thin generic titles that ignore source substance are failures.
+Embedded article exercises are **not** syllabus chapters.

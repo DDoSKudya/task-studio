@@ -24,6 +24,8 @@ const message = computed(() => {
   return props.error?.statusMessage || t('error.generic')
 })
 
+useAppPageTitle(message)
+
 function goHome() {
   clearError({ redirect: '/login' })
 }
@@ -99,6 +101,8 @@ function goHome() {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--color-text-secondary);
 }
 

@@ -1,5 +1,23 @@
 name: task-studio
 
+# Memory defaults mirror deploy/profiles.json → compose_env (override via .env).
+x-mem-db: &mem-db
+  mem_limit: ${MEM_LIMIT_DB:-1024m}
+x-mem-cache: &mem-cache
+  mem_limit: ${MEM_LIMIT_CACHE:-512m}
+x-mem-broker: &mem-broker
+  mem_limit: ${MEM_LIMIT_BROKER:-512m}
+x-mem-search: &mem-search
+  mem_limit: ${MEM_LIMIT_SEARCH:-1024m}
+x-mem-analytics-db: &mem-analytics-db
+  mem_limit: ${MEM_LIMIT_ANALYTICS_DB:-2048m}
+x-mem-heavy-ml: &mem-heavy-ml
+  mem_limit: ${MEM_LIMIT_HEAVY_ML:-8192m}
+x-mem-code-runner: &mem-code-runner
+  mem_limit: ${MEM_LIMIT_CODE_RUNNER:-2048m}
+x-mem-lsp: &mem-lsp
+  mem_limit: ${MEM_LIMIT_LSP:-1024m}
+
 x-backend-env: &backend-env
   DATABASE_URL: ${DATABASE_URL}
   REDIS_URL: ${REDIS_URL}
@@ -7,6 +25,9 @@ x-backend-env: &backend-env
   LOG_FORMAT: ${LOG_FORMAT:-json}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
   HOST: "0.0.0.0"
+  ORCHESTRATOR_SYSTEM_TOKEN: ${ORCHESTRATOR_SYSTEM_TOKEN:-}
+  ALLOW_INSECURE_DEFAULTS: ${ALLOW_INSECURE_DEFAULTS:-1}
+  APP_ENV: ${APP_ENV:-development}
 
 x-backend: &backend
   restart: unless-stopped
@@ -24,6 +45,7 @@ x-backend: &backend
 
 services:
   postgres:
+    <<: *mem-db
     image: postgres:16-alpine
     profiles: [full]
     restart: unless-stopped
@@ -41,6 +63,7 @@ services:
       retries: 5
 
   redis:
+    <<: *mem-cache
     image: redis:7-alpine
     profiles: [full]
     restart: unless-stopped
@@ -55,6 +78,7 @@ services:
       retries: 5
 
   rabbitmq:
+    <<: *mem-broker
     image: rabbitmq:3-management-alpine
     profiles: [full]
     restart: unless-stopped
@@ -82,8 +106,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-    ports:
-      - "8080:8080"
 
   nginx:
     image: nginx:alpine
@@ -98,7 +120,7 @@ services:
       studio-api:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "${TASK_STUDIO_HTTP_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/proxy.conf:/etc/nginx/proxy.conf:ro
@@ -137,7 +159,7 @@ services:
       - traefik.http.routers.studio-api.entrypoints=web
       - traefik.http.services.studio-api.loadbalancer.server.port=8000
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -155,9 +177,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS}
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
-      ORCHESTRATOR_SYSTEM_TOKEN: ${ORCHESTRATOR_SYSTEM_TOKEN:-}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -166,7 +187,6 @@ services:
   catalog:
     <<: *backend
     profiles: [full]
-    user: "0:0"
     build:
       context: ..
       dockerfile: services/catalog/Dockerfile
@@ -180,7 +200,7 @@ services:
     volumes:
       - ../data/packs:/data/packs
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=4)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/ready', timeout=4)"]
       interval: 10s
       timeout: 5s
       retries: 18
@@ -200,7 +220,7 @@ services:
       ANALYTICS_SERVICE_URL: http://analytics:8008
       ANALYTICS_EVENTS_QUEUE: ${ANALYTICS_EVENTS_QUEUE:-analytics.events}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -246,14 +266,15 @@ services:
       catalog:
         condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 60s
 
   piston:
-    image: ghcr.io/engineer-man/piston
+    <<: *mem-code-runner
+    image: ${PISTON_IMAGE:-ghcr.io/engineer-man/piston:latest}
     profiles: [full]
     restart: unless-stopped
     networks: [internal]
@@ -301,20 +322,22 @@ services:
       - ../integration_modules:/app/integration_modules:ro
       - ../data/packs:/data/packs
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 60s
 
   meilisearch:
+    <<: *mem-search
     image: getmeili/meilisearch:v1.12
     profiles: [full]
     restart: unless-stopped
     networks: [internal]
     environment:
-      MEILI_ENV: development
+      MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-}
     volumes:
       - ../data/meilisearch:/meili_data
     healthcheck:
@@ -324,6 +347,7 @@ services:
       retries: 5
 
   clickhouse:
+    <<: *mem-analytics-db
     image: clickhouse/clickhouse-server:24.8-alpine
     profiles: [full]
     restart: unless-stopped
@@ -346,6 +370,7 @@ services:
     build:
       context: ..
       dockerfile: services/tutor/Dockerfile
+    user: "0:0"
     environment:
       <<: *backend-env
       PORT: "8006"
@@ -355,6 +380,11 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       TUTOR_RATE_LIMIT_PER_MINUTE: ${TUTOR_RATE_LIMIT_PER_MINUTE:-30}
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+      COURSE_BUILDS_ROOT: /data/course-builds
+      COURSE_BUILD_TTL_DAYS: ${COURSE_BUILD_TTL_DAYS:-30}
+      ARTICLE_FETCH_READER_URL: ${ARTICLE_FETCH_READER_URL:-https://r.jina.ai}
+    volumes:
+      - ../data/course-builds:/data/course-builds
     depends_on:
       postgres:
         condition: service_healthy
@@ -365,20 +395,29 @@ services:
       ollama:
         condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 60s
 
   ollama:
-    image: ollama/ollama:latest
+    <<: *mem-heavy-ml
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.11.11}
     profiles: [full]
     restart: unless-stopped
     networks: [internal]
     environment:
-      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      # Keep weights resident across course stages (reload on CPU is brutal).
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-24h}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      # One model in RAM — switching chat/course models on CPU costs minutes.
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+      # Default context; OpenAI-compat often ignores per-request num_ctx.
+      # 4096 keeps course prompts usable; cut further only on very tight RAM.
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-4096}
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
     volumes:
       - ../data/ollama:/root/.ollama
     healthcheck:
@@ -401,7 +440,7 @@ services:
       CURSOR_PROXY_TIMEOUT_SECONDS: ${CURSOR_PROXY_TIMEOUT_SECONDS:-180}
       CURSOR_PROXY_CLEANUP_AGENTS: ${CURSOR_PROXY_CLEANUP_AGENTS:-true}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8015/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8015/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -424,7 +463,7 @@ services:
       meilisearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -455,7 +494,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -479,7 +518,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8009/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8009/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -514,7 +553,7 @@ services:
       grading:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -554,7 +593,7 @@ services:
       auth:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/ready')"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -591,6 +630,7 @@ services:
       - "4040:4040"
 
   lsp-pyright:
+    <<: *mem-lsp
     build:
       context: ..
       dockerfile: deploy/lsp/pyright/Dockerfile
@@ -599,6 +639,7 @@ services:
     networks: [internal]
 
   lsp-typescript:
+    <<: *mem-lsp
     build:
       context: ..
       dockerfile: deploy/lsp/typescript/Dockerfile
@@ -607,6 +648,7 @@ services:
     networks: [internal]
 
   lsp-gopls:
+    <<: *mem-lsp
     build:
       context: ..
       dockerfile: deploy/lsp/gopls/Dockerfile
@@ -615,6 +657,7 @@ services:
     networks: [internal]
 
   lsp-sqls:
+    <<: *mem-lsp
     build:
       context: ..
       dockerfile: deploy/lsp/sqls/Dockerfile
@@ -706,8 +749,8 @@ services:
     networks: [internal]
     user: "472:472"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

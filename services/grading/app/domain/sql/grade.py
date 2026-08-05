@@ -20,6 +20,16 @@ def has_local_test_artifacts(step: dict[str, object]) -> bool:
     return isinstance(fcc_tests, list) and bool(fcc_tests)
 
 
+def has_sql_oracle(step: dict[str, object]) -> bool:
+    for key in ("expected", "oracle", "expected_output", "expected_rows", "expected_stdout"):
+        value = step.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, list | dict) and value:
+            return True
+    return False
+
+
 async def stage_sql_local(ctx: GradeContext) -> CheckOutcome | None:
     if has_local_test_artifacts(ctx.step):
         return None
@@ -52,6 +62,12 @@ async def stage_sql_local(ctx: GradeContext) -> CheckOutcome | None:
     if passed and _looks_like_select(query) and not stdout.strip():
         passed = False
         stderr = stderr or "query returned no rows"
+
+    if passed and not has_sql_oracle(ctx.step):
+        ctx.prior_feedback = "local SQL ran without expected oracle"
+        ctx.prior_checker = "sql_local"
+        ctx.ungradable_feedback = "SQL step has no expected result for local grading"
+        return None
 
     if passed:
         feedback: str | None = "Local check against seed data from the step"

@@ -76,6 +76,129 @@ for key in ("archive_url", "archive_url_zip"):
 print(f"ok version={data['version']} channel={data['channel']} ref={data['ref']}")
 PY
 
+echo "==> launcher-version.json"
+python3 - <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+path = Path("scripts/launcher-version.json")
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"invalid JSON: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+version = str(data.get("version", "")).strip()
+channel = str(data.get("channel", "")).strip()
+build = data.get("build")
+if not version or not channel:
+    print("missing/empty version or channel", file=sys.stderr)
+    sys.exit(1)
+if not isinstance(build, int) or build <= 0:
+    print("build must be a positive int", file=sys.stderr)
+    sys.exit(1)
+
+out = subprocess.check_output(
+    [sys.executable, "scripts/compute-build-number.py", version],
+    text=True,
+).strip()
+m = re.search(r"build=(\d+)", out)
+if not m:
+    print(f"compute-build-number failed: {out}", file=sys.stderr)
+    sys.exit(1)
+expected = int(m.group(1))
+if build != expected:
+    print(f"build mismatch: file={build} expected={expected} for {version}", file=sys.stderr)
+    sys.exit(1)
+if channel not in version and channel != "ga":
+    # pre-release channel label must appear in SemVer (alpha/beta/rc)
+    print(f"channel {channel!r} not reflected in version {version!r}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"ok version={version} build={build} channel={channel}")
+PY
+
+echo "==> apps/web/app-version.json"
+python3 - <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+path = Path("apps/web/app-version.json")
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"invalid JSON: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+version = str(data.get("version", "")).strip()
+channel = str(data.get("channel", "")).strip()
+build = data.get("build")
+if not version or not channel:
+    print("missing/empty version or channel", file=sys.stderr)
+    sys.exit(1)
+if not isinstance(build, int) or build <= 0:
+    print("build must be a positive int", file=sys.stderr)
+    sys.exit(1)
+
+out = subprocess.check_output(
+    [sys.executable, "scripts/compute-build-number.py", version],
+    text=True,
+).strip()
+m = re.search(r"build=(\d+)", out)
+if not m:
+    print(f"compute-build-number failed: {out}", file=sys.stderr)
+    sys.exit(1)
+expected = int(m.group(1))
+if build != expected:
+    print(f"build mismatch: file={build} expected={expected} for {version}", file=sys.stderr)
+    sys.exit(1)
+if channel not in version and channel != "ga":
+    print(f"channel {channel!r} not reflected in version {version!r}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"ok version={version} build={build} channel={channel}")
+PY
+
+echo "==> scripts/launcher-matrix.json"
+python3 - <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path("scripts/launcher-matrix.json")
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"invalid JSON: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+commands = data.get("commands")
+shared = data.get("shared_libs") or {}
+if not isinstance(commands, list) or not commands:
+    print("commands must be a non-empty list", file=sys.stderr)
+    sys.exit(1)
+for side in ("unix", "windows"):
+    libs = shared.get(side)
+    if not isinstance(libs, list) or not libs:
+        print(f"shared_libs.{side} must be a non-empty list", file=sys.stderr)
+        sys.exit(1)
+    for rel in libs:
+        if not Path(rel).is_file():
+            print(f"missing shared lib: {rel}", file=sys.stderr)
+            sys.exit(1)
+profiles = data.get("profiles_sot")
+if profiles and not Path(str(profiles)).is_file():
+    print(f"missing profiles_sot: {profiles}", file=sys.stderr)
+    sys.exit(1)
+print(f"ok commands={len(commands)} profiles_sot={profiles}")
+PY
+
 echo "==> i18n key parity (i18n.sh ↔ I18n.ps1)"
 python3 - <<'PY'
 import re

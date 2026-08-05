@@ -9,6 +9,7 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
+from studio_common.system_auth import system_token_headers
 
 from app.config import LabRunnerSettings
 from app.domain.runner import run_lab
@@ -67,6 +68,7 @@ async def _process_job(
     response = await http_client.post(
         f"{settings.grading_service_url}/internal/v1/grading/lab/complete",
         json={"attempt_id": str(attempt_id), **asdict(outcome)},
+        headers=system_token_headers(),
         timeout=30,
     )
     response.raise_for_status()

@@ -37,6 +37,24 @@ async def submit(
     return parse_upstream(upstream, SubmitResult)
 
 
+@router.get("/{session_id}/attempts/{attempt_id}", response_model=AttemptInfo)
+async def get_attempt(
+    session_id: uuid.UUID,
+    attempt_id: uuid.UUID,
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> AttemptInfo:
+    upstream = await call_service(
+        client,
+        settings.sessions_service_url,
+        "get",
+        f"/internal/v1/sessions/{session_id}/attempts/{attempt_id}",
+        user_id=user_id,
+    )
+    return parse_upstream(upstream, AttemptInfo)
+
+
 @router.get("/{session_id}/attempts", response_model=list[AttemptInfo])
 async def list_attempts(
     session_id: uuid.UUID,

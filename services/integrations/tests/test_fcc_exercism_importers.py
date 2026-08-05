@@ -26,8 +26,8 @@ def _load_importer(modules_root: Path, platform: str):
 
 
 def test_pack_builder_maps_theory_md_inside_payload() -> None:
-    pack_builder = load_integrations_module("app.domain.pack_builder")
-    step = pack_builder._coerce_adapter_step(
+    normalize_step = load_integrations_module("app.domain.pack.normalize_step")
+    step = normalize_step.coerce_adapter_step(
         {
             "id": "s1",
             "kind": "code",

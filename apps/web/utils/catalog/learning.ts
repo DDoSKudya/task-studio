@@ -1,4 +1,4 @@
-import type { SessionState, SessionSummary } from '../session/types'
+import type { PackProgressItem, SessionState, SessionSummary } from '../session/types'
 import { sessionProgressPercent } from '../session/learningProgress'
 
 export type PackLearningSnapshot = {
@@ -73,5 +73,20 @@ export function packLearningFromSession(input: {
     updatedAt: input.summary.updated_at,
     sessionId: input.summary.id,
     status: input.summary.status,
+  }
+}
+
+export function packLearningFromProgress(
+  item: PackProgressItem,
+  emptyChapter: string,
+): PackLearningSnapshot {
+  const chapter = item.chapter_title.trim() || emptyChapter
+  return {
+    progress: item.progress_percent,
+    phase: item.current_phase,
+    chapter,
+    updatedAt: item.updated_at,
+    sessionId: item.id,
+    status: item.status,
   }
 }

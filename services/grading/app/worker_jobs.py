@@ -17,6 +17,12 @@ from app.domain.lab_jobs.worker import (
 
 log = structlog.get_logger("grading.worker")
 
+_LAB_RUN_NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+
+def lab_run_id_for_attempt(attempt_id: uuid.UUID) -> uuid.UUID:
+    return uuid.uuid5(_LAB_RUN_NS, f"task-studio-lab:{attempt_id}")
+
 
 async def process_grading_job(
     settings: GradingSettings,
@@ -38,7 +44,8 @@ async def process_grading_job(
 
     async with session_factory() as session:
         existing = await get_lab_result(session, attempt_id)
-        if existing is not None and existing.details.get("status") == "completed":
+        status = existing.details.get("status") if existing is not None else None
+        if status in {"completed", "running"}:
             return
 
     try:
@@ -64,7 +71,7 @@ async def process_grading_job(
     await publish_lab_job(
         channel,
         settings,
-        lab_run_id=uuid.uuid4(),
+        lab_run_id=lab_run_id_for_attempt(attempt_id),
         attempt_id=attempt_id,
         pack_root=pack_root,
         step=step,

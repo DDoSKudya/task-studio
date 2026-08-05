@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from studio_contracts.step_dependencies import apply_code_step_dependencies
+
 from .assemble import _code_step_tests_executable, _infer_python_entrypoint
+from .practice_routing import is_python_dockerfile_shim
 from .textutil import _as_str, _slug
 
 
@@ -17,8 +20,8 @@ def _normalize_quizzes(raw: object, *, count: int) -> list[dict[str, object]]:
         choice_texts = [str(choice).strip() for choice in choices[:4] if str(choice).strip()]
         while len(choice_texts) < 4:
             choice_texts.append(f"Option {len(choice_texts) + 1}")
-        answer = item.get("answer")
-        if not isinstance(answer, int) or isinstance(answer, bool) or answer < 0 or answer > 3:
+        answer = _coerce_quiz_answer(item.get("answer"))
+        if answer is None:
             continue
         quiz_id = _slug(_as_str(item.get("id")) or f"quiz-{index + 1}")
         if not quiz_id.startswith("quiz"):
@@ -38,6 +41,171 @@ def _normalize_quizzes(raw: object, *, count: int) -> list[dict[str, object]]:
     return quizzes
 
 
+def _coerce_quiz_answer(raw: object) -> int | None:
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw if 0 <= raw <= 3 else None
+    if isinstance(raw, float) and raw.is_integer():
+        value = int(raw)
+        return value if 0 <= value <= 3 else None
+    if isinstance(raw, str):
+        text = raw.strip()
+        if text.isdigit():
+            value = int(text)
+            return value if 0 <= value <= 3 else None
+        letter = text[:1].casefold()
+        if letter in "abcd":
+            return ord(letter) - ord("a")
+    return None
+
+
+def _pick_code_template(item: dict[str, object]) -> str:
+    for key in ("template", "code", "starter_code", "starter", "solution_template"):
+        if value := _as_str(item.get(key)):
+            return value
+    return ""
+
+
+def _pick_code_tests(item: dict[str, object]) -> list[object]:
+    for key in ("tests", "test_cases", "cases"):
+        value = item.get(key)
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            return [value]
+    single = item.get("test")
+    if isinstance(single, dict):
+        return [single]
+    return single if isinstance(single, list) else []
+
+
+def _normalize_code_tests(raw_tests: list[object]) -> list[dict[str, object]]:
+    normalized: list[dict[str, object]] = []
+    for test in raw_tests:
+        if not isinstance(test, dict):
+            continue
+        run = test.get("run")
+        if isinstance(run, str) and run.strip():
+            normalized.append({"run": run.strip()})
+            continue
+        if "input" not in test or "output" not in test:
+            continue
+        normalized.append({"input": test["input"], "output": test["output"]})
+    return normalized
+
+
+def _apply_code_checker(
+    task: dict[str, object],
+    *,
+    checker: str,
+    rubric: str,
+    content: str,
+    level: str,
+    has_tests: bool,
+) -> None:
+    if checker == "llm" or not has_tests or not _code_step_tests_executable(task):
+        task["checker"] = "llm"
+        if rubric:
+            task["rubric"] = rubric
+        elif content:
+            task["rubric"] = content[:500]
+        else:
+            task["rubric"] = f"Complete the {level} coding exercise."
+    elif rubric:
+        task["rubric"] = rubric
+
+
+def _one_code_task(
+    item: dict[str, object],
+    *,
+    index: int,
+    runtime: str,
+    runtime_version: str,
+) -> dict[str, object] | None:
+    levels = ("easy", "medium", "hard", "expert", "capstone")
+    template = _pick_code_template(item)
+    if not template:
+        return None
+    content = _as_str(item.get("content")) or ""
+    checker = _as_str(item.get("checker")) or ""
+    rubric = _as_str(item.get("rubric")) or ""
+    normalized_tests = _normalize_code_tests(_pick_code_tests(item))
+    # Local models often omit I/O tests; keep the task as LLM-graded practice.
+    allow_llm_only = checker == "llm" or bool(content) or bool(rubric)
+    if not normalized_tests and not allow_llm_only:
+        return None
+    level = _as_str(item.get("level")) or levels[min(index, len(levels) - 1)]
+    task_id = _slug(_as_str(item.get("id")) or f"code-{level}")
+    if not task_id.startswith("code"):
+        task_id = f"code-{task_id}"
+    entrypoint = _as_str(item.get("entrypoint")) or _infer_python_entrypoint(template)
+    setup = _as_str(item.get("setup"))
+    task: dict[str, object] = {
+        "id": task_id,
+        "kind": "code",
+        "title": _as_str(item.get("title")) or f"Task {level}",
+        "content": content,
+        "runtime": _as_str(item.get("runtime")) or runtime,
+        "runtime_version": _as_str(item.get("runtime_version")) or runtime_version,
+        "template": template,
+        "tests": normalized_tests[:8],
+    }
+    if entrypoint:
+        task["entrypoint"] = entrypoint
+    if setup:
+        task["setup"] = setup
+    _apply_code_checker(
+        task,
+        checker=checker,
+        rubric=rubric,
+        content=content,
+        level=level,
+        has_tests=bool(normalized_tests),
+    )
+    if is_python_dockerfile_shim(template=template, content=content):
+        return _open_task_from_code_shim(
+            task_id=task_id,
+            level=level,
+            title=_as_str(item.get("title")) or f"Task {level}",
+            content=content,
+            rubric=rubric,
+        )
+    apply_code_step_dependencies(task)
+    return task
+
+
+def _open_task_from_code_shim(
+    *,
+    task_id: str,
+    level: str,
+    title: str,
+    content: str,
+    rubric: str,
+) -> dict[str, object]:
+    open_id = (
+        task_id.replace("code-", "task-", 1) if task_id.startswith("code-") else f"task-{level}"
+    )
+    brief = content.strip() or title
+    return {
+        "id": open_id,
+        "kind": "task",
+        "title": title,
+        "content": (
+            f"{brief}\n\n"
+            "**Формат ответа:** пришлите содержимое `Dockerfile` или команды shell "
+            "(как в статье), а не код на Python."
+        ),
+        "rubric": rubric
+        or (
+            "- Есть корректный Dockerfile или последовательность docker-команд\n"
+            "- Базовый образ и шаги установки соответствуют заданию\n"
+            "- Нет обёртки «функция, возвращающая строку Dockerfile»"
+        ),
+        "checker": "llm",
+    }
+
+
 def _normalize_code_tasks(
     raw: object,
     *,
@@ -47,58 +215,18 @@ def _normalize_code_tasks(
 ) -> list[dict[str, object]]:
     if not isinstance(raw, list):
         return []
-    levels = ["easy", "medium", "hard", "expert", "capstone"]
     tasks: list[dict[str, object]] = []
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
             continue
-        template = _as_str(item.get("template"))
-        tests = item.get("tests")
-        if not template or not isinstance(tests, list) or len(tests) < 1:
+        task = _one_code_task(
+            item,
+            index=index,
+            runtime=runtime,
+            runtime_version=runtime_version,
+        )
+        if task is None:
             continue
-        normalized_tests: list[dict[str, object]] = []
-        for test in tests:
-            if not isinstance(test, dict):
-                continue
-            run = test.get("run")
-            if isinstance(run, str) and run.strip():
-                normalized_tests.append({"run": run.strip()})
-                continue
-            if "input" not in test or "output" not in test:
-                continue
-            normalized_tests.append({"input": test["input"], "output": test["output"]})
-        if len(normalized_tests) < 1:
-            continue
-        level = _as_str(item.get("level")) or levels[min(index, len(levels) - 1)]
-        task_id = _slug(_as_str(item.get("id")) or f"code-{level}")
-        if not task_id.startswith("code"):
-            task_id = f"code-{task_id}"
-        entrypoint = _as_str(item.get("entrypoint")) or _infer_python_entrypoint(template)
-        setup = _as_str(item.get("setup"))
-        task: dict[str, object] = {
-            "id": task_id,
-            "kind": "code",
-            "title": _as_str(item.get("title")) or f"Task {level}",
-            "content": _as_str(item.get("content")) or "",
-            "runtime": _as_str(item.get("runtime")) or runtime,
-            "runtime_version": _as_str(item.get("runtime_version")) or runtime_version,
-            "template": template,
-            "tests": normalized_tests[:8],
-        }
-        if entrypoint:
-            task["entrypoint"] = entrypoint
-        if setup:
-            task["setup"] = setup
-        checker = _as_str(item.get("checker"))
-        rubric = _as_str(item.get("rubric"))
-        if checker == "llm" or not _code_step_tests_executable(task):
-            task["checker"] = "llm"
-            if rubric:
-                task["rubric"] = rubric
-            elif content := _as_str(task.get("content")):
-                task["rubric"] = content[:500]
-        elif rubric:
-            task["rubric"] = rubric
         tasks.append(task)
         if len(tasks) >= count:
             break

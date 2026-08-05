@@ -4,11 +4,11 @@ from tutor_helpers.loaders import load_service_module
 
 
 def test_parse_grade_json_accepts_fenced_payload() -> None:
-    grade = load_service_module("app.domain.grade")
+    grade = load_service_module("app.domain.grade.payload")
     raw = """```json
 {"passed": true, "confidence": 0.81, "feedback": "Верно", "rationale": "matches goal"}
 ```"""
-    parsed = grade._parse_grade_json(raw)
+    parsed = grade.parse_grade_json(raw)
     assert parsed is not None
     assert parsed["passed"] is True
     assert parsed["confidence"] == 0.81
@@ -16,8 +16,8 @@ def test_parse_grade_json_accepts_fenced_payload() -> None:
 
 
 def test_parse_grade_json_rejects_bad_confidence() -> None:
-    grade = load_service_module("app.domain.grade")
-    assert grade._parse_grade_json('{"passed": false, "confidence": 2, "feedback": "x"}') is None
+    grade = load_service_module("app.domain.grade.payload")
+    assert grade.parse_grade_json('{"passed": false, "confidence": 2, "feedback": "x"}') is None
 
 
 def test_grade_system_prompt_is_grader_not_coach() -> None:

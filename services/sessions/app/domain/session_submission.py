@@ -4,7 +4,7 @@ import uuid
 
 import httpx
 from app.config import SessionsSettings
-from app.domain.session_attempts import complete_attempt, list_attempts
+from app.domain.session_attempts import complete_attempt, get_attempt, list_attempts
 from app.domain.session_errors import SubmitOutcome
 from app.domain.session_grade_submit import submit_gradable
 from app.domain.session_lab_route import submit_lab_step
@@ -15,6 +15,7 @@ from studio_contracts.manifest import get_step
 __all__ = [
     "submit_step",
     "complete_attempt",
+    "get_attempt",
     "list_attempts",
 ]
 

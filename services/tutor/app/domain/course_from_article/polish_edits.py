@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .source_exercise_harvest import strip_theory_exercise_sections
 from .textutil import _as_str
 
 
@@ -41,7 +42,7 @@ def _apply_opening_edit(step: dict[str, object], opening: str, cut: int) -> bool
     if len(revised) > max(cut * 3, 400) + 200:
         return False
     rest = original[cut:].lstrip() if cut < len(original) else ""
-    step["content"] = f"{revised}\n\n{rest}" if rest else revised
+    step["content"] = strip_theory_exercise_sections(f"{revised}\n\n{rest}" if rest else revised)
     return True
 
 
@@ -72,7 +73,7 @@ def _apply_book_polish_edits(
         original = str(step.get("content") or "")
         full = _as_str(item.get("content"))
         if full and _polish_full_content_ok(original, full):
-            step["content"] = full.strip()
+            step["content"] = strip_theory_exercise_sections(full.strip())
             applied += 1
             continue
         opening = _as_str(item.get("opening"))

@@ -26,6 +26,14 @@ async def complete_attempt(
     if attempt is None:
         raise SessionError(404, "attempt not found")
 
+    owner = details.get("user_id")
+    if isinstance(owner, str) and owner.strip():
+        try:
+            if uuid.UUID(owner) != attempt.user_id:
+                raise SessionError(403, "attempt owner mismatch")
+        except ValueError as exc:
+            raise SessionError(422, "invalid user_id in details") from exc
+
     learning_session = await session.get(Session, attempt.session_id)
     if learning_session is None:
         raise SessionError(404, "session not found")
@@ -36,8 +44,20 @@ async def complete_attempt(
         feedback=feedback,
         details=details,
     )
+
+    if learning_session.status != "active":
+        return SubmitOutcome(
+            attempt=attempt,
+            grading=grading,
+            phase_completed=False,
+            status="completed",
+            learning_session=learning_session,
+        )
+
     attempt.result = grading.model_dump(mode="json")
-    phase_completed = await apply_grading_result(session, learning_session, grading)
+    phase_completed = await apply_grading_result(
+        session, learning_session, grading, attempt=attempt
+    )
     learning_session.updated_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(attempt)
@@ -62,3 +82,22 @@ async def list_attempts(
         .order_by(Attempt.created_at.desc())
     )
     return list(result.scalars())
+
+
+async def get_attempt(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    session_id: uuid.UUID,
+    attempt_id: uuid.UUID,
+) -> Attempt:
+    learning_session = await get_owned_session(session, user_id, session_id)
+    result = await session.execute(
+        select(Attempt).where(
+            Attempt.id == attempt_id,
+            Attempt.session_id == learning_session.id,
+        )
+    )
+    attempt = result.scalar_one_or_none()
+    if attempt is None:
+        raise SessionError(404, "attempt not found")
+    return attempt

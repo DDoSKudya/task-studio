@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import httpx
 import jwt
 from fastapi import HTTPException, WebSocket, WebSocketException
+from starlette.websockets import WebSocketDisconnect
 from studio_common.jwt_tokens import decode_user_id
 
 from app.config import StudioApiSettings
@@ -47,5 +49,7 @@ async def run_lsp_socket(
     await websocket.accept()
     try:
         await bridge_lsp(websocket, target.host, target.port)
-    except Exception:
+    except asyncio.CancelledError:
+        raise
+    except (ConnectionError, OSError, TimeoutError, WebSocketDisconnect, BrokenPipeError):
         await websocket.close(code=1011)

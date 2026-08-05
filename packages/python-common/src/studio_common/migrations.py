@@ -42,7 +42,14 @@ async def _retry_transient(action: Callable[[], None]) -> None:
         try:
             await loop.run_in_executor(None, action)
             return
-        except Exception as exc:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            OperationalError,
+            DBAPIError,
+            SQLAlchemyError,
+        ) as exc:
             if attempt >= len(_TRANSIENT_WAIT_SEC) or not _is_transient_db_error(exc):
                 raise
             wait = _TRANSIENT_WAIT_SEC[attempt]
@@ -63,7 +70,14 @@ async def ensure_schema(engine: AsyncEngine, schema: str) -> None:
         try:
             await _create()
             return
-        except Exception as exc:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            OperationalError,
+            DBAPIError,
+            SQLAlchemyError,
+        ) as exc:
             if attempt >= len(_TRANSIENT_WAIT_SEC) or not _is_transient_db_error(exc):
                 raise
             wait = _TRANSIENT_WAIT_SEC[attempt]

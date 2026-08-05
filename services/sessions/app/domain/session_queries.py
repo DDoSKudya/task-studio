@@ -5,8 +5,9 @@ from datetime import UTC, datetime
 
 from app.domain.session_errors import SessionError
 from app.infra.models import Session
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 
 async def active_sessions_for_pack(
@@ -49,22 +50,17 @@ async def abandon_sessions_for_pack_versions(
     *,
     pack_titles: list[str] | None = None,
 ) -> int:
-    titles = [title.strip() for title in (pack_titles or []) if title and title.strip()]
-    if not pack_version_ids and not titles:
+    del pack_titles
+    if not pack_version_ids:
         return 0
 
-    filters = [Session.user_id == user_id, Session.status != "abandoned"]
-    version_or_title = []
-    if pack_version_ids:
-        version_or_title.append(Session.pack_version_id.in_(pack_version_ids))
-    if titles:
-        version_or_title.append(Session.pack_title.in_(titles))
-    if len(version_or_title) == 1:
-        filters.append(version_or_title[0])
-    else:
-        filters.append(or_(*version_or_title))
-
-    result = await session.execute(select(Session).where(*filters))
+    result = await session.execute(
+        select(Session).where(
+            Session.user_id == user_id,
+            Session.status != "abandoned",
+            Session.pack_version_id.in_(pack_version_ids),
+        )
+    )
     rows = list(result.scalars())
     for learning_session in rows:
         learning_session.status = "abandoned"
@@ -76,6 +72,10 @@ async def abandon_sessions_for_pack_versions(
 
 async def list_sessions(session: AsyncSession, user_id: uuid.UUID) -> list[Session]:
     result = await session.execute(
-        select(Session).where(Session.user_id == user_id).order_by(Session.updated_at.desc())
+        select(Session)
+        .options(defer(Session.manifest))
+        .where(Session.user_id == user_id)
+        .order_by(Session.updated_at.desc())
+        .limit(200)
     )
     return list(result.scalars())

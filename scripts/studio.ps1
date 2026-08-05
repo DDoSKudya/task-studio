@@ -7,8 +7,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RootCandidate = Split-Path -Parent $ScriptDir
+$TsStudioScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RootCandidate = Split-Path -Parent $TsStudioScriptsDir
 
 function Convert-TsPsTreeToUtf8Bom([string]$Root) {
   $utf8Bom = New-Object System.Text.UTF8Encoding $true
@@ -28,11 +28,11 @@ function Convert-TsPsTreeToUtf8Bom([string]$Root) {
 }
 
 Convert-TsPsTreeToUtf8Bom $RootCandidate
-. (Join-Path $ScriptDir "lib\I18n.ps1")
-. (Join-Path $ScriptDir "lib\Ui.ps1")
-. (Join-Path $ScriptDir "lib\OpenApp.ps1")
-. (Join-Path $ScriptDir "lib\DesktopShortcuts.ps1")
-. (Join-Path $ScriptDir "lib\Ops.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\I18n.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\Ui.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\OpenApp.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\DesktopShortcuts.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\Ops.ps1")
 
 if (Get-Command Reset-TsConsoleColors -ErrorAction SilentlyContinue) {
   Reset-TsConsoleColors
@@ -119,13 +119,13 @@ function Show-TsMenu {
         Invoke-TsProgress -Title (Get-TsText title_restart) -Action { Invoke-TsRestart }
       }
       "install" {
-        Invoke-TsProgress -Title (Get-TsText title_install) -Action { Invoke-TsInstall }
+        Invoke-TsProgress -Title (Get-TsInstallTitle) -Action { Invoke-TsInstall }
       }
       "update" {
         $script:UpdateReexec = $false
         Invoke-TsProgress -Title (Get-TsText title_update) -Action { Invoke-TsUpdate }
         if ($script:UpdateReexec) {
-          & (Join-Path $ScriptDir "studio.ps1")
+          & (Join-Path $TsStudioScriptsDir "studio.ps1")
           return
         }
       }
@@ -205,7 +205,7 @@ switch ($Command.ToLowerInvariant()) {
     $script:UpdateReexec = $false
     Invoke-TsUpdate
     if ($script:UpdateReexec) {
-      & (Join-Path $ScriptDir "studio.ps1")
+      & (Join-Path $TsStudioScriptsDir "studio.ps1")
       exit 0
     }
   }

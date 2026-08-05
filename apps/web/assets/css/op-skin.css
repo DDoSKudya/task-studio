@@ -91,27 +91,68 @@
 .empty-state-title,
 .empty-state-meta,
 .stat-card-label,
+.auth-title,
+.ax-empty-meta,
+.ax-feed-badge,
+.ax-feed-meta,
+.ax-stat-label,
+.ax-weak-meta,
 .settings-panel-title,
 .settings-panel-subtitle,
 .settings-config-group-title,
+.settings-config-group-meta,
 .settings-accordion-title,
+.settings-accordion-summary,
 .settings-field-label,
+.settings-field-hint,
 .settings-group-meta,
+.settings-choice-title,
+.settings-choice-desc,
+.settings-toggle-title,
+.settings-toggle-hint,
+.settings-service-name,
+.settings-service-desc,
+.settings-service-badge,
+.settings-integration-caps,
+.settings-model-desc,
+.settings-provider-status,
+.settings-status-hero-label,
 .catalog-command-copy h2,
 .catalog-command-copy p,
 .catalog-rail-title,
 .catalog-rail-footnote,
+.catalog-source-meta,
+.catalog-source-name,
 .catalog-empty-title,
 .catalog-empty-meta,
-.session-lesson-title,
+.course-curriculum-title,
+.course-curriculum-meta,
+.course-empty-title,
+.course-empty-meta,
+.course-hero-hint,
+.lib-card-subtitle,
+.lib-card-cta-label,
 .session-tutor-title,
 .session-tutor-empty-title,
 .session-tutor-empty-meta,
 .session-syllabus-title,
+.session-inline-meta,
+.session-task-label,
+.session-feedback,
+.session-feedback-pass,
+.session-feedback-fail,
 .lc-hero h2,
 .lc-field-label,
 .lc-rail-title,
+.lc-rail-label,
+.lc-options-label,
+.lc-options-title,
+.lc-options-meta,
+.lc-options-scale-meta,
+.lc-editor-hint,
+.lc-editor-empty-title,
 .lc-footer-meta,
+.lc-footer-status,
 .op-dialog-title,
 .op-dialog-message,
 .toast-message,
@@ -122,10 +163,102 @@
 .modal-title,
 .data-list-meta,
 .loading-state,
-.course-progress-title{
+.error-message,
+.course-progress-title,
+.course-progress-message,
+.course-progress-meta,
+.course-progress-stage-label,
+.course-progress-step-title,
+.user-card-meta{
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-family: var(--font-sans, inherit);
+}
+
+/* Option titles + hints — sentence case, readable sans (not HUD all-caps) */
+.lc-options-lead,
+.lc-chip-name,
+.lc-chip-hint,
+.lc-segment-name,
+.lc-segment-hint,
+.lc-scale-name,
+.lc-scale-hint,
+.lc-depth-name,
+.lc-depth-hint,
+.lc-check-name,
+.lc-check-hint,
+.lc-editor-empty-meta{
+  letter-spacing: -0.01em;
+  text-transform: none;
+  font-family: var(--font-sans, inherit);
+  font-variant-ligatures: none;
+}
+
+/* User content, form values, URLs, technical ids — keep original case */
+input,
+textarea,
+select,
+option,
+.field,
+.field-input,
+.field-textarea,
+.field-select,
+.field-compact,
+.lc-input,
+.lc-url-input,
+.lc-url-textarea,
+.lc-stepper-input,
+.lc-editor-area,
+.settings-provider-summary-value,
+.settings-model-list li,
+.settings-status-hero-value,
+.course-title,
+.lib-card-title,
+.stepik-module-title,
+.stepik-lesson-title,
+.session-lesson-title,
+.session-tutor-bubble-text,
+.session-tutor-hints ul,
+.lc-editor-summary,
+.lc-source-url,
+.lc-options-lead,
+.lc-chip-name,
+.lc-chip-hint,
+.lc-segment-name,
+.lc-segment-hint,
+.lc-scale-name,
+.lc-scale-hint,
+.lc-depth-name,
+.lc-depth-hint,
+.lc-check-name,
+.lc-check-hint,
+.lc-editor-empty-meta,
+.ax-weak-title,
+.ax-feed-title,
+.user-card-name,
+.study-body,
+.case-sensitive{
+  text-transform: none !important;
+}
+
+/* Plain form values inherit Space Grotesk even inside mono labels */
+.field,
+.field-input,
+.field-textarea,
+.field-select,
+.field-compact,
+.lc-input,
+.form-field input:not([type='checkbox']):not([type='radio']),
+.form-field textarea,
+.form-field select,
+.settings-field input:not([type='checkbox']):not([type='radio']),
+.settings-field textarea,
+.settings-field select,
+.settings-config-group input:not([type='checkbox']):not([type='radio']),
+.settings-config-group textarea,
+.settings-config-group select{
+  font-family: var(--font-sans, inherit);
+  letter-spacing: -0.01em;
 }
 
 .page-meta,
@@ -391,6 +524,15 @@
   background: var(--color-surface-muted) !important;
 }
 
+.sidebar-version,
+.sidebar-version-short,
+.sidebar-version-full,
+.sidebar-version-build{
+  text-transform: none !important;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+
 .user-avatar{
   border-radius: 0 !important;
   border: 1px solid var(--color-border);
@@ -410,8 +552,8 @@
   width: 5px;
   height: 5px;
   border-radius: 0;
-  background: var(--op-signal);
-  box-shadow: 0 0 8px rgb(255 42 74 / 0.55);
+  background: var(--op-gold);
+  box-shadow: 0 0 8px rgb(255 215 0 / 0.45);
   animation: op-signal-pulse 4s ease-in-out infinite;
 }
 
@@ -564,4 +706,3 @@
   border-color: rgb(255 255 255 / 0.32) !important;
   color: #ffffff !important;
 }
-

@@ -5,17 +5,8 @@ from tutor_helpers.loaders import load_service_module
 
 def test_is_ollama_target_matches_configured_url() -> None:
     llm = load_service_module("app.domain.llm")
-    config_mod = load_service_module("app.config")
-    config = config_mod.TutorConfig(
-        auth_service_url="http://auth:8001",
-        sessions_service_url="http://sessions:8003",
-        ollama_url="http://ollama:11434",
-        ollama_model="llama3.2",
-        default_provider_url="",
-        rate_limit_per_minute=30,
-        secrets_master_key=None,
-    )
-    ollama = llm.LlmTarget("http://ollama:11434/v1", None, "llama3.2")
+    config = load_service_module("app.config").load_config()
+    ollama = llm.LlmTarget("http://ollama:11434/v1", None, config.ollama_model)
     external = llm.LlmTarget("https://api.mistral.ai/v1", "key", "mistral")
     cursor = llm.LlmTarget("http://cursor-proxy:8015/v1", "key", "auto")
     assert llm.is_ollama_target(config, ollama)
@@ -27,16 +18,7 @@ def test_is_ollama_target_matches_configured_url() -> None:
 
 def test_resolve_llm_target_prefers_provider_url() -> None:
     llm = load_service_module("app.domain.llm")
-    config_mod = load_service_module("app.config")
-    config = config_mod.TutorConfig(
-        auth_service_url="http://auth:8001",
-        sessions_service_url="http://sessions:8003",
-        ollama_url="http://ollama:11434",
-        ollama_model="llama3.2",
-        default_provider_url="",
-        rate_limit_per_minute=30,
-        secrets_master_key=None,
-    )
+    config = load_service_module("app.config").load_config()
     target = llm.resolve_llm_target(
         config,
         provider_url=None,

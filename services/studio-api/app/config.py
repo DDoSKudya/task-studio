@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 
 from fastapi import Request
+from studio_common.system_auth import resolve_jwt_secret
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,8 +52,8 @@ def load_settings() -> StudioApiSettings:
             "ORCHESTRATOR_SERVICE_URL",
             "http://orchestrator:8011",
         ).rstrip("/"),
-        jwt_secret=os.getenv("JWT_SECRET", "dev-only-change-me"),
-        jwt_expire_hours=int(os.getenv("JWT_EXPIRE_HOURS", "168")),
+        jwt_secret=resolve_jwt_secret(os.getenv("JWT_SECRET")),
+        jwt_expire_hours=int(os.getenv("JWT_EXPIRE_HOURS", "12")),
         cookie_name=os.getenv("AUTH_COOKIE_NAME", "studio_access_token"),
         cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
         secrets_master_key=os.getenv("SECRETS_MASTER_KEY"),

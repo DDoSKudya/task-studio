@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Annotated
 
@@ -41,7 +42,14 @@ async def upload_media_asset(
 
     content_type = file.content_type or "application/octet-stream"
     object_key = user_object_key(user_id, raw_id)
-    put_object_bytes(client, settings, object_key, payload, content_type=content_type)
+    await asyncio.to_thread(
+        put_object_bytes,
+        client,
+        settings,
+        object_key,
+        payload,
+        content_type=content_type,
+    )
     return MediaUploadResponse(
         asset_id=raw_id,
         object_key=object_key,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Annotated
 
@@ -30,7 +31,8 @@ async def search(
     type: Annotated[SearchType | None, Query(alias="type")] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> SearchResponse:
-    return search_documents(
+    return await asyncio.to_thread(
+        search_documents,
         client,
         settings,
         user_id=user_id,
@@ -47,7 +49,8 @@ async def unindex_pack_endpoint(
     client: MeiliClient,
     settings: Settings,
 ) -> dict[str, str]:
-    unindex_pack(
+    await asyncio.to_thread(
+        unindex_pack,
         client,
         settings,
         user_id=user_id,

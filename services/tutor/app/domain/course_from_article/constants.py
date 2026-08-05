@@ -1,10 +1,18 @@
 from __future__ import annotations
 
-_MAX_ARTICLE_FOR_PROMPT = 28_000
-_MAX_CHAPTERS = 12
+# Больше корпуса = меньше «дыры» в середине статьи (смысл курса держится на источниках).
+_MAX_ARTICLE_FOR_PROMPT = 48_000
+# Local Ollama: всё ещё режем, но не до потери ключевых mid-секций.
+_MAX_ARTICLE_FOR_PROMPT_COMPACT = 28_000
+_MAX_CHAPTERS = 100
+# Cap runaway outlines on weak local models; still enough for a real syllabus.
+_MAX_CHAPTERS_COMPACT = 8
+_MAX_SOURCE_EXCERPT = 4_500
+_MAX_SOURCE_EXCERPT_COMPACT = 2_800
 
 _THEORY_SERIAL_PREFIX = 2
 _THEORY_PARALLEL_LIMIT = 3
+_COURSE_STREAM_PING_SECONDS = 12.0
 
 _BAND_CONSISTENCY = (0.0, 0.10)
 _BAND_ANALYZE = (0.10, 0.22)

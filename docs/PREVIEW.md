@@ -7,7 +7,10 @@
 
 <p style="margin:0 0 18px;display:flex;align-items:center;gap:10px">
   <img src="assets/logo.png" alt="" width="40" height="40" style="display:block;border-radius:0">
-  <span style="font-weight:700;font-size:17px;letter-spacing:-0.03em;color:#ffffff">Task Studio</span>
+  <span style="display:flex;flex-direction:column;gap:2px;min-width:0">
+    <span style="font-weight:700;font-size:17px;letter-spacing:-0.03em;color:#ffffff">Task Studio</span>
+    <span style="font-size:10px;color:#737373;font-variant-numeric:tabular-nums;letter-spacing:0.02em" title="build 101002001">v1.1.0-beta.1</span>
+  </span>
 </p>
 
 <p style="margin:0 0 6px">
@@ -42,7 +45,7 @@
     <tr>
       <td style="padding:3px 6px 3px 0;vertical-align:middle"><img src="docs/assets/stack/typescript.svg" width="14" height="14" alt=""></td>
       <td style="padding:3px 0;color:#ffffff;vertical-align:middle">TypeScript</td>
-      <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">5.8</td>
+      <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">5.9</td>
     </tr>
     <tr>
       <td style="padding:3px 6px 3px 0;vertical-align:middle"><img src="docs/assets/stack/fastapi.svg" width="14" height="14" alt=""></td>
@@ -123,7 +126,7 @@
     <tr>
       <td style="padding:3px 6px 3px 0;vertical-align:middle"><img src="docs/assets/stack/ollama.svg" width="14" height="14" alt=""></td>
       <td style="padding:3px 0;color:#ffffff;vertical-align:middle">Ollama</td>
-      <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">latest</td>
+      <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">0.11</td>
     </tr>
     <tr>
       <td style="padding:3px 6px 3px 0;vertical-align:middle"><img src="docs/assets/stack/piston.svg" width="14" height="14" alt=""></td>
@@ -156,7 +159,7 @@
       <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">1.12</td>
     </tr>
   </table>
-  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185">v1.0.0 · MIT</div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185;text-align:center">v1.1.0-beta.1 · AGPL-3.0</div>
 </div>
 
 </td>
@@ -167,76 +170,94 @@
 <!-- ABOUT -->
 <div id="o-proekte" style="padding:22px 24px 8px;border-bottom:1px solid rgba(255,255,255,0.06)">
   <h1 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">О проекте</h1>
-  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Локальное размещение · обучение · ИИ · Docker</p>
+  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Учёба у себя на машине</p>
 </div>
 
 <div style="padding:18px 24px 8px">
   <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#e5e5e5">
-    <strong style="color:#ffffff">Task Studio</strong> — учебная платформа, которую вы разворачиваете у себя. Курсы, занятия, проверка заданий и ИИ-репетитор в одном Docker-стенде, без облачной привязки.
+    <strong style="color:#ffffff">Task Studio</strong> — это учебная платформа, которая крутится у вас локально.
+    Курсы, занятия, практика и чат с репетитором. Ничего не уезжает в чужой сервис, если вы сами этого не настроите.
   </p>
-  <p style="margin:0;font-size:14px;line-height:1.65;color:#ffffff">
-    Для тех, кому нужна своя среда обучения — с данными и моделями на своей машине.
+  <p style="margin:0;font-size:14px;line-height:1.65;color:#a0a0a8">
+    Имеет смысл, когда хочется вести обучение по своим материалам и не зависеть от чужой LMS.
   </p>
 </div>
 
 <!-- FEATURES -->
 <div id="vozmozhnosti" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Возможности</h2>
-  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">6 сильных сторон · ИИ · интеграции · код</p>
+  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Коротко о том, что внутри</p>
 </div>
 
 <div style="padding:18px 24px 28px">
 
-<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
+<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:10px;table-layout:fixed;margin:-10px">
   <tr>
-    <td width="33%" valign="top" style="padding:0 6px 12px 0">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">01 · ГЕНЕРАЦИЯ КУРСОВ</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">Генерация курсов</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">Полный курс</strong> (структура, теория, задания) из <strong style="color:#ffffff">статьи в интернете</strong> или из готового файла <strong style="color:#ffffff">.md</strong></div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">Г</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">01 · СВОИ КУРСЫ</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Из статьи или из .md</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Кидаете ссылку или файл — на выходе главы, теория и задания, которые уже можно проходить.</div>
       </div>
     </td>
-    <td width="33%" valign="top" style="padding:0 6px 12px">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">02 · ИНТЕГРАЦИИ</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">Внешние площадки</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">Stepik · freeCodeCamp · Exercism</strong> и другие — импорт курсов с внешних платформ в одну библиотеку</div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">И</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">02 · ГОТОВЫЕ КУРСЫ</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Stepik, freeCodeCamp, Exercism</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Можно стянуть курс с этих площадок к себе и дальше заниматься уже в Task Studio.</div>
       </div>
     </td>
-    <td width="34%" valign="top" style="padding:0 0 12px 6px">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">03 · ИИ ВЕЗДЕ</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">Полная поддержка ИИ</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">На всех этапах:</strong> генерация → проверка → чат.<br><strong style="color:#ffffff">Ollama</strong> · внешние модели (<strong style="color:#ffffff">OpenAI · Mistral · Grok</strong> и др.) · <strong style="color:#ffffff">Cursor SDK</strong> по подписке</div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">И</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">03 · РЕПЕТИТОР</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Спросить, когда застряли</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Помогает и при сборке курса, и при проверке, и в чате. Локально через Ollama или со своим ключом к модели.</div>
       </div>
     </td>
   </tr>
   <tr>
-    <td width="33%" valign="top" style="padding:0 6px 0 0">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">04 · АНАЛИТИКА</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">Прохождение курсов</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">Детальная аналитика:</strong> прогресс по шагам, попытки, статистика обучения · Grafana · Prometheus</div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">А</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">04 · ПРОГРЕСС</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Где вы сейчас</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Сколько пройдено, сколько попыток, где чаще ошибаетесь. Без отдельной таблицы в Excel.</div>
       </div>
     </td>
-    <td width="33%" valign="top" style="padding:0 6px">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">05 · СИНТАКСИС</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">90+ языков</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">Полная подсветка синтаксиса</strong> — до <strong style="color:#ffffff">90+</strong> языков программирования в редакторе занятий</div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">9</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">05 · РЕДАКТОР</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Нормальный редактор кода</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">В практике код с подсветкой (поддержка до 90+ языков разработки).</div>
       </div>
     </td>
-    <td width="34%" valign="top" style="padding:0 0 0 6px">
-      <div style="position:relative;padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;min-height:148px;border-radius:0;overflow:hidden">
-        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin-bottom:8px">06 · АВТОДОПОЛНЕНИЕ</div>
-        <div style="font-size:16px;font-weight:700;color:#ffffff;margin-bottom:6px">Умный ввод</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45"><strong style="color:#ffffff">Автодополнение</strong> для <strong style="color:#ffffff">4 языков:</strong> Python · SQL · JavaScript · Go</div>
-        <div style="position:absolute;right:8px;bottom:0;font-size:64px;font-weight:700;color:rgba(255,255,255,0.04);line-height:1">A</div>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">06 · ПОДСКАЗКИ</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Автодополнение</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Для Python, SQL, JavaScript и Go подсказывает по ходу набора.</div>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">07 · ПРОВЕРКА</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Сдал — увидел ответ</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Квизы и код проверяются сами. Не надо ждать, пока кто-то посмотрит руками.</div>
+      </div>
+    </td>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">08 · ВИДЕО</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Ролики в занятии</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Если в курсе есть видео, его можно смотреть прямо там же, не уходя на YouTube в соседней вкладке.</div>
+      </div>
+    </td>
+    <td width="33.33%" valign="top" style="padding:0">
+      <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
+        <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">09 · УПРАВЛЕНИЕ</div>
+        <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Меню в терминале</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Простой и компактый консольный лаунчер для управления проектом.</div>
       </div>
     </td>
   </tr>
@@ -247,15 +268,15 @@
 <!-- QUICK START -->
 <div id="bystriy-start" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Быстрый старт</h2>
-  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Одна команда · Docker · порт 80</p>
+  <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Docker · ваш компьютер</p>
 </div>
 
 <div style="padding:18px 24px 28px">
 
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-left:3px solid #60a5fa;background:rgba(12,12,22,0.78);color:#a0a0a8;font-size:13px;border-radius:0">
-  Нужен установленный и <strong style="color:#ffffff">запущенный</strong>
+  Нужен включенный
   <a href="https://www.docker.com/products/docker-desktop/" style="color:#b366ff">Docker Desktop</a>
-  (на Linux — Docker Engine + Compose v2).
+  (на Linux — Docker Engine с Compose v2).
 </div>
 
 <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:14px">
@@ -275,7 +296,17 @@
   </tr>
 </table>
 
-<p style="margin:0 0 14px;color:#a0a0a8;font-size:13px">Скрипт скачает репозиторий (если нужно), создаст <code style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.06);padding:1px 6px;border-radius:0;color:#ffffff">.env</code>, соберёт контейнеры, дождётся сайта и загрузит модель репетитора.</p>
+<p style="margin:0 0 10px;color:#a0a0a8;font-size:13px;line-height:1.55">
+  Команда кладёт проект в
+  <code style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.06);padding:1px 6px;border-radius:0;color:#ffffff">~/task-studio</code>,
+  делает ярлык и открывает меню в терминале.
+</p>
+<p style="margin:0 0 14px;color:#a0a0a8;font-size:13px;line-height:1.55">
+  Выбираете <strong style="color:#ffffff">«Первичная установка»</strong>.
+  Первая сборка долгая: качаются образы, поднимается стек, сайт появляется, когда всё готово.
+  Потом удобнее заходить с ярлыка на рабочем столе или так:
+  <code style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.06);padding:1px 6px;border-radius:0;color:#ffffff">bash ~/task-studio/scripts/studio.sh</code>.
+</p>
 
 <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px">
   <tr>
@@ -294,7 +325,7 @@
     <td width="34%" style="padding:0 0 0 6px">
       <div style="padding:12px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.08);border-radius:0">
         <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#737373;margin-bottom:6px">Дальше</div>
-        <span style="color:#ffffff;font-size:13px">регистрация на входе</span>
+        <span style="color:#ffffff;font-size:13px">зарегистрироваться на сайте</span>
       </div>
     </td>
   </tr>
@@ -364,7 +395,7 @@
 
 <div style="padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;border-radius:0;margin-bottom:16px">
   <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#b366ff;font-weight:700;margin-bottom:12px">Переменные окружения</div>
-  <p style="margin:0 0 10px;font-size:12px;color:#a0a0a8">Шаблон — <a href=".env.example" style="color:#b366ff">.env.example</a>. Установщик создаёт <code style="color:#ffffff">.env</code>.</p>
+  <p style="margin:0 0 10px;font-size:12px;color:#a0a0a8">Список ключей — в <a href=".env.example" style="color:#b366ff">.env.example</a>. Сам <code style="color:#ffffff">.env</code> появится при первичной установке.</p>
   <table width="100%" style="border-collapse:collapse;font-size:12px;color:#a0a0a8">
     <tr><td style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);width:42%"><code style="color:#ffffff">SECRETS_MASTER_KEY</code></td><td style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">шифрование интеграций</td></tr>
     <tr><td style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><code style="color:#ffffff">JWT_SECRET</code></td><td style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">подпись сессий</td></tr>
@@ -387,7 +418,7 @@
       <a href="docs/integrations/authoring.md" style="display:block;padding:12px;border:1px solid rgba(179,102,255,0.55);color:#ffffff;text-decoration:none;text-align:center;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;border-radius:0;box-shadow:0 0 14px rgba(179,102,255,0.2)">Интеграции</a>
     </td>
     <td width="34%" style="padding:0 0 0 6px">
-      <a href="LICENSE" style="display:block;padding:12px;border:1px solid rgba(179,102,255,0.55);color:#ffffff;text-decoration:none;text-align:center;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;border-radius:0;box-shadow:0 0 14px rgba(179,102,255,0.2)">Лицензия MIT</a>
+      <a href="LICENSE" style="display:block;padding:12px;border:1px solid rgba(179,102,255,0.55);color:#ffffff;text-decoration:none;text-align:center;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;border-radius:0;box-shadow:0 0 14px rgba(179,102,255,0.2)">Лицензия AGPL-3.0</a>
     </td>
   </tr>
 </table>
@@ -395,7 +426,7 @@
 </div>
 
 <div style="padding:16px 24px 22px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;color:#737373;font-size:11px;letter-spacing:0.06em;text-transform:uppercase">
-  Task Studio · v1.0.0 · Docker · Nuxt · FastAPI · MIT
+  Task Studio · v1.1.0-beta.1 · Docker · Nuxt · FastAPI · AGPL-3.0
 </div>
 
 </td>

@@ -7,6 +7,7 @@ from app.domain.aggregates import update_postgres_aggregates
 from app.infra.clickhouse import insert_event
 from app.infra.models import ProcessedEvent
 from clickhouse_connect.driver.client import Client
+from clickhouse_connect.driver.exceptions import ClickHouseError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.analytics_schemas import AnalyticsEventMessage
@@ -37,12 +38,13 @@ async def process_event(
     if client is not None:
         try:
             await asyncio.to_thread(insert_event, client, database, event)
-        except Exception as exc:
+        except (ClickHouseError, OSError, ConnectionError, TimeoutError) as exc:
             log.warning(
                 "clickhouse_insert_failed",
                 event_id=str(event.event_id),
                 error=str(exc),
             )
+            raise
 
     await update_postgres_aggregates(session, event)
     session.add(ProcessedEvent(event_id=event.event_id))

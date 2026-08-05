@@ -8,7 +8,12 @@ def skills_for(request: PromptRequest) -> list[str]:
         return []
 
     if request.mode == "article_from_url":
-        skills = ["url-to-markdown", "anti-hallucination-source", "negative-constraints"]
+        skills = [
+            "url-to-markdown",
+            "article-dechrome",
+            "anti-hallucination-source",
+            "negative-constraints",
+        ]
         if request.compact:
             skills.append("token-budget")
         return skills
@@ -19,6 +24,7 @@ def skills_for(request: PromptRequest) -> list[str]:
             "anti-hallucination-source",
             "pack-manifest-contract",
             "negative-constraints",
+            "instructional-design",
         ]
         stage = (request.step_kind or "").strip().lower()
         if stage == "analyze":
@@ -36,8 +42,16 @@ def skills_for(request: PromptRequest) -> list[str]:
             skills.append("open-task-ladder")
         elif stage == "consistency":
             skills.append("article-consistency")
-        if request.compact:
-            skills.append("token-budget")
+        from app.domain.course_from_article.course_profile import profile_skill_overlay
+
+        # Только из запроса — без ContextVar domain (граница prompt ↔ course).
+        profile = (request.course_profile or "").strip().casefold().replace("-", "_")
+        if profile:
+            overlay = profile_skill_overlay(profile)
+            if overlay:
+                skills.append(overlay)
+        # Не вешаем chat-ский token-budget («≤80 words») на генерацию курсов —
+        # он убивает смысл статей. Бюджет курса задаётся stage prompts.
         return skills
 
     if request.mode == "grade":

@@ -5,6 +5,7 @@ import uuid
 import httpx
 from app.config import TutorConfig
 from app.domain.llm.target import LlmTarget
+from app.domain.ollama.runtime_policy import LlmTaskKind
 from studio_contracts.tutor_schemas import TutorSettings
 
 
@@ -24,6 +25,7 @@ def _resolve_llm_target(
     provider_url: str | None,
     api_key_encrypted: str | None,
     model: str | None,
+    task: LlmTaskKind = "course_topic_bundle",
 ) -> LlmTarget | None:
     from app.domain import course_from_article as pkg
 
@@ -32,6 +34,7 @@ def _resolve_llm_target(
         provider_url=provider_url,
         api_key_encrypted=api_key_encrypted,
         model=model,
+        task=task,
     )
 
 

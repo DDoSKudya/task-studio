@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def test_run_lab_dry_run_passes(lab_runner_modules) -> None:
+def test_run_lab_dry_run_is_honest(lab_runner_modules) -> None:
     config, runner = lab_runner_modules
     settings = config.LabRunnerSettings(
         rabbitmq_url="",
@@ -16,5 +16,7 @@ def test_run_lab_dry_run_passes(lab_runner_modules) -> None:
         "checks": [{"type": "command", "command": "true"}],
     }
     outcome = runner.run_lab(settings, pack_root="/tmp/unused", step=step)
-    assert outcome.passed is True
+    assert outcome.passed is False
     assert outcome.details.get("mode") == "dry_run"
+    assert outcome.feedback is not None
+    assert "DRY_RUN" in outcome.feedback

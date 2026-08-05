@@ -11,12 +11,14 @@ $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath $Root
 $env:TS_PROG_SYNC = $SyncPath
 
-$scriptDir = Join-Path $Root "scripts"
-. (Join-Path $scriptDir "lib\I18n.ps1")
-. (Join-Path $scriptDir "lib\Ui.ps1")
-. (Join-Path $scriptDir "lib\OpenApp.ps1")
-. (Join-Path $scriptDir "lib\DesktopShortcuts.ps1")
-. (Join-Path $scriptDir "lib\Ops.ps1")
+# Requires -Version is on studio; worker is always -File from scripts/lib context.
+# Use a distinct name so OpenApp.ps1 cannot clobber it (PS is case-insensitive).
+$tsWorkerScriptsDir = Join-Path $Root "scripts"
+. (Join-Path $tsWorkerScriptsDir "lib\I18n.ps1")
+. (Join-Path $tsWorkerScriptsDir "lib\Ui.ps1")
+. (Join-Path $tsWorkerScriptsDir "lib\OpenApp.ps1")
+. (Join-Path $tsWorkerScriptsDir "lib\DesktopShortcuts.ps1")
+. (Join-Path $tsWorkerScriptsDir "lib\Ops.ps1")
 
 $script:TsLogQuiet = $true
 $script:TsLogFile = $LogPath

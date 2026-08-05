@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  BookOpenIcon,
+  CodeBracketIcon,
   DocumentPlusIcon,
   LinkIcon,
   PlusIcon,
+  QuestionMarkCircleIcon,
   SparklesIcon,
   TrashIcon,
   XMarkIcon,
@@ -12,36 +17,50 @@ import { useElapsedTimer } from '~/composables/useElapsedTimer'
 import { extractErrorMessage } from '~/utils/api'
 import {
   buildLibraryCoursePayload,
+  buildResumeCoursePayload,
   canStartLibraryBuild,
   emptyLibraryDraft,
+  hydrateLibraryFormFromRequest,
   isAbortError,
   libraryEnabledStages,
   localizeCourseError,
   localizeCourseProgressMessage,
   localizeCourseWarning,
-  looksLikeHttpUrl,
+  extractHttpUrls,
   packFilenameFromManifest,
   parseConsistencyGateDetail,
+  parseCodeSuitabilityGateDetail,
   planFillDraft,
+  practiceLadderSummary,
   removeLibraryDraft,
+  suggestCourseScaleFromDrafts,
+  totalLibraryContentChars,
   usableLibraryDrafts,
+  LIBRARY_MAX_ARTICLES,
+  LIBRARY_MIN_CONTENT_LEN,
+  type CodeSuitabilityAction,
+  type CourseDepth,
+  type CourseLayout,
   type LibraryDraftArticle,
 } from '~/utils/studio'
 
 const props = withDefaults(
   defineProps<{
     open?: boolean
+    resumeBuildId?: string | null
   }>(),
-  { open: true },
+  { open: true, resumeBuildId: null },
 )
 
 const emit = defineEmits<{
   close: []
   installed: []
+  'update:resumeBuildId': [value: string | null]
 }>()
 
 const { t, te } = useI18n()
-const { streamCourseFromArticle, fetchArticleFromUrl, buildPack, validateManifest } = useStudio()
+const { streamCourseFromArticle, fetchArticleFromUrl, buildPack, validateManifest, discardCourseBuild, getCourseBuild } =
+  useStudio()
 const { uploadPack } = useCatalog()
 const toasts = useToasts()
 
@@ -53,11 +72,24 @@ const audience = ref('')
 const includeTheory = ref(true)
 const includeQuizzes = ref(true)
 const includeCode = ref(true)
+const courseDepth = ref<CourseDepth>('standard')
+const courseLayout = ref<CourseLayout>('by_topic')
+const splitLongTheory = ref(true)
+const theoryCount = ref(6)
+const quizCount = ref(4)
+const practiceCount = ref(2)
+const scaleManual = ref(false)
 const drafts = ref<DraftArticle[]>([emptyLibraryDraft()])
-const activeKey = ref(drafts.value[0].key)
+const activeKey = ref(drafts.value[0]!.key)
 const dragOver = ref(false)
 const urlInput = ref('')
 const urlFetching = ref(false)
+const urlBatchDone = ref(0)
+const urlBatchTotal = ref(0)
+const urlBatchOk = ref(0)
+const urlBatchFail = ref(0)
+const urlBatchCurrent = ref(0)
+const urlFailedLinks = ref<string[]>([])
 type UrlFetchStage = 'idle' | 'download' | 'extract' | 'ai'
 const urlFetchStage = ref<UrlFetchStage>('idle')
 const showMarkdown = ref(false)
@@ -80,8 +112,14 @@ const gateOpen = ref(false)
 const gateDeviations = ref<Array<{ summary: string; sources: string[] }>>([])
 const gateSimilarity = ref<number | null>(null)
 const gateRelated = ref(true)
+const codeGateOpen = ref(false)
+const codeGateScore = ref<number | null>(null)
+const codeGateProfile = ref<string | null>(null)
+const pendingCodeAction = ref<CodeSuitabilityAction | null>(null)
 
 const viewMode = ref<'edit' | 'progress'>('edit')
+const activeBuildId = ref<string | null>(null)
+const formStep = ref<'sources' | 'options'>('sources')
 
 let abortController: AbortController | null = null
 let urlAbortController: AbortController | null = null
@@ -104,7 +142,58 @@ const urlFetchStageLabel = computed(() => {
   return t('libraryCreate.urlFetching')
 })
 
+const urlBatchStatusLine = computed(() => {
+  if (!urlFetching.value) {
+    return ''
+  }
+  if (urlBatchTotal.value > 1) {
+    return t('libraryCreate.urlBatchStatus', {
+      ok: urlBatchOk.value,
+      fail: urlBatchFail.value,
+      current: urlBatchCurrent.value,
+      total: urlBatchTotal.value,
+    })
+  }
+  const step =
+    urlFetchStage.value === 'download'
+      ? '1/3'
+      : urlFetchStage.value === 'extract'
+        ? '2/3'
+        : '3/3'
+  return step
+})
+
+function dismissFailedUrls() {
+  urlFailedLinks.value = []
+}
+
+function resetUrlBatchCounters() {
+  urlBatchDone.value = 0
+  urlBatchTotal.value = 0
+  urlBatchOk.value = 0
+  urlBatchFail.value = 0
+  urlBatchCurrent.value = 0
+}
+
 const usableDrafts = computed(() => usableLibraryDrafts(drafts.value))
+
+const sourceCharCount = computed(() => totalLibraryContentChars(usableDrafts.value))
+
+const scaleAutoHint = computed(() => {
+  const chars = sourceCharCount.value
+  if (chars <= 0) {
+    return t('libraryCreate.scaleFromContentEmpty')
+  }
+  return t('libraryCreate.scaleFromContent', { chars })
+})
+
+function applySuggestedScale() {
+  const suggested = suggestCourseScaleFromDrafts(usableDrafts.value, courseDepth.value)
+  theoryCount.value = suggested.theoryCount
+  quizCount.value = suggested.quizCount
+  practiceCount.value = suggested.practiceCount
+  scaleManual.value = false
+}
 
 const canStart = computed(() =>
   canStartLibraryBuild({
@@ -122,7 +211,23 @@ const enabledStages = computed(() =>
     includeTheory: includeTheory.value,
     includeQuizzes: includeQuizzes.value,
     includeCode: includeCode.value,
+    layout: courseLayout.value,
   }),
+)
+
+const layoutOptions = computed(() =>
+  [
+    {
+      id: 'by_topic' as const,
+      label: t('libraryCreate.layoutByTopic'),
+      hint: t('libraryCreate.layoutByTopicHint'),
+    },
+    {
+      id: 'phased' as const,
+      label: t('libraryCreate.layoutPhased'),
+      hint: t('libraryCreate.layoutPhasedHint'),
+    },
+  ],
 )
 
 const showConsistency = computed(
@@ -130,13 +235,68 @@ const showConsistency = computed(
 )
 
 const showForm = computed(() => viewMode.value === 'edit')
+const showSourcesStep = computed(() => showForm.value && formStep.value === 'sources')
+const showOptionsStep = computed(() => showForm.value && formStep.value === 'options')
 
-const activeDraft = computed(() => {
-  const found = drafts.value.find((item) => item.key === activeKey.value)
-  return found || drafts.value[0]
+const footerPhase = computed(() => {
+  if (showSourcesStep.value) {
+    return 'sources'
+  }
+  if (showOptionsStep.value) {
+    return 'options'
+  }
+  if (codeGateOpen.value) {
+    return 'code-gate'
+  }
+  if (gateOpen.value) {
+    return 'gate'
+  }
+  if (running.value) {
+    return 'running'
+  }
+  return 'done'
 })
 
+const activeDraft = computed(
+  () => drafts.value.find((item) => item.key === activeKey.value) ?? drafts.value[0] ?? null,
+)
+
 const filledCount = computed(() => usableDrafts.value.length)
+const maxArticles = LIBRARY_MAX_ARTICLES
+
+const canGoNext = computed(
+  () => filledCount.value >= 1 && !urlFetching.value && !running.value,
+)
+
+const depthOptions = computed(() =>
+  (
+    [
+      { id: 'light' as const, label: t('libraryCreate.depthLight'), hint: t('libraryCreate.depthHintLight') },
+      {
+        id: 'standard' as const,
+        label: t('libraryCreate.depthStandard'),
+        hint: t('libraryCreate.depthHintStandard'),
+      },
+      { id: 'deep' as const, label: t('libraryCreate.depthDeep'), hint: t('libraryCreate.depthHintDeep') },
+    ] as const
+  ),
+)
+
+const practiceMixHint = computed(() => {
+  if (!includeCode.value || practiceCount.value <= 0) {
+    return t('libraryCreate.practiceCountHint')
+  }
+  const mix = practiceLadderSummary(practiceCount.value, {
+    easy: t('libraryCreate.practiceLevelEasy'),
+    medium: t('libraryCreate.practiceLevelMedium'),
+    hard: t('libraryCreate.practiceLevelHard'),
+  })
+  return mix || t('libraryCreate.practiceCountHint')
+})
+
+function isDraftReady(draft: DraftArticle) {
+  return draft.content.trim().length >= LIBRARY_MIN_CONTENT_LEN
+}
 
 function emptyDraft(): DraftArticle {
   return emptyLibraryDraft()
@@ -150,39 +310,124 @@ function fillDraft(
 ) {
   const planned = planFillDraft(drafts.value, { titleText, content, sourceUrl, videos })
   if (planned.kind === 'max') {
-    toasts.notice(t('libraryCreate.maxArticles'))
+    toasts.notice(t('libraryCreate.maxArticles', { max: maxArticles }))
     return false
   }
   drafts.value = planned.drafts
   activeKey.value = planned.activeKey
+  showMarkdown.value = false
   return true
 }
 
 function selectDraft(key: string) {
   activeKey.value = key
+  showMarkdown.value = false
 }
 
 function addDraft() {
-  if (drafts.value.length >= 6) {
-    toasts.notice(t('libraryCreate.maxArticles'))
+  if (drafts.value.length >= maxArticles) {
+    toasts.notice(t('libraryCreate.maxArticles', { max: maxArticles }))
     return
   }
   const next = emptyDraft()
   drafts.value = [...drafts.value, next]
   activeKey.value = next.key
+  showMarkdown.value = true
 }
 
 function removeDraft(key: string) {
-  const next = removeLibraryDraft(drafts.value, key, emptyDraft)
+  const next = removeLibraryDraft(drafts.value, key)
+  if (!next.drafts.length) {
+    const only = emptyDraft()
+    drafts.value = [only]
+    activeKey.value = only.key
+    showMarkdown.value = false
+    return
+  }
   drafts.value = next.drafts
-  if (activeKey.value === key || !drafts.value.some((item) => item.key === activeKey.value)) {
-    activeKey.value = next.activeKey
+  activeKey.value = next.activeKey
+}
+
+function goNext() {
+  if (!canGoNext.value) {
+    return
+  }
+  applySuggestedScale()
+  formStep.value = 'options'
+}
+
+function goBack() {
+  formStep.value = 'sources'
+}
+
+function clampTheoryCount() {
+  if (!Number.isFinite(theoryCount.value) || theoryCount.value < 1) {
+    theoryCount.value = 1
+  } else if (theoryCount.value > 100) {
+    theoryCount.value = 100
   }
 }
 
-function looksLikeUrl(value: string) {
-  return looksLikeHttpUrl(value)
+function clampQuizCount() {
+  if (!Number.isFinite(quizCount.value) || quizCount.value < 1) {
+    quizCount.value = 1
+  } else if (quizCount.value > 100) {
+    quizCount.value = 100
+  }
 }
+
+function bumpTheory(delta: number) {
+  theoryCount.value += delta
+  clampTheoryCount()
+  scaleManual.value = true
+}
+
+function bumpQuiz(delta: number) {
+  quizCount.value += delta
+  clampQuizCount()
+  scaleManual.value = true
+}
+
+function bumpPractice(delta: number) {
+  practiceCount.value += delta
+  clampPracticeCount()
+  scaleManual.value = true
+}
+
+function clampPracticeCount() {
+  if (!Number.isFinite(practiceCount.value) || practiceCount.value < 0) {
+    practiceCount.value = 0
+  } else if (practiceCount.value > 12) {
+    practiceCount.value = 12
+  }
+}
+
+function onTheoryCountInput() {
+  clampTheoryCount()
+  scaleManual.value = true
+}
+
+function onQuizCountInput() {
+  clampQuizCount()
+  scaleManual.value = true
+}
+
+function onPracticeCountInput() {
+  clampPracticeCount()
+  scaleManual.value = true
+}
+
+watch(courseDepth, () => {
+  if (showOptionsStep.value) {
+    applySuggestedScale()
+  }
+})
+
+watch(sourceCharCount, () => {
+  if (showOptionsStep.value && !scaleManual.value) {
+    applySuggestedScale()
+  }
+})
 
 function clearUrlStageTimers() {
   for (const handle of urlStageTimers) {
@@ -218,6 +463,7 @@ function stopUrlFetch(opts?: { silent?: boolean }) {
   clearUrlStageTimers()
   urlFetching.value = false
   urlFetchStage.value = 'idle'
+  resetUrlBatchCounters()
   if (wasFetching && !opts?.silent) {
     toasts.notice(t('libraryCreate.urlCancelled'))
   }
@@ -236,6 +482,7 @@ function stopBuild(opts?: { toast?: boolean }) {
   log.value = []
   gateOpen.value = false
   viewMode.value = 'edit'
+  formStep.value = 'sources'
   stopTimer()
   if (wasActive && opts?.toast !== false) {
     toasts.notice(t('libraryCreate.buildCancelled'))
@@ -255,35 +502,94 @@ async function addFromUrl() {
     return
   }
   const raw = urlInput.value.trim()
-  if (!looksLikeUrl(raw)) {
+  const remaining = Math.max(0, maxArticles - drafts.value.filter((item) => item.content.trim()).length)
+  const urls = extractHttpUrls(raw, Math.max(1, remaining || 20))
+  if (!urls.length) {
     toasts.error(t('libraryCreate.errors.urlInvalid'))
     return
   }
+  if (remaining <= 0) {
+    toasts.notice(t('libraryCreate.maxArticles', { max: maxArticles }))
+    return
+  }
+  const queue = urls.slice(0, remaining)
+  const batchMode = queue.length > 1
   urlAbortController?.abort()
   urlAbortController = new AbortController()
   const signal = urlAbortController.signal
+  urlFailedLinks.value = []
   urlFetching.value = true
-  startUrlStageProgress()
+  urlBatchTotal.value = queue.length
+  urlBatchDone.value = 0
+  urlBatchOk.value = 0
+  urlBatchFail.value = 0
+  urlBatchCurrent.value = 0
+  let added = 0
+  let failed = 0
+  const failedUrls: string[] = []
   try {
-    const article = await fetchArticleFromUrl(raw, { signal })
-    if (signal.aborted) {
-      return
+    for (let i = 0; i < queue.length; i += 1) {
+      const link = queue[i]!
+      if (signal.aborted) {
+        break
+      }
+      urlBatchCurrent.value = i + 1
+      startUrlStageProgress()
+      try {
+        const article = await fetchArticleFromUrl(link, { signal })
+        if (signal.aborted) {
+          break
+        }
+        const ok = fillDraft(
+          article.title || link,
+          article.content,
+          article.source_url || link,
+          Array.isArray(article.videos) ? article.videos : [],
+        )
+        if (ok) {
+          added += 1
+          urlBatchOk.value = added
+        } else {
+          failed += 1
+          urlBatchFail.value = failed
+          failedUrls.push(link)
+          break
+        }
+      } catch (error) {
+        if (isAbortError(error, signal)) {
+          break
+        }
+        failed += 1
+        urlBatchFail.value = failed
+        failedUrls.push(link)
+        if (!batchMode) {
+          toasts.error(
+            localizeCourseError(
+              extractErrorMessage(error) || t('libraryCreate.errors.urlFailed'),
+              t,
+            ) || t('libraryCreate.errors.urlFailedOne', { url: link }),
+          )
+        }
+      } finally {
+        urlBatchDone.value += 1
+        clearUrlStageTimers()
+      }
     }
-    const ok = fillDraft(
-      article.title || raw,
-      article.content,
-      article.source_url || raw,
-      Array.isArray(article.videos) ? article.videos : [],
-    )
-    if (ok) {
+    if (!signal.aborted) {
       urlInput.value = ''
-      toasts.success(t('libraryCreate.urlLoaded'))
+      urlFailedLinks.value = failedUrls
+      if (added > 0 && failed === 0) {
+        toasts.success(
+          added === 1
+            ? t('libraryCreate.urlLoaded')
+            : t('libraryCreate.urlLoadedMany', { count: added }),
+        )
+      } else if (added > 0) {
+        toasts.notice(t('libraryCreate.urlLoadedPartial', { ok: added, fail: failed }))
+      } else if (failed > 0 && batchMode) {
+        toasts.error(t('libraryCreate.urlLoadedNone', { fail: failed }))
+      }
     }
-  } catch (error) {
-    if (isAbortError(error, signal)) {
-      return
-    }
-    toasts.error(extractErrorMessage(error) || t('libraryCreate.errors.urlFailed'))
   } finally {
     clearUrlStageTimers()
     if (urlAbortController?.signal === signal) {
@@ -291,6 +597,7 @@ async function addFromUrl() {
     }
     urlFetching.value = false
     urlFetchStage.value = 'idle'
+    resetUrlBatchCounters()
   }
 }
 
@@ -363,6 +670,12 @@ function resetProgress() {
 
 function applyEvent(event: CourseStageEvent) {
   log.value = [...log.value, event]
+  const eventBuildId =
+    (typeof event.build_id === 'string' && event.build_id) ||
+    (typeof event.detail?.build_id === 'string' ? String(event.detail.build_id) : '')
+  if (eventBuildId) {
+    activeBuildId.value = eventBuildId
+  }
   if (event.type === 'error') {
     progress.value = 0
   } else if (typeof event.progress === 'number') {
@@ -393,7 +706,11 @@ function applyEvent(event: CourseStageEvent) {
   }
 }
 
-function buildPayload(ignoreDeviations: boolean) {
+function buildPayload(
+  ignoreDeviations: boolean,
+  codeSuitabilityAction?: CodeSuitabilityAction | null,
+  buildId?: string | null,
+) {
   return buildLibraryCoursePayload({
     articles: usableDrafts.value.map((item, index) => ({
       title: item.title.trim() || t('libraryCreate.untitled', { n: index + 1 }),
@@ -403,10 +720,18 @@ function buildPayload(ignoreDeviations: boolean) {
     title: title.value,
     audience: audience.value,
     locale: locale.value,
+    courseDepth: courseDepth.value,
+    layout: courseLayout.value,
+    splitLongTheory: splitLongTheory.value,
+    theoryCount: theoryCount.value,
+    quizCount: quizCount.value,
+    practiceCount: practiceCount.value,
     ignoreDeviations,
     includeTheory: includeTheory.value,
     includeQuizzes: includeQuizzes.value,
     includeCode: includeCode.value,
+    codeSuitabilityAction: codeSuitabilityAction ?? null,
+    buildId: buildId ?? activeBuildId.value,
   })
 }
 
@@ -422,24 +747,55 @@ async function installManifest(manifest: Record<string, unknown>) {
   await uploadPack(file)
 }
 
-async function runGenerate(ignoreDeviations: boolean) {
-  if (!canStart.value && !ignoreDeviations) {
-    if (!(includeTheory.value || includeQuizzes.value || includeCode.value)) {
-      toasts.error(t('libraryCreate.errors.needContent'))
+async function onContinueGate() {
+  gateOpen.value = false
+  await runGenerate(true, pendingCodeAction.value, {
+    resumeOnly: Boolean(activeBuildId.value),
+  })
+}
+
+async function onCodeGateChoice(action: CodeSuitabilityAction) {
+  codeGateOpen.value = false
+  pendingCodeAction.value = action
+  await runGenerate(false, action, {
+    resumeOnly: Boolean(activeBuildId.value),
+  })
+}
+
+async function runGenerate(
+  ignoreDeviations: boolean,
+  codeSuitabilityAction?: CodeSuitabilityAction | null,
+  options?: { resumeOnly?: boolean },
+) {
+  const resumeOnly = Boolean(options?.resumeOnly && activeBuildId.value)
+  if (!resumeOnly) {
+    if (!canStart.value && !ignoreDeviations) {
+      if (!(includeTheory.value || includeQuizzes.value || includeCode.value)) {
+        toasts.error(t('libraryCreate.errors.needContent'))
+        return
+      }
+      toasts.error(t('libraryCreate.errors.tooShort'))
       return
     }
-    toasts.error(t('libraryCreate.errors.tooShort'))
-    return
-  }
-  if (usableDrafts.value.length < 1) {
-    toasts.error(t('libraryCreate.errors.tooShort'))
-    return
+    if (usableDrafts.value.length < 1) {
+      toasts.error(t('libraryCreate.errors.tooShort'))
+      return
+    }
+    activeBuildId.value = null
   }
 
   resetProgress()
   try {
+    const payload = resumeOnly
+      ? buildResumeCoursePayload({
+          buildId: String(activeBuildId.value),
+          ignoreDeviations,
+          codeSuitabilityAction: codeSuitabilityAction ?? pendingCodeAction.value,
+        })
+      : buildPayload(ignoreDeviations, codeSuitabilityAction ?? pendingCodeAction.value)
+
     const outcome = await streamCourseFromArticle(
-      buildPayload(ignoreDeviations),
+      payload,
       applyEvent,
       { signal: abortController?.signal },
     )
@@ -459,6 +815,18 @@ async function runGenerate(ignoreDeviations: boolean) {
       toasts.notice(t('libraryCreate.gateToast'), 8000)
       return
     }
+    if (outcome.kind === 'code_suitability_gate') {
+      const gate = parseCodeSuitabilityGateDetail(outcome.event.detail)
+      codeGateScore.value = gate.score
+      codeGateProfile.value = gate.profile
+      codeGateOpen.value = true
+      gateOpen.value = false
+      message.value = t('libraryCreate.codeGateTitle')
+      running.value = false
+      stopTimer()
+      toasts.notice(t('libraryCreate.codeGateToast'), 8000)
+      return
+    }
     if (outcome.kind === 'error') {
       if (outcome.message === 'aborted') {
         restoreEditAfterCancel()
@@ -476,19 +844,32 @@ async function runGenerate(ignoreDeviations: boolean) {
       restoreEditAfterCancel()
       return
     }
+    if (activeBuildId.value) {
+      try {
+        await discardCourseBuild(activeBuildId.value)
+      } catch {
+        // черновик уже не нужен после установки
+      }
+      activeBuildId.value = null
+      emit('update:resumeBuildId', null)
+    }
     progress.value = 1
     stage.value = 'done'
     done.value = true
-    message.value = t('libraryCreate.installed', {
-      title: String(outcome.result.manifest.title || title.value || 'Course'),
-    })
-    if (outcome.result.meta.warnings?.length) {
-      warnings.value = outcome.result.meta.warnings.map((item) =>
+    const courseTitle = String(outcome.result.manifest.title || title.value || 'Course')
+    const hasWarnings = Boolean(outcome.result.meta.warnings?.length)
+    if (hasWarnings) {
+      warnings.value = (outcome.result.meta.warnings ?? []).map((item) =>
         localizeCourseWarning(String(item), t, te),
       )
+      message.value = t('libraryCreate.installedPartial', { title: courseTitle })
+      await nextTick()
+      toasts.notice(t('libraryCreate.installedPartialToast'), 8000)
+    } else {
+      message.value = t('libraryCreate.installed', { title: courseTitle })
+      await nextTick()
+      toasts.success(t('libraryCreate.installedToast'))
     }
-    await nextTick()
-    toasts.success(t('libraryCreate.installedToast'))
     emit('installed')
   } catch (err) {
     if (cancelRequested || (err instanceof DOMException && err.name === 'AbortError')) {
@@ -501,7 +882,9 @@ async function runGenerate(ignoreDeviations: boolean) {
       extractErrorMessage(err) || t('libraryCreate.errors.failed'),
       t,
     )
-    message.value = error.value
+    message.value = activeBuildId.value
+      ? t('libraryCreate.buildSavedHint', { message: error.value })
+      : error.value
     toasts.error(error.value)
   } finally {
     running.value = false
@@ -510,23 +893,67 @@ async function runGenerate(ignoreDeviations: boolean) {
   }
 }
 
+async function applySavedBuild(buildId: string) {
+  const detail = await getCourseBuild(buildId)
+  const hydrated = hydrateLibraryFormFromRequest(detail.request ?? {})
+  drafts.value = hydrated.drafts
+  activeKey.value = hydrated.activeKey
+  title.value = hydrated.title
+  audience.value = hydrated.audience
+  locale.value = hydrated.locale
+  includeTheory.value = hydrated.includeTheory
+  includeQuizzes.value = hydrated.includeQuizzes
+  includeCode.value = hydrated.includeCode
+  courseDepth.value = hydrated.courseDepth
+  courseLayout.value = hydrated.layout
+  splitLongTheory.value = hydrated.splitLongTheory
+  if (hydrated.theoryCount != null) {
+    theoryCount.value = hydrated.theoryCount
+  }
+  if (hydrated.quizCount != null) {
+    quizCount.value = hydrated.quizCount
+  }
+  if (hydrated.practiceCount != null) {
+    practiceCount.value = hydrated.practiceCount
+  }
+  pendingCodeAction.value = hydrated.pendingCodeAction
+  scaleManual.value = true
+  activeBuildId.value = buildId
+  return hydrated.ignoreDeviations
+}
+
+async function resumeActiveBuild() {
+  const buildId = activeBuildId.value || props.resumeBuildId
+  if (!buildId) {
+    return
+  }
+  error.value = ''
+  let ignoreDeviations = false
+  try {
+    ignoreDeviations = await applySavedBuild(buildId)
+  } catch (err) {
+    toasts.error(
+      extractErrorMessage(err) || t('libraryCreate.errors.failed'),
+    )
+    return
+  }
+  await runGenerate(ignoreDeviations, pendingCodeAction.value, { resumeOnly: true })
+}
+
 function restoreEditAfterCancel() {
   stopBuild({ toast: true })
 }
 
 function onCancelGate() {
   gateOpen.value = false
+  codeGateOpen.value = false
   viewMode.value = 'edit'
+  formStep.value = 'options'
   toasts.notice(t('libraryCreate.gateCancelled'))
 }
 
-async function onContinueGate() {
-  gateOpen.value = false
-  await runGenerate(true)
-}
-
 async function requestCancelBuild() {
-  if (!running.value && !gateOpen.value) {
+  if (!running.value && !gateOpen.value && !codeGateOpen.value) {
     return
   }
   const { confirm } = useConfirm()
@@ -591,6 +1018,22 @@ watch(
 
     if (wasOpen && !isOpen) {
       hardStopAll({ toast: false })
+      formStep.value = 'sources'
+      activeBuildId.value = null
+    }
+    if (isOpen && props.resumeBuildId) {
+      activeBuildId.value = props.resumeBuildId
+      void resumeActiveBuild()
+    }
+  },
+)
+
+watch(
+  () => props.resumeBuildId,
+  (buildId) => {
+    if (props.open && buildId && buildId !== activeBuildId.value && !running.value) {
+      activeBuildId.value = buildId
+      void resumeActiveBuild()
     }
   },
 )
@@ -619,6 +1062,11 @@ onBeforeUnmount(() => {
       >
       <div
         class="lc-modal"
+        :class="{
+          'is-progress': !showForm,
+          'is-options': showOptionsStep,
+          'is-sources': showSourcesStep,
+        }"
         role="dialog"
         aria-modal="true"
         aria-labelledby="library-create-title"
@@ -642,8 +1090,9 @@ onBeforeUnmount(() => {
         </header>
 
         <div class="lc-body" :class="{ 'is-progress': !showForm }">
+          <div class="lc-body-slot">
           <Transition name="page-cyber" mode="out-in">
-          <div v-if="showForm" key="form" class="lc-form-pane">
+          <div v-if="showSourcesStep" key="sources" class="lc-form-pane">
             <section class="lc-setup" :aria-label="t('libraryCreate.courseTitle')">
               <label class="lc-field lc-field-title">
                 <span class="lc-field-label">{{ t('libraryCreate.courseTitle') }}</span>
@@ -676,7 +1125,7 @@ onBeforeUnmount(() => {
               <aside class="lc-rail">
                 <div class="lc-rail-head">
                   <span class="lc-rail-title">{{ t('libraryCreate.ingestTitle') }}</span>
-                  <span class="lc-rail-count">{{ filledCount }}/6</span>
+                  <span class="lc-rail-count">{{ filledCount }}/{{ maxArticles }}</span>
                 </div>
                 <div class="lc-rail-list" role="tablist" aria-orientation="vertical">
                   <button
@@ -685,7 +1134,7 @@ onBeforeUnmount(() => {
                     class="lc-rail-item"
                     :class="{
                       'is-active': draft.key === activeKey,
-                      'is-ready': draft.content.trim().length >= 40,
+                      'is-ready': isDraftReady(draft),
                     }"
                     type="button"
                     role="tab"
@@ -697,7 +1146,7 @@ onBeforeUnmount(() => {
                       {{ draft.title.trim() || t('libraryCreate.articleN', { n: index + 1 }) }}
                     </span>
                     <span
-                      v-if="draft.content.trim().length >= 40"
+                      v-if="isDraftReady(draft)"
                       class="lc-rail-dot"
                       aria-hidden="true"
                     />
@@ -706,7 +1155,7 @@ onBeforeUnmount(() => {
                 <button
                   class="lc-rail-add"
                   type="button"
-                  :disabled="drafts.length >= 6"
+                  :disabled="drafts.length >= maxArticles || running"
                   @click="addDraft"
                 >
                   <PlusIcon class="icon-sm" />
@@ -724,21 +1173,22 @@ onBeforeUnmount(() => {
                   @drop.prevent="onDrop"
                 >
                   <div class="lc-url-block">
-                    <div class="lc-url-row">
+                    <div class="lc-url-row lc-url-row-multi">
                       <span class="lc-url-icon" aria-hidden="true">
                         <LinkIcon class="icon-sm" />
                       </span>
-                      <input
+                      <textarea
                         v-model="urlInput"
-                        class="field lc-url-input"
-                        type="url"
-                        inputmode="url"
+                        class="field lc-url-input lc-url-textarea"
+                        rows="2"
                         autocomplete="off"
+                        spellcheck="false"
                         :disabled="urlFetching || running"
-                        :placeholder="t('libraryCreate.urlPlaceholder')"
+                        :placeholder="t('libraryCreate.urlPlaceholderMulti')"
                         :aria-label="t('libraryCreate.urlLabel')"
-                        @keydown.enter.prevent="addFromUrl"
-                      >
+                        @keydown.meta.enter.prevent="addFromUrl"
+                        @keydown.ctrl.enter.prevent="addFromUrl"
+                      />
                       <button
                         class="btn-primary btn-sm"
                         type="button"
@@ -750,25 +1200,45 @@ onBeforeUnmount(() => {
                           class="loading-spinner loading-spinner-sm"
                           aria-hidden="true"
                         />
-                        {{ urlFetching ? t('libraryCreate.urlFetching') : t('libraryCreate.urlAdd') }}
+                        {{
+                          urlFetching
+                            ? t('libraryCreate.urlFetching')
+                            : t('libraryCreate.urlAdd')
+                        }}
                       </button>
                     </div>
+                    <p v-if="!urlFetching" class="lc-url-hint">{{ t('libraryCreate.urlMultiHint') }}</p>
                     <p
                       v-if="urlFetching"
                       class="lc-url-stage"
                       aria-live="polite"
                     >
                       <span class="lc-url-stage-index" aria-hidden="true">
-                        {{
-                          urlFetchStage === 'download'
-                            ? '1/3'
-                            : urlFetchStage === 'extract'
-                              ? '2/3'
-                              : '3/3'
-                        }}
+                        {{ urlBatchStatusLine }}
                       </span>
-                      {{ urlFetchStageLabel }}
+                      <span class="lc-url-stage-msg">{{ urlFetchStageLabel }}</span>
                     </p>
+                    <div
+                      v-if="urlFailedLinks.length && !urlFetching"
+                      class="lc-url-failed"
+                      role="status"
+                    >
+                      <div class="lc-url-failed-head">
+                        <span>{{ t('libraryCreate.urlFailedListTitle', { count: urlFailedLinks.length }) }}</span>
+                        <button
+                          class="lc-url-failed-dismiss"
+                          type="button"
+                          @click="dismissFailedUrls"
+                        >
+                          {{ t('libraryCreate.urlFailedDismiss') }}
+                        </button>
+                      </div>
+                      <ul class="lc-url-failed-list">
+                        <li v-for="link in urlFailedLinks" :key="link" :title="link">
+                          {{ link }}
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                   <div class="lc-ingest-alt">
                     <DocumentPlusIcon class="lc-drop-icon" aria-hidden="true" />
@@ -815,7 +1285,7 @@ onBeforeUnmount(() => {
                     v-if="!activeDraft.content.trim() && !showMarkdown"
                     class="lc-editor-empty"
                   >
-                    <p class="lc-editor-empty-title">{{ t('libraryCreate.sourceEmptyTitle') }}</p>
+                    <p class="lc-editor-empty-title">{{ t('libraryCreate.sourceEditorEmptyTitle') }}</p>
                     <p class="lc-editor-empty-meta">{{ t('libraryCreate.sourceEmptyMeta') }}</p>
                   </div>
 
@@ -836,7 +1306,7 @@ onBeforeUnmount(() => {
                       v-if="showMarkdown"
                       v-model="activeDraft.content"
                       class="lc-editor-area"
-                      rows="11"
+                      rows="4"
                       spellcheck="false"
                       :placeholder="t('libraryCreate.articlePlaceholder')"
                     />
@@ -848,9 +1318,289 @@ onBeforeUnmount(() => {
               </div>
             </section>
           </div>
+
+          <div v-else-if="showOptionsStep" key="options" class="lc-form-pane lc-options-pane">
+            <section class="lc-options" :aria-label="t('libraryCreate.stepOptions')">
+              <header class="lc-options-hero">
+                <div class="lc-options-hero-copy">
+                  <p class="lc-options-kicker">{{ t('libraryCreate.stepOptions') }}</p>
+                  <h3 class="lc-options-title">{{ t('libraryCreate.optionsTitle') }}</h3>
+                </div>
+                <p class="lc-options-meta">
+                  {{ t('libraryCreate.optionsSourcesReady', { count: filledCount }) }}
+                </p>
+              </header>
+
+              <div class="lc-options-board">
+                <div class="lc-panel lc-panel-modules">
+                  <div class="lc-panel-head">
+                    <h4 class="lc-options-label">{{ t('libraryCreate.stagesLabel') }}</h4>
+                  </div>
+                  <div class="lc-chip-row" role="group" :aria-label="t('libraryCreate.stagesLabel')">
+                      <button
+                        class="lc-chip"
+                        type="button"
+                        :aria-pressed="includeTheory"
+                        :class="{ 'is-on': includeTheory }"
+                        @click="includeTheory = !includeTheory"
+                      >
+                      <span class="lc-chip-glyph" aria-hidden="true">
+                        <BookOpenIcon class="lc-chip-icon" />
+                      </span>
+                      <span class="lc-chip-copy">
+                        <span class="lc-chip-name">{{ t('libraryCreate.includeTheory') }}</span>
+                        <span class="lc-chip-hint">{{ t('libraryCreate.moduleHintTheory') }}</span>
+                      </span>
+                    </button>
+                      <button
+                        class="lc-chip"
+                        type="button"
+                        :aria-pressed="includeQuizzes"
+                        :class="{ 'is-on': includeQuizzes }"
+                        @click="includeQuizzes = !includeQuizzes"
+                      >
+                      <span class="lc-chip-glyph" aria-hidden="true">
+                        <QuestionMarkCircleIcon class="lc-chip-icon" />
+                      </span>
+                      <span class="lc-chip-copy">
+                        <span class="lc-chip-name">{{ t('libraryCreate.includeQuizzes') }}</span>
+                        <span class="lc-chip-hint">{{ t('libraryCreate.moduleHintQuizzes') }}</span>
+                      </span>
+                    </button>
+                      <button
+                        class="lc-chip"
+                        type="button"
+                        :aria-pressed="includeCode"
+                        :class="{ 'is-on': includeCode }"
+                        @click="includeCode = !includeCode"
+                      >
+                      <span class="lc-chip-glyph" aria-hidden="true">
+                        <CodeBracketIcon class="lc-chip-icon" />
+                      </span>
+                      <span class="lc-chip-copy">
+                        <span class="lc-chip-name">{{ t('libraryCreate.includeCode') }}</span>
+                        <span class="lc-chip-hint">{{ t('libraryCreate.moduleHintCode') }}</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lc-panel lc-panel-layout">
+                  <div class="lc-panel-head">
+                    <h4 class="lc-options-label">{{ t('libraryCreate.courseLayout') }}</h4>
+                  </div>
+                  <div
+                    class="lc-segment lc-segment-2 lc-segment-grow"
+                    role="radiogroup"
+                    :aria-label="t('libraryCreate.courseLayout')"
+                  >
+                    <button
+                      v-for="option in layoutOptions"
+                      :key="option.id"
+                      class="lc-segment-item"
+                      type="button"
+                      role="radio"
+                      :aria-checked="courseLayout === option.id"
+                      :class="{ 'is-on': courseLayout === option.id }"
+                      @click="courseLayout = option.id"
+                    >
+                      <span class="lc-segment-name">{{ option.label }}</span>
+                      <span class="lc-segment-hint">{{ option.hint }}</span>
+                    </button>
+                  </div>
+                  <label
+                    class="lc-check lc-check-inline"
+                    :class="{ 'is-off': !includeTheory }"
+                  >
+                    <input
+                      v-model="splitLongTheory"
+                      type="checkbox"
+                      :disabled="!includeTheory"
+                    >
+                    <span class="lc-check-copy">
+                      <span class="lc-check-name">{{ t('libraryCreate.splitLongTheory') }}</span>
+                      <span class="lc-check-hint">{{ t('libraryCreate.splitLongTheoryHint') }}</span>
+                    </span>
+                  </label>
+                </div>
+
+                <div class="lc-panel lc-panel-side">
+                  <div class="lc-options-row lc-options-depth">
+                    <div class="lc-panel-head">
+                      <h4 class="lc-options-label">{{ t('libraryCreate.courseDepth') }}</h4>
+                    </div>
+                    <div
+                      class="lc-depth"
+                      role="radiogroup"
+                      :aria-label="t('libraryCreate.courseDepth')"
+                    >
+                      <button
+                        v-for="(option, depthIndex) in depthOptions"
+                        :key="option.id"
+                        class="lc-depth-card"
+                        type="button"
+                        role="radio"
+                        :aria-checked="courseDepth === option.id"
+                        :class="{ 'is-on': courseDepth === option.id }"
+                        @click="courseDepth = option.id"
+                      >
+                        <span class="lc-depth-index" aria-hidden="true">
+                          {{ String(depthIndex + 1).padStart(2, '0') }}
+                        </span>
+                        <span class="lc-depth-copy">
+                          <span class="lc-depth-name">{{ option.label }}</span>
+                          <span class="lc-depth-hint">{{ option.hint }}</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="lc-options-row lc-options-scale">
+                    <div class="lc-panel-head">
+                      <h4 class="lc-options-label">{{ t('libraryCreate.scaleLabel') }}</h4>
+                      <p class="lc-options-scale-meta">{{ scaleAutoHint }}</p>
+                    </div>
+                    <div class="lc-scale-grid">
+                      <div class="lc-scale-item" :class="{ 'is-off': !includeTheory }">
+                        <div class="lc-scale-copy">
+                          <span class="lc-scale-name">{{ t('libraryCreate.theoryCount') }}</span>
+                          <span class="lc-scale-hint">{{ t('libraryCreate.theoryCountHint') }}</span>
+                        </div>
+                        <div class="lc-stepper">
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeTheory || theoryCount <= 1"
+                            :aria-label="t('libraryCreate.theoryCount')"
+                            @click="bumpTheory(-1)"
+                          >
+                            −
+                          </button>
+                          <input
+                            v-model.number="theoryCount"
+                            class="lc-stepper-input"
+                            type="number"
+                            min="1"
+                            max="100"
+                            :disabled="!includeTheory"
+                            @blur="onTheoryCountInput"
+                          >
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeTheory || theoryCount >= 100"
+                            @click="bumpTheory(1)"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="lc-scale-item" :class="{ 'is-off': !includeQuizzes }">
+                        <div class="lc-scale-copy">
+                          <span class="lc-scale-name">{{ t('libraryCreate.quizCount') }}</span>
+                          <span class="lc-scale-hint">{{ t('libraryCreate.quizCountHint') }}</span>
+                        </div>
+                        <div class="lc-stepper">
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeQuizzes || quizCount <= 1"
+                            @click="bumpQuiz(-1)"
+                          >
+                            −
+                          </button>
+                          <input
+                            v-model.number="quizCount"
+                            class="lc-stepper-input"
+                            type="number"
+                            min="1"
+                            max="100"
+                            :disabled="!includeQuizzes"
+                            @blur="onQuizCountInput"
+                          >
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeQuizzes || quizCount >= 100"
+                            @click="bumpQuiz(1)"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="lc-scale-item" :class="{ 'is-off': !includeCode }">
+                        <div class="lc-scale-copy">
+                          <span class="lc-scale-name">{{ t('libraryCreate.practiceCount') }}</span>
+                          <span class="lc-scale-hint">{{ practiceMixHint || t('libraryCreate.practiceCountHint') }}</span>
+                        </div>
+                        <div class="lc-stepper">
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeCode || practiceCount <= 0"
+                            @click="bumpPractice(-1)"
+                          >
+                            −
+                          </button>
+                          <input
+                            v-model.number="practiceCount"
+                            class="lc-stepper-input"
+                            type="number"
+                            min="0"
+                            max="12"
+                            :disabled="!includeCode"
+                            @blur="onPracticeCountInput"
+                          >
+                          <button
+                            class="lc-stepper-btn"
+                            type="button"
+                            :disabled="!includeCode || practiceCount >= 12"
+                            @click="bumpPractice(1)"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
           <div v-else key="progress" class="lc-progress-pane">
             <div
-              v-if="gateOpen"
+              v-if="codeGateOpen"
+              class="lc-gate-panel"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="library-create-code-gate-title"
+            >
+              <h3 id="library-create-code-gate-title">{{ t('libraryCreate.codeGateTitle') }}</h3>
+              <p class="lc-gate-lead">
+                {{
+                  t('libraryCreate.codeGateLead', {
+                    score: codeGateScore == null ? '—' : Math.round(codeGateScore * 100),
+                    profile: codeGateProfile || 'general',
+                  })
+                }}
+              </p>
+              <div class="lc-gate-actions">
+                <button type="button" class="btn btn-secondary" @click="onCodeGateChoice('keep_code')">
+                  {{ t('libraryCreate.codeGateKeep') }}
+                </button>
+                <button type="button" class="btn btn-secondary" @click="onCodeGateChoice('open_tasks')">
+                  {{ t('libraryCreate.codeGateOpen') }}
+                </button>
+                <button type="button" class="btn btn-ghost" @click="onCodeGateChoice('no_practice')">
+                  {{ t('libraryCreate.codeGateSkip') }}
+                </button>
+              </div>
+            </div>
+            <div
+              v-else-if="gateOpen"
               class="lc-gate-panel"
               role="alertdialog"
               aria-modal="true"
@@ -896,91 +1646,96 @@ onBeforeUnmount(() => {
             />
           </div>
           </Transition>
+          </div>
         </div>
 
         <footer class="lc-footer" :class="{ 'is-progress-actions': !showForm }">
-          <div v-if="showForm" class="lc-footer-start">
-            <p class="lc-footer-meta">
-              {{ t('libraryCreate.sourceCount', { count: filledCount, max: 6 }) }}
-            </p>
-            <div class="lc-stages" role="group" :aria-label="t('libraryCreate.stagesLabel')">
-              <span class="lc-stages-legend">{{ t('libraryCreate.stagesLabel') }}</span>
-              <button
-                class="lc-stage-chip"
-                type="button"
-                :aria-pressed="includeTheory"
-                :class="{ 'is-on': includeTheory }"
-                @click="includeTheory = !includeTheory"
-              >
-                {{ t('libraryCreate.includeTheory') }}
-              </button>
-              <button
-                class="lc-stage-chip"
-                type="button"
-                :aria-pressed="includeQuizzes"
-                :class="{ 'is-on': includeQuizzes }"
-                @click="includeQuizzes = !includeQuizzes"
-              >
-                {{ t('libraryCreate.includeQuizzes') }}
-              </button>
-              <button
-                class="lc-stage-chip"
-                type="button"
-                :aria-pressed="includeCode"
-                :class="{ 'is-on': includeCode }"
-                @click="includeCode = !includeCode"
-              >
-                {{ t('libraryCreate.includeCode') }}
-              </button>
+          <Transition name="page-cyber" mode="out-in">
+            <div :key="footerPhase" class="lc-footer-inner">
+              <div v-if="showOptionsStep" class="lc-footer-start">
+                <p class="lc-footer-meta">{{ t('libraryCreate.optionsFooterHint') }}</p>
+              </div>
+              <p v-else-if="codeGateOpen" class="lc-footer-status">
+                {{ t('libraryCreate.codeGateToast') }}
+              </p>
+              <p v-else-if="gateOpen" class="lc-footer-status">
+                {{ t('libraryCreate.gateFooterHint') }}
+              </p>
+              <p v-else-if="running" class="lc-footer-status">
+                {{ t('libraryCreate.working') }}
+              </p>
+              <div class="lc-footer-actions">
+                <template v-if="showSourcesStep">
+                  <button
+                    class="btn-primary"
+                    type="button"
+                    :disabled="!canGoNext"
+                    @click="goNext"
+                  >
+                    {{ t('libraryCreate.next') }}
+                    <ArrowRightIcon class="icon-sm" />
+                  </button>
+                </template>
+                <template v-else-if="showOptionsStep">
+                  <button class="btn-secondary" type="button" @click="goBack">
+                    <ArrowLeftIcon class="icon-sm" />
+                    {{ t('libraryCreate.back') }}
+                  </button>
+                  <button
+                    class="btn-primary"
+                    type="button"
+                    :disabled="!canStart"
+                    @click="runGenerate(false)"
+                  >
+                    <SparklesIcon class="icon-sm" />
+                    {{ t('libraryCreate.build') }}
+                  </button>
+                </template>
+                <template v-else-if="codeGateOpen">
+                  <button class="btn-secondary" type="button" @click="onCancelGate">
+                    {{ t('libraryCreate.gateCancel') }}
+                  </button>
+                </template>
+                <template v-else-if="gateOpen">
+                  <button class="btn-secondary" type="button" @click="onCancelGate">
+                    {{ t('libraryCreate.gateCancel') }}
+                  </button>
+                  <button
+                    class="btn-primary"
+                    type="button"
+                    :disabled="running"
+                    @click="onContinueGate"
+                  >
+                    {{ t('libraryCreate.gateContinue') }}
+                  </button>
+                </template>
+                <button
+                  v-else-if="running"
+                  class="btn-secondary"
+                  type="button"
+                  @click="requestCancelBuild"
+                >
+                  {{ t('libraryCreate.cancel') }}
+                </button>
+                <template v-else-if="error && activeBuildId">
+                  <button class="btn-secondary" type="button" @click="emit('close')">
+                    {{ t('libraryCreate.close') }}
+                  </button>
+                  <button class="btn-primary" type="button" @click="resumeActiveBuild">
+                    {{ t('libraryCreate.resumeBuild') }}
+                  </button>
+                </template>
+                <button
+                  v-else
+                  class="btn-primary"
+                  type="button"
+                  @click="emit('close')"
+                >
+                  {{ t('libraryCreate.done') }}
+                </button>
+              </div>
             </div>
-          </div>
-          <p v-else-if="gateOpen" class="lc-footer-status">
-            {{ t('libraryCreate.gateFooterHint') }}
-          </p>
-          <p v-else-if="running" class="lc-footer-status">
-            {{ t('libraryCreate.working') }}
-          </p>
-          <div class="lc-footer-actions">
-            <button
-              v-if="showForm"
-              class="btn-primary"
-              type="button"
-              :disabled="!canStart"
-              @click="runGenerate(false)"
-            >
-              <SparklesIcon class="icon-sm" />
-              {{ t('libraryCreate.build') }}
-            </button>
-            <template v-else-if="gateOpen">
-              <button class="btn-secondary" type="button" @click="onCancelGate">
-                {{ t('libraryCreate.gateCancel') }}
-              </button>
-              <button
-                class="btn-primary"
-                type="button"
-                :disabled="running"
-                @click="onContinueGate"
-              >
-                {{ t('libraryCreate.gateContinue') }}
-              </button>
-            </template>
-            <button
-              v-else-if="running"
-              class="btn-secondary"
-              type="button"
-              @click="requestCancelBuild"
-            >
-              {{ t('libraryCreate.cancel') }}
-            </button>
-            <button
-              v-else
-              class="btn-primary"
-              type="button"
-              @click="emit('close')"
-            >
-              {{ t('libraryCreate.done') }}
-            </button>
-          </div>
+          </Transition>
         </footer>
       </div>
       </div>

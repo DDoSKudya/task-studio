@@ -51,6 +51,7 @@ class PromptRequest:
     step_title: str
     compact: bool = False
     sql_aware: bool = False
+    course_profile: str = ""
 
 
 def load_prompt(name: str) -> str:

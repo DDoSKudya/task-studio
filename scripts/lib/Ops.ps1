@@ -1,11 +1,53 @@
 ﻿#Requires -Version 5.1
 
+if (-not (Get-Command Resolve-TsHttpPort -ErrorAction SilentlyContinue)) {
+  . (Join-Path $PSScriptRoot 'Health.ps1')
+}
+
 $script:ComposeFile = "deploy/docker-compose.yml"
 $script:RepoHttps = if ($env:TASK_STUDIO_REPO_HTTPS) { $env:TASK_STUDIO_REPO_HTTPS } else { "https://github.com/DDoSKudya/task-studio.git" }
 $script:RepoBranch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "develop" }
 $script:InstallDir = if ($env:TASK_STUDIO_DIR) { $env:TASK_STUDIO_DIR } else { Join-Path $HOME "task-studio" }
 $script:MinRamGb = if ($env:TASK_STUDIO_MIN_RAM_GB) { [int]$env:TASK_STUDIO_MIN_RAM_GB } else { 8 }
 $script:OllamaModel = if ($env:OLLAMA_MODEL) { $env:OLLAMA_MODEL } else { "qwen2.5:3b" }
+
+function Get-TsOllamaAccelerator {
+  $requested = if ($env:OLLAMA_ACCELERATOR) { $env:OLLAMA_ACCELERATOR.Trim().ToLowerInvariant() } else { "auto" }
+  if ($requested -eq "cpu" -or $requested -eq "gpu") {
+    return $requested
+  }
+  $nvidia = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+  if ($nvidia) {
+    $r = Invoke-TsNative nvidia-smi
+    if ($r.ExitCode -eq 0) {
+      return "gpu"
+    }
+  }
+  return "cpu"
+}
+
+function Set-TsOllamaProfile {
+  $accel = Get-TsOllamaAccelerator
+  $profile = if ($env:OLLAMA_PROFILE) { $env:OLLAMA_PROFILE.Trim() } else { "" }
+  if (-not $profile) {
+    $profile = if ($accel -eq "gpu") { "gpu-balanced" } else { "cpu-balanced" }
+  }
+  $gpuAvailable = if ($accel -eq "gpu") { "1" } else { "0" }
+  $env:OLLAMA_GPU_AVAILABLE = $gpuAvailable
+  $env:OLLAMA_PROFILE = $profile
+  if (Test-Path .env) {
+    if (Select-String -Path .env -Pattern '^OLLAMA_GPU_AVAILABLE=' -Quiet) {
+      (Get-Content .env) -replace '^OLLAMA_GPU_AVAILABLE=.*', "OLLAMA_GPU_AVAILABLE=$gpuAvailable" | Set-Content .env
+    } else {
+      Add-Content .env "`nOLLAMA_GPU_AVAILABLE=$gpuAvailable"
+    }
+    if (Select-String -Path .env -Pattern '^OLLAMA_PROFILE=' -Quiet) {
+      (Get-Content .env) -replace '^OLLAMA_PROFILE=.*', "OLLAMA_PROFILE=$profile" | Set-Content .env
+    } else {
+      Add-Content .env "`nOLLAMA_PROFILE=$profile"
+    }
+  }
+}
 
 function Write-TsUtf8NoBom {
   param(
@@ -41,31 +83,62 @@ function Test-TsDockerReady {
   return ($r.ExitCode -eq 0)
 }
 
+function Get-TsDockerDesktopExe {
+  $candidates = @(
+    (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\Docker Desktop.exe")
+  )
+  foreach ($exe in $candidates) {
+    if ($exe -and (Test-Path -LiteralPath $exe)) {
+      return $exe
+    }
+  }
+  return $null
+}
+
+function Start-TsDockerService {
+  try {
+    $svc = Get-Service -Name "com.docker.service" -ErrorAction SilentlyContinue
+    if (-not $svc) { return $false }
+    if ($svc.Status -ne "Running") {
+      Start-Service -Name "com.docker.service" -ErrorAction Stop
+      return $true
+    }
+  } catch { }
+  return $false
+}
+
+function Start-TsDockerDesktopApp {
+  $exe = Get-TsDockerDesktopExe
+  if ($exe) {
+    try {
+      Start-Process -FilePath $exe | Out-Null
+      return $true
+    } catch { }
+  }
+  try {
+    Start-Process "Docker Desktop" -ErrorAction SilentlyContinue | Out-Null
+    return $true
+  } catch { }
+  return $false
+}
+
 function Start-TsDockerDesktop {
   if ($env:TASK_STUDIO_NO_AUTO_DOCKER -eq "1") { return $false }
 
-  $running = @(Get-Process -Name "Docker Desktop","com.docker.backend" -ErrorAction SilentlyContinue)
-  if ($running.Count -eq 0) {
-    $candidates = @(
-      (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
-      (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\Docker Desktop.exe")
-    )
-    $started = $false
-    foreach ($exe in $candidates) {
-      if ($exe -and (Test-Path -LiteralPath $exe)) {
-        try {
-          Start-Process -FilePath $exe | Out-Null
-          $started = $true
-          break
-        } catch { }
-      }
-    }
-    if (-not $started) {
-      try { Start-Process "Docker Desktop" -ErrorAction SilentlyContinue | Out-Null; $started = $true } catch { }
-    }
-    return $started
+  $started = $false
+  if (Start-TsDockerService) {
+    $started = $true
   }
-  return $true
+
+  $running = @(Get-Process -Name "Docker Desktop","com.docker.backend","com.docker.proxy" -ErrorAction SilentlyContinue)
+  if ($running.Count -eq 0 -or -not (Test-TsDockerReady)) {
+    if (Start-TsDockerDesktopApp) {
+      $started = $true
+    }
+  }
+
+  return ($started -or $running.Count -gt 0)
 }
 
 function Wait-TsDockerReady {
@@ -77,6 +150,10 @@ function Wait-TsDockerReady {
   $elapsed = 0
   while ($elapsed -lt $TimeoutSec) {
     if (Test-TsDockerReady) { return $true }
+    if ($elapsed -gt 0 -and ($elapsed % 20) -eq 0) {
+      # Если процесс висит без движка, повторно пинаем и сервис, и GUI.
+      [void](Start-TsDockerDesktop)
+    }
     if (($elapsed % 10) -eq 0) {
       $msg = Get-TsText status_docker_waiting $elapsed $TimeoutSec
       if ($script:TsProg) {
@@ -271,6 +348,14 @@ function Get-TsDockerSockGid {
 }
 
 function Ensure-TsEnv {
+  $preferredWas80 = $true
+  $prevPort = Get-TsEnvValue "TASK_STUDIO_HTTP_PORT"
+  if ($prevPort -match '^\d+$' -and [int]$prevPort -ne 80) {
+    $preferredWas80 = $false
+  }
+  if ($env:TASK_STUDIO_HTTP_PORT -match '^\d+$' -and [int]$env:TASK_STUDIO_HTTP_PORT -ne 80) {
+    $preferredWas80 = $false
+  }
   if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
     Write-TsInfo (Get-TsText info_env_created)
@@ -305,12 +390,34 @@ function Ensure-TsEnv {
       Set-TsEnvValue "DOCKER_GID" $gid
     }
   }
+  $uiUrl = if ($env:TASK_STUDIO_UI_URL) { $env:TASK_STUDIO_UI_URL } else { 'http://localhost' }
+  if ($uiUrl -match '^https://') {
+    Set-TsEnvValue "COOKIE_SECURE" "true"
+  }
+
+  $port = Resolve-TsHttpPort
+  Set-TsEnvValue "TASK_STUDIO_HTTP_PORT" ([string]$port)
+  $fileUi = Get-TsEnvValue "TASK_STUDIO_UI_URL"
+  if (-not $fileUi -or ($fileUi -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?/?$')) {
+    Set-TsEnvValue "TASK_STUDIO_UI_URL" (Format-TsUiUrl -Port $port)
+  }
+  Set-TsEnvValue "TASK_STUDIO_UI_PROBE_URL" (Format-TsUiProbeUrl -Port $port)
+  Sync-TsUiEndpointVars -Port $port
+  if ($preferredWas80 -and $port -ne 80) {
+    Write-TsInfo (Get-TsText info_http_port_fallback $port)
+  }
 }
 
 function Initialize-TsComposeEnv {
   $pname = Get-TsEnvValue "COMPOSE_PROJECT_NAME"
   if (-not $pname) { $pname = "task-studio" }
   $env:COMPOSE_PROJECT_NAME = $pname
+  $httpPort = Get-TsEnvValue "TASK_STUDIO_HTTP_PORT"
+  if ($httpPort -match '^\d+$') {
+    $env:TASK_STUDIO_HTTP_PORT = $httpPort
+  } elseif (-not $env:TASK_STUDIO_HTTP_PORT) {
+    $env:TASK_STUDIO_HTTP_PORT = "80"
+  }
   if (-not $env:COMPOSE_PARALLEL_LIMIT) {
     $env:COMPOSE_PARALLEL_LIMIT = (Get-TsDefaultParallelLimit)
   }
@@ -425,9 +532,28 @@ function Write-TsComposeFailureDiagnostics {
   } catch { }
 }
 
+function Get-TsComposeContainerName {
+  param([Parameter(Mandatory = $true)][string]$Service)
+  $pname = Initialize-TsComposeEnv
+  $fromCompose = @(Invoke-TsComposeCaptured @("ps", "-a", "--format", "{{.Name}}", $Service))
+  foreach ($line in $fromCompose) {
+    $trimmed = ([string]$line).Trim()
+    if ($trimmed) { return $trimmed }
+  }
+  $rowsR = Invoke-TsNative docker ps -a `
+    --filter "label=com.docker.compose.project=$pname" `
+    --filter "label=com.docker.compose.service=$Service" `
+    --format "{{.Names}}"
+  foreach ($line in $rowsR.Output) {
+    $trimmed = ([string]$line).Trim()
+    if ($trimmed) { return $trimmed }
+  }
+  return ("{0}-{1}-1" -f $pname, $Service)
+}
+
 function Wait-TsCatalogHealthy {
   param([int]$TimeoutSec = 240)
-  $name = "task-studio-catalog-1"
+  $name = Get-TsComposeContainerName -Service "catalog"
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
   $sawRunning = $false
   while ([DateTime]::UtcNow -lt $deadline) {
@@ -521,8 +647,20 @@ function Get-TsProfileArgs {
   return ,$args
 }
 
+function Test-TsInstallIsRepair {
+  return (Get-TsStackState) -ne "missing"
+}
+
+function Get-TsInstallTitle {
+  if (Test-TsInstallIsRepair) {
+    return (Get-TsText title_rebuild_packages)
+  }
+  return (Get-TsText title_install)
+}
+
 function Invoke-TsInstall {
   Assert-TsDocker
+  $repair = Test-TsInstallIsRepair
   $plan = @(
     @{ Id = "prepare"; Label = (Get-TsText stage_prepare); Est = 40 }
     @{ Id = "build"; Label = (Get-TsText stage_build); Est = 600 }
@@ -553,7 +691,8 @@ function Invoke-TsInstall {
   $profileArgs = Get-TsProfileArgs
   Enter-TsProgressStage -Plan $plan -Id "prepare" -Status (Get-TsText status_build_parallel (Get-TsDefaultParallelLimit))
 
-  Enter-TsProgressStage -Plan $plan -Id "build" -Status (Get-TsText status_build_slow)
+  $buildStatus = if ($repair) { (Get-TsText status_build) } else { (Get-TsText status_build_slow) }
+  Enter-TsProgressStage -Plan $plan -Id "build" -Status $buildStatus
   Invoke-TsCompose @($profileArgs + @("build"))
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw (Get-TsText err_build_short) }
 
@@ -562,20 +701,30 @@ function Invoke-TsInstall {
     throw (Get-TsText err_up_short)
   }
 
-  Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_waiting_ui $script:AppUiUrl)
+  Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_waiting_ui $script:AppUiProbeUrl)
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
     Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
   } else {
-    throw (Get-TsText err_ui $script:AppUiUrl)
+    throw (Get-TsUiFailureHint)
   }
 
   Enter-TsProgressStage -Plan $plan -Id "model" -Status (Get-TsText status_pull_model)
+  Set-TsOllamaProfile
   $modelLine = (Get-Content .env | Where-Object { $_ -match '^OLLAMA_MODEL=' } | Select-Object -First 1)
   $model = if ($modelLine) { ($modelLine -split '=', 2)[1].Trim() } else { $script:OllamaModel }
   try {
     Invoke-TsCompose @("--profile", "full", "exec", "-T", "ollama", "ollama", "pull", $model)
   } catch {
     Write-TsWarn (Get-TsText warn_model_pull_short)
+  }
+  $embedLine = (Get-Content .env | Where-Object { $_ -match '^OLLAMA_MODEL_EMBED=' } | Select-Object -First 1)
+  $embed = if ($embedLine) { ($embedLine -split '=', 2)[1].Trim() } else { "nomic-embed-text" }
+  if ($embed -and $embed -ne $model) {
+    try {
+      Invoke-TsCompose @("--profile", "full", "exec", "-T", "ollama", "ollama", "pull", $embed)
+    } catch {
+      Write-TsWarn (Get-TsText warn_model_pull_short)
+    }
   }
 
   Enter-TsProgressStage -Plan $plan -Id "finish" -Status (Get-TsText status_creating_shortcuts)
@@ -615,7 +764,7 @@ function Invoke-TsStart {
     Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
     Complete-TsProgress
   } else {
-    throw (Get-TsText err_ui $script:AppUiUrl)
+    throw (Get-TsUiFailureHint)
   }
 }
 
@@ -728,7 +877,7 @@ function Invoke-TsRestart {
     Enter-TsProgressStage -Plan $plan -Id "health" -Status (Get-TsText status_ui_ok)
     Complete-TsProgress
   } else {
-    throw (Get-TsText err_ui_after_restart $script:AppUiUrl)
+    throw (Get-TsUiFailureHint)
   }
 }
 
@@ -1003,7 +1152,7 @@ function Test-TsUpdatableInstall {
 function Get-TsContentSha256 {
   param([string]$Root)
   $excludeNames = @('.env', '.env.local', '.studio-update-check', '.studio-state.json', '.studio-consumer', '.studio-update-cache.json', 'compose.override.yml', 'docker-compose.override.yml')
-  $excludeDirNames = @('data', '.git', '.cursor', '.plan', '.venv', 'node_modules', '__pycache__')
+  $excludeDirNames = @('data', '.git', '.cursor', '.venv', 'node_modules', '__pycache__')
   $files = Get-ChildItem -Path $Root -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object {
     $rel = $_.FullName.Substring($Root.Length).TrimStart('\', '/')
     $parts = $rel -split '[\\/]'
@@ -1251,7 +1400,7 @@ function Invoke-TsUpdate {
   if (Wait-AppReady -Tries 90 -SleepSeconds 5) {
     Enter-TsProgressStage -Plan $plan -Id "rebuild" -Status (Get-TsText status_ui_ok)
   } else {
-    Write-TsWarn (Get-TsText warn_ui_after_update $script:AppUiUrl)
+    Write-TsWarn (Get-TsUiFailureHint)
   }
   try {
     Install-TaskStudioDesktopShortcuts -Root $root

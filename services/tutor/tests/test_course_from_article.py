@@ -2,12 +2,26 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from studio_contracts.pack import collect_manifest_errors
 from studio_contracts.studio_schemas import CourseArticleInput, CourseFromArticleRequest
 from tutor_helpers.loaders import load_service_module
+
+
+def _fake_llm_target():
+    import sys
+
+    LlmTarget = sys.modules["app.domain.llm.target"].LlmTarget
+    return LlmTarget(base_url="http://ollama:11434/v1", api_key=None, model="qwen2.5:7b")
+
+
+def _theory_expand_mod():
+    import sys
+
+    return sys.modules["app.domain.course_from_article.theory_expand"]
 
 
 def test_parse_json_object_accepts_fenced_payload() -> None:
@@ -293,6 +307,135 @@ def test_theory_serial_count_keeps_prefix_for_book_voice() -> None:
     assert course._theory_parallel_limit(compact=False) == 3
 
 
+@pytest.mark.asyncio
+async def test_expand_theory_compact_uses_single_content_call() -> None:
+    theory = load_service_module("app.domain.course_from_article.theory_expand")
+    body = CourseFromArticleRequest(
+        article="abc helps define interfaces. " * 20,
+        title="abc",
+        locale="ru",
+    )
+    chapter = {
+        "id": "c1",
+        "title": "Usage of abc",
+        "source_excerpt": "Abstract base classes…",
+        "purpose": "",
+        "source_titles": "",
+        "bridge_from_prev": "",
+        "assumes_known": "",
+        "must_not_reteach": "",
+    }
+    calls: list[str] = []
+
+    async def fake_complete(*_args, **_kwargs):
+        calls.append("content")
+        return (
+            "# Использование\n\n"
+            "Используйте `abc.ABC` для интерфейсов и контрактов в коде приложения.\n"
+        )
+
+    async def boom_stage_json(*_args, **_kwargs):
+        raise AssertionError("compact theory must not call meta JSON stage")
+
+    target = theory.LlmTarget(
+        base_url="http://ollama:11434/v1",
+        api_key="x",
+        model="llama",
+    )
+    with (
+        patch.object(theory, "complete_text_until_done", new=AsyncMock(side_effect=fake_complete)),
+        patch.object(theory, "_stage_json", new=AsyncMock(side_effect=boom_stage_json)),
+    ):
+        step = await theory._expand_one_theory_chapter(
+            AsyncMock(),
+            target,
+            body=body,
+            compact=True,
+            chapter=chapter,
+            chapters=[chapter],
+            outcomes=["use abc"],
+            book_spine={},
+            index=0,
+        )
+
+    assert calls == ["content"]
+    assert step["kind"] == "theory"
+    assert "abc" in str(step.get("content") or "").casefold() or step["title"]
+
+
+@pytest.mark.asyncio
+async def test_expand_theory_rewrites_wrong_language() -> None:
+    theory = load_service_module("app.domain.course_from_article.theory_expand")
+    body = CourseFromArticleRequest(
+        article="arabic source text " * 20,
+        title="course",
+        locale="ru",
+    )
+    chapter = {
+        "id": "c1",
+        "title": "Idea",
+        "source_excerpt": "مصدر عربي",
+        "purpose": "",
+        "source_titles": "",
+        "bridge_from_prev": "",
+        "assumes_known": "",
+        "must_not_reteach": "",
+    }
+    drafts = [
+        "This chapter explains the idea in English only with enough letters for detection.",
+        "Эта глава объясняет идею на русском языке и даёт рабочий пример для ученика.",
+    ]
+
+    async def fake_complete(*_args, **_kwargs):
+        return drafts.pop(0)
+
+    target = theory.LlmTarget(
+        base_url="http://ollama:11434/v1",
+        api_key="x",
+        model="llama",
+    )
+    with patch.object(theory, "complete_text_until_done", new=AsyncMock(side_effect=fake_complete)):
+        step = await theory._expand_theory_compact(
+            AsyncMock(),
+            target,
+            body=body,
+            chapter=chapter,
+            chapters=[chapter],
+            outcomes=["learn"],
+            book_spine={},
+            index=0,
+        )
+
+    assert (
+        "русск" in str(step.get("content") or "").casefold()
+        or "глава" in str(step.get("content") or "").casefold()
+    )
+    assert not drafts
+
+
+@pytest.mark.asyncio
+async def test_course_stream_emits_ping_while_waiting() -> None:
+    keep = load_service_module("app.domain.course_from_article.stream_keepalive")
+
+    async def slow_events():
+        await asyncio.sleep(0.05)
+        yield {
+            "type": "stage",
+            "stage": "theory",
+            "status": "running",
+            "progress": 0.2,
+            "message": "x",
+        }
+        yield {"type": "done", "progress": 1.0, "message": "ok"}
+
+    with patch.object(keep, "_COURSE_STREAM_PING_SECONDS", 0.01):
+        frames = [frame async for frame in keep.iter_course_sse_with_pings(slow_events())]
+
+    texts = [frame.decode() for frame in frames]
+    assert any('"type": "ping"' in text or '"type":"ping"' in text for text in texts)
+    assert any("theory" in text for text in texts)
+
+
 def test_theory_user_message_includes_book_spine() -> None:
     course = load_service_module("app.domain.course_from_article")
     body = CourseFromArticleRequest(article="x" * 90, locale="ru")
@@ -337,6 +480,18 @@ def test_theory_user_message_includes_book_spine() -> None:
     assert "Continue the desk" in msg
     assert "Must not reteach" in msg
     assert "one book" in msg.lower()
+    assert "Output language (mandatory)" in msg
+    assert "Russian" in msg
+
+
+def test_locale_prompt_ignores_source_language() -> None:
+    locale = load_service_module("app.domain.course_from_article.course_locale")
+    assert locale.normalize_course_locale("EN-us") == "en"
+    assert locale.normalize_course_locale("ru") == "ru"
+    block = locale.locale_prompt_block("ru")
+    assert "Russian" in block
+    assert "ANY language" in block
+    assert 'exactly "ru"' in block
 
 
 def test_course_from_article_skills_include_consistency() -> None:
@@ -365,8 +520,24 @@ def test_course_from_article_analyze_skills_include_curriculum() -> None:
         sql_aware=False,
     )
     skills = prompts.skills_for(req)
+    assert "instructional-design" in skills
     assert "curriculum-synthesis" in skills
     assert "course-stage-json" in skills
+
+
+def test_course_from_article_theory_skills_include_instructional_design() -> None:
+    prompts = load_service_module("app.domain.prompts")
+    req = prompts.PromptRequest(
+        mode="course_from_article",
+        phase=None,
+        step_kind="theory",
+        step_title="theory",
+        compact=False,
+        sql_aware=False,
+    )
+    skills = prompts.skills_for(req)
+    assert "instructional-design" in skills
+    assert "expand-dense-prose" in skills
 
 
 def test_combined_corpus_fair_shares_sources() -> None:
@@ -384,7 +555,7 @@ def test_combined_corpus_fair_shares_sources() -> None:
 
 
 @pytest.mark.asyncio
-async def test_consistency_gate_stops_without_ignore() -> None:
+async def test_consistency_gate_stops_without_ignore(tutor_config) -> None:
     import uuid
 
     course = load_service_module("app.domain.course_from_article")
@@ -424,7 +595,7 @@ async def test_consistency_gate_stops_without_ignore() -> None:
                 )
             ),
         ),
-        patch.object(course, "resolve_llm_target", return_value=object()),
+        patch.object(course, "resolve_llm_target", return_value=_fake_llm_target()),
         patch.object(course, "is_ollama_target", return_value=True),
         patch.object(course, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)),
     ):
@@ -432,7 +603,7 @@ async def test_consistency_gate_stops_without_ignore() -> None:
             event
             async for event in course.iter_course_from_article(
                 AsyncMock(),
-                AsyncMock(),
+                tutor_config,
                 user_id=uuid.uuid4(),
                 body=body,
             )
@@ -444,7 +615,7 @@ async def test_consistency_gate_stops_without_ignore() -> None:
 
 
 @pytest.mark.asyncio
-async def test_generate_course_from_article_mocked_stages() -> None:
+async def test_generate_course_from_article_mocked_stages(tutor_config) -> None:
     import uuid
 
     course = load_service_module("app.domain.course_from_article")
@@ -552,13 +723,18 @@ async def test_generate_course_from_article_mocked_stages() -> None:
                 )
             ),
         ),
-        patch.object(course, "resolve_llm_target", return_value=object()),
+        patch.object(course, "resolve_llm_target", return_value=_fake_llm_target()),
         patch.object(course, "is_ollama_target", return_value=True),
         patch.object(course, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)),
+        patch.object(
+            _theory_expand_mod(),
+            "complete_text_until_done",
+            new=AsyncMock(return_value=str(stage_responses["theory"]["content"])),
+        ),
     ):
         response = await course.generate_course_from_article(
             AsyncMock(),
-            AsyncMock(),
+            tutor_config,
             user_id=uuid.uuid4(),
             body=body,
         )
@@ -569,7 +745,7 @@ async def test_generate_course_from_article_mocked_stages() -> None:
 
 
 @pytest.mark.asyncio
-async def test_external_theory_mid_chapters_preserve_order() -> None:
+async def test_external_theory_mid_chapters_preserve_order(tutor_config) -> None:
     import uuid
 
     course = load_service_module("app.domain.course_from_article")
@@ -577,6 +753,7 @@ async def test_external_theory_mid_chapters_preserve_order() -> None:
         article=("Path helps with files. " * 20),
         title="Path book",
         locale="ru",
+        layout="phased",
         quiz_count=3,
         code_count=3,
     )
@@ -673,13 +850,18 @@ async def test_external_theory_mid_chapters_preserve_order() -> None:
                 )
             ),
         ),
-        patch.object(course, "resolve_llm_target", return_value=object()),
+        patch.object(course, "resolve_llm_target", return_value=_fake_llm_target()),
         patch.object(course, "is_ollama_target", return_value=False),
         patch.object(course, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)),
+        patch.object(
+            _theory_expand_mod(),
+            "complete_text_until_done",
+            new=AsyncMock(return_value="Path helps with files in theory chapters."),
+        ),
     ):
         response = await course.generate_course_from_article(
             AsyncMock(),
-            AsyncMock(),
+            tutor_config,
             user_id=uuid.uuid4(),
             body=body,
         )
@@ -702,6 +884,63 @@ def test_sse_event_format() -> None:
     assert text.endswith("\n\n")
     payload = json.loads(text.removeprefix("data: ").strip())
     assert payload["stage"] == "analyze"
+
+
+def test_ladder_levels_round_robin() -> None:
+    practice = load_service_module("app.domain.course_from_article.practice_generate")
+    assert practice._ladder_levels(0) == []
+    assert practice._ladder_levels(1) == ["easy"]
+    assert practice._ladder_levels(6) == [
+        "easy",
+        "medium",
+        "hard",
+        "easy",
+        "medium",
+        "hard",
+    ]
+    assert practice._ladder_levels(8) == [
+        "easy",
+        "medium",
+        "hard",
+        "easy",
+        "medium",
+        "hard",
+        "easy",
+        "medium",
+    ]
+    twelve = practice._ladder_levels(12)
+    assert twelve.count("easy") == 4
+    assert twelve.count("medium") == 4
+    assert twelve.count("hard") == 4
+
+
+def test_coerce_quiz_answer_accepts_string_indices() -> None:
+    practice = load_service_module("app.domain.course_from_article.normalize_practice")
+    assert practice._coerce_quiz_answer("2") == 2
+    assert practice._coerce_quiz_answer("b") == 1
+    assert practice._coerce_quiz_answer(2.0) == 2
+    assert practice._coerce_quiz_answer(True) is None
+    quizzes = practice._normalize_quizzes(
+        [
+            {
+                "id": "quiz-1",
+                "title": "Q",
+                "question": "?",
+                "choices": ["a", "b", "c", "d"],
+                "answer": "1",
+            }
+        ],
+        count=1,
+    )
+    assert quizzes[0]["answer"] == 1
+
+
+def test_analyze_outline_max_tokens_scales_with_chapter_cap() -> None:
+    analyze = load_service_module("app.domain.course_from_article.pipeline_analyze")
+    small = analyze._analyze_outline_max_tokens(compact=False, chapter_cap=6)
+    large = analyze._analyze_outline_max_tokens(compact=False, chapter_cap=40)
+    assert large > small
+    assert large >= 2400 + 40 * 90
 
 
 @pytest.mark.asyncio
@@ -746,6 +985,140 @@ async def test_generate_code_tasks_one_llm_call_per_level() -> None:
     assert [t["level"] for t in tasks] == ["easy", "medium", "hard"]
 
 
+def test_normalize_code_tasks_accepts_alt_fields_and_llm_only() -> None:
+    practice = load_service_module("app.domain.course_from_article.normalize_practice")
+    tasks = practice._normalize_code_tasks(
+        [
+            {
+                "id": "alt",
+                "title": "Alt fields",
+                "content": "Implement abc.ABC",
+                "starter_code": "from abc import ABC\n\nclass Base(ABC):\n    pass\n",
+                "test_cases": [{"input": [], "output": None}],
+            },
+            {
+                "id": "llm-only",
+                "title": "No tests",
+                "content": "Explain and sketch a registry pattern",
+                "code": "def register(name: str) -> None:\n    ...\n",
+                "tests": [],
+            },
+        ],
+        count=2,
+        runtime="python",
+        runtime_version="3.12",
+    )
+    assert len(tasks) == 2
+    assert tasks[0]["template"].startswith("from abc")
+    assert tasks[0]["tests"]
+    assert tasks[1]["checker"] == "llm"
+    assert tasks[1]["tests"] == []
+
+
+def test_normalize_code_tasks_moves_dependencies_out_of_content() -> None:
+    practice = load_service_module("app.domain.course_from_article.normalize_practice")
+    tasks = practice._normalize_code_tasks(
+        [
+            {
+                "id": "deps",
+                "title": "HTTP client",
+                "content": (
+                    "Fetch a URL.\n\n"
+                    "### Пример зависимости в requirements.txt\n"
+                    "```text\nrequests==2.31.0\n```"
+                ),
+                "template": (
+                    "import requests\n\n"
+                    "def fetch(url: str) -> int:\n"
+                    "    return requests.get(url).status_code\n"
+                ),
+                "tests": [{"input": ["https://example.com"], "output": 200}],
+                "dependencies": ["requests==2.31.0"],
+            },
+        ],
+        count=1,
+        runtime="python",
+        runtime_version="3.12",
+    )
+    assert len(tasks) == 1
+    step = tasks[0]
+    assert step.get("dependencies") == ["requests==2.31.0"]
+    assert "requirements.txt" not in str(step.get("content"))
+    assert "requests==2.31.0" not in str(step.get("content"))
+
+
+@pytest.mark.asyncio
+async def test_generate_code_tasks_retries_then_succeeds() -> None:
+    practice = load_service_module("app.domain.course_from_article.practice_generate")
+    body = CourseFromArticleRequest(
+        article="Path helps with files. " * 20,
+        title="Path",
+        locale="ru",
+        code_count=1,
+    )
+    calls: list[str] = []
+
+    async def fake_stage_json(*_args, user_message: str = "", **_kwargs):
+        calls.append("repair" if "## Repair" in user_message else "first")
+        if "## Repair" not in user_message:
+            return {"tasks": [{"title": "broken", "content": "no template"}]}
+        return {
+            "tasks": [
+                {
+                    "id": "code-easy",
+                    "level": "easy",
+                    "title": "Fixed",
+                    "content": "Solve easy",
+                    "template": "def solve(x: int) -> int:\n    return x\n",
+                    "tests": [{"input": [1], "output": 1}],
+                }
+            ]
+        }
+
+    with patch.object(practice, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)):
+        tasks = await practice.generate_code_tasks(
+            AsyncMock(),
+            object(),
+            body=body,
+            compact=False,
+            chapters=[{"id": "c1", "title": "Intro", "source_excerpt": "x"}],
+            outcomes=["use Path"],
+        )
+
+    assert calls == ["first", "repair"]
+    assert len(tasks) == 1
+    assert tasks[0]["title"] == "Fixed"
+
+
+@pytest.mark.asyncio
+async def test_generate_code_tasks_compact_fallback_scaffold() -> None:
+    practice = load_service_module("app.domain.course_from_article.practice_generate")
+    body = CourseFromArticleRequest(
+        article="ABC module helps define interfaces. " * 20,
+        title="abc",
+        locale="ru",
+        code_count=1,
+    )
+
+    async def fake_stage_json(*_args, **_kwargs):
+        return {"tasks": [{"title": "empty", "content": "still no code"}]}
+
+    with patch.object(practice, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)):
+        tasks = await practice.generate_code_tasks(
+            AsyncMock(),
+            object(),
+            body=body,
+            compact=True,
+            chapters=[{"id": "c1", "title": "Abstract base", "source_excerpt": "x"}],
+            outcomes=["use abc"],
+        )
+
+    assert len(tasks) == 1
+    assert tasks[0]["checker"] == "llm"
+    assert tasks[0]["template"]
+    assert tasks[0]["level"] == "easy"
+
+
 @pytest.mark.asyncio
 async def test_generate_quizzes_one_llm_call_per_item() -> None:
     quiz_mod = load_service_module("app.domain.course_from_article.quiz_generate")
@@ -787,6 +1160,46 @@ async def test_generate_quizzes_one_llm_call_per_item() -> None:
     assert [q["id"] for q in quizzes] == ["quiz-1", "quiz-2", "quiz-3"]
 
 
+@pytest.mark.asyncio
+async def test_generate_quizzes_retries_invalid_payload() -> None:
+    quiz_mod = load_service_module("app.domain.course_from_article.quiz_generate")
+    body = CourseFromArticleRequest(
+        article="Path helps with files. " * 20,
+        title="Path",
+        locale="ru",
+        quiz_count=1,
+    )
+    attempts = {"n": 0}
+
+    async def fake_stage_json(*_args, **_kwargs):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            return {"quiz": {"title": "bad", "question": "?", "choices": ["a"], "answer": "x"}}
+        return {
+            "quiz": {
+                "id": "quiz-1",
+                "title": "Ok",
+                "question": "Works?",
+                "choices": ["a", "b", "c", "d"],
+                "answer": "0",
+            }
+        }
+
+    with patch.object(quiz_mod, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)):
+        quizzes = await quiz_mod.generate_quizzes(
+            AsyncMock(),
+            object(),
+            body=body,
+            compact=True,
+            chapters=[{"id": "c1", "title": "Intro", "source_excerpt": "x"}],
+            outcomes=["use Path"],
+            theory_steps=[{"title": "Intro", "content": "Path wraps paths."}],
+        )
+
+    assert attempts["n"] == 2
+    assert quizzes[0]["answer"] == 0
+
+
 def test_retarget_code_fences_fixes_python_mislabeled_as_sql() -> None:
     course = load_service_module("app.domain.course_from_article")
     md = """## Unit of Work
@@ -812,6 +1225,29 @@ SELECT id FROM orders WHERE total > 100
     assert "```python\nwith Session" in fixed
     assert "```python\norder = Order" in fixed
     assert "```sql\nSELECT id FROM orders" in fixed
+
+
+def test_repair_code_fences_treats_lang_closer_as_close() -> None:
+    course = load_service_module("app.domain.course_from_article")
+    md = """#### Создание сети
+
+```bash
+docker network create my-network
+```text
+
+Эта команда создаёт сеть.
+
+```bash
+docker run --network my-network postgres
+```text
+"""
+    fixed = course._repair_code_fences(md)
+    assert "```bash\ndocker network create my-network\n```\n" in fixed
+    assert "```text\n\nЭта" not in fixed
+    assert fixed.count("```") % 2 == 0
+    assert "Эта команда создаёт сеть." in fixed
+    retargeted = course._retarget_code_fences(md)
+    assert "```bash\ndocker network create my-network\n```" in retargeted
 
 
 def test_repair_code_fences_fixes_double_backtick_corruption() -> None:
@@ -866,3 +1302,35 @@ def test_normalize_theory_step_retargets_fences() -> None:
         {"id": "flush", "title": "flush", "source_excerpt": "excerpt"},
     )
     assert "```python\nwith Session" in str(step["content"])
+
+
+def test_retarget_heals_premature_python_fence_close() -> None:
+    course = load_service_module("app.domain.course_from_article")
+    md = """Пример:
+
+```python
+class FieldDescriptor:
+    def __init__(self, field_type):
+        self.field_type = field_type
+
+    def __get__(self, instance, owner):
+        return self.value
+```
+
+def __set__(self, instance, value):
+    if not isinstance(value, self.field_type):
+        raise TypeError("bad")
+    self.value = value
+
+class User:
+    name = FieldDescriptor(str)
+```
+
+Дальше объясняется идея.
+"""
+    fixed = course._retarget_code_fences(md)
+    assert "def __set__(self, instance, value):" in fixed
+    outside = re.sub(r"```[\s\S]*?```", "", fixed)
+    assert "__set__" not in outside
+    assert "Дальше объясняется идея." in outside
+    assert fixed.count("```") % 2 == 0

@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from app.domain.course_from_article.course_context import get_course_profile
 from app.domain.errors import TutorError
-from app.domain.llm import complete_json_raw_until_done
-from app.domain.ollama.defaults import OLLAMA_NUM_CTX as _OLLAMA_NUM_CTX
+from app.domain.llm import LlmTarget, complete_json_raw_until_done
+from app.domain.ollama.runtime_policy import num_ctx_for_task
 from app.domain.prompt_compose import course_from_article_system_prompt
 from fastapi import status
 
@@ -29,10 +30,18 @@ async def _stage_json(
     user_message: str,
     max_tokens: int,
 ) -> dict[str, Any]:
-    from app.domain.llm import LlmTarget
-
     assert isinstance(target, LlmTarget)
-    system_prompt = course_from_article_system_prompt(stage=stage, compact=compact)
+    from app.config import load_config
+
+    config = load_config()
+    num_ctx = target.num_ctx
+    if num_ctx is None and compact:
+        num_ctx = num_ctx_for_task(config.ollama_runtime, compact=True)
+    system_prompt = course_from_article_system_prompt(
+        stage=stage,
+        compact=compact,
+        course_profile=get_course_profile(),
+    )
     try:
         result = await complete_json_raw_until_done(
             client,
@@ -40,10 +49,10 @@ async def _stage_json(
             system_prompt=system_prompt,
             user_message=user_message,
             max_tokens=max_tokens,
-            max_continues=3 if compact else 6,
+            max_continues=2 if compact else 6,
             temperature=0.2 if compact else 0.15,
             top_p=0.9 if compact else None,
-            num_ctx=_OLLAMA_NUM_CTX if compact else None,
+            num_ctx=num_ctx,
         )
     except (httpx.HTTPError, ValueError, TypeError) as exc:
         from app.domain.llm.errors import llm_http_error_message
@@ -98,7 +107,7 @@ async def _parse_stage_payload(
             "stage only; close all strings and braces"
         ),
         max_tokens=min(repair_budget, 8000),
-        num_ctx=_OLLAMA_NUM_CTX if compact else None,
+        num_ctx=target.num_ctx if isinstance(target, LlmTarget) and compact else None,
     )
 
 

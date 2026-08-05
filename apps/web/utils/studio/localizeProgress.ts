@@ -86,6 +86,37 @@ export function localizeCourseWarning(
       return translated
     }
   }
+  const theoryShort = raw.match(
+    /^sources supported (\d+) of (\d+) requested theory slides$/i,
+  )
+  if (theoryShort) {
+    const translated = translateIfPresent(t, `${prefix}.theorySlidesShort`, {
+      got: Number(theoryShort[1] || 0),
+      wanted: Number(theoryShort[2] || 0),
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const polishCapacity = raw.match(/^book polish skipped capacity:\s*(.+)$/i)
+  if (polishCapacity) {
+    const translated = translateIfPresent(t, `${prefix}.bookPolishSkippedCapacity`, {
+      id: polishCapacity[1] ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const polishSkippedFor = raw.match(/^book polish skipped for\s+([^:]+):\s*(.+)$/i)
+  if (polishSkippedFor) {
+    const translated = translateIfPresent(t, `${prefix}.bookPolishSkippedFor`, {
+      id: polishSkippedFor[1]?.trim() ?? '',
+      reason: polishSkippedFor[2]?.trim() ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
   const polishSkipped = raw.match(/^book polish skipped:\s*(.+)$/i)
   if (polishSkipped) {
     const translated = translateIfPresent(t, `${prefix}.bookPolishSkipped`, {

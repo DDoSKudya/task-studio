@@ -41,7 +41,9 @@ def chat_payload(
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     if num_ctx is not None:
+        # Ollama path: pin context + keep weights warm between course stages.
         payload["options"] = {"num_ctx": num_ctx}
+        payload["keep_alive"] = "-1"
     if response_format is not None:
         payload["response_format"] = response_format
     return payload

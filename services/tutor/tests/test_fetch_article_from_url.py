@@ -5,7 +5,7 @@ from studio_contracts.studio_schemas import CourseArticleVideo
 from tutor_helpers.loaders import load_service_module
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def fetch_mod():
     return load_service_module("app.domain.fetch_article_from_url")
 
@@ -41,6 +41,249 @@ def test_page_to_plaintext_strips_scripts(fetch_mod) -> None:
     assert title == "Hello"
     assert "World body" in text
     assert "evil" not in text
+
+
+def test_page_to_plaintext_prefers_article_body(fetch_mod) -> None:
+    html = (
+        """
+    <html><head><title>Docker guide</title></head>
+    <body>
+      <nav>Home Login Search Menu Items here padding</nav>
+      <div class="tm-article-body">
+        <h1>Docker vs container</h1>
+        <p>"""
+        + ("Article paragraph about images and containers. " * 40)
+        + """</p>
+      </div>
+      <aside>Related posts and ads go here with lots of chrome text padding xx</aside>
+    </body></html>
+    """
+    )
+    title, text = fetch_mod._page_to_plaintext("text/html", html)
+    assert title == "Docker guide"
+    assert "Docker vs container" in text
+    assert "Article paragraph about images" in text
+    assert "Related posts and ads" not in text
+
+
+def test_page_to_article_markdown_full_habr_body(fetch_mod) -> None:
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "habr_docker_438796.html"
+    raw = fixture.read_text(encoding="utf-8")
+    title, markdown = fetch_mod._page_to_article_markdown("text/html", raw)
+    assert title.startswith("Изучаем Docker")
+    assert len(markdown) > 8_000
+    assert "контейнер" in markdown.casefold()
+    assert "512K" not in markdown[:2_000]
+    assert "Подписаться" not in markdown[:1_500]
+
+
+def test_page_to_article_markdown_keeps_structure(fetch_mod) -> None:
+    html = """
+    <html><head><title>Guide</title></head>
+    <body>
+      <div class="article-formatted-body">
+        <h2>Install</h2>
+        <p>First paragraph about install steps and docker basics here.</p>
+        <pre><code class="language-bash">docker run hello-world</code></pre>
+        <p>Second paragraph continues the article with more detail text.</p>
+      </div>
+    </body></html>
+    """
+    title, markdown = fetch_mod._page_to_article_markdown("text/html", html)
+    assert title == "Guide"
+    assert "## Install" in markdown
+    assert "```bash" in markdown
+    assert "docker run hello-world" in markdown
+    assert "First paragraph" in markdown
+    assert len(markdown) > 100
+
+
+def test_extract_prefers_incomplete_body_over_page_chrome(fetch_mod) -> None:
+    """Клип HTML до закрытия #post-content-body не должен отдавать шапку сайта."""
+    padding = "<!-- chrome " + ("x" * 8_000) + " -->"
+    body = (
+        "<p>Введение в Docker и контейнеры. " * 40 + "</p>"
+        "<h3>Установка</h3><p>Дальше про install и образы. " * 20 + "</p>"
+    )
+    html = f"""<!DOCTYPE html><html><body>
+    <nav>Все потоки Войти Подписаться Охват за 30 дней</nav>
+    {padding}
+    <div id="post-content-body">{body}
+    """  # без закрывающего </div> — как после клипа
+    title, markdown = fetch_mod._page_to_article_markdown("text/html", html)
+    assert "Введение в Docker" in markdown
+    assert "Подписаться" not in markdown
+    assert "Все потоки" not in markdown
+
+
+def test_apply_dechrome_removes_exact_ads() -> None:
+    from app.domain.fetch_article_from_url.dechrome import apply_dechrome
+
+    source = (
+        "# Docker\n\n"
+        "Real article paragraph about containers and images here.\n\n"
+        "РЕКЛАМА: Купи VPS со скидкой прямо сейчас!!!\n\n"
+        "More teaching content about docker run and volumes.\n"
+    )
+    cleaned, removed = apply_dechrome(
+        source,
+        remove_excerpts=["РЕКЛАМА: Купи VPS со скидкой прямо сейчас!!!"],
+        title_hint="Docker",
+    )
+    assert removed > 0
+    assert "РЕКЛАМА" not in cleaned
+    assert "Real article paragraph" in cleaned
+    assert "docker run" in cleaned
+
+
+def test_apply_dechrome_rejects_over_removal() -> None:
+    from app.domain.fetch_article_from_url.dechrome import apply_dechrome
+
+    source = "Short body with some ads and more text to fill."
+    cleaned, removed = apply_dechrome(
+        source,
+        remove_excerpts=[source],
+    )
+    assert removed == 0
+    assert cleaned == source
+
+
+def test_looks_like_challenge_html() -> None:
+    from app.domain.fetch_article_from_url.challenge import looks_like_challenge_html
+
+    assert looks_like_challenge_html("<html>Just a moment... cf-challenge</html>") is True
+    readable = "<html><article><p>" + ("hi " * 40) + "</p></article></html>"
+    assert looks_like_challenge_html(readable) is False
+    # Habr CSS часто содержит grecaptcha — это не антибот-страница.
+    habr_css = (
+        "<html><head><style>.grecaptcha-badge{visibility:hidden}</style></head>"
+        "<body><article><p>" + ("article body text here. " * 30) + "</p></article></body></html>"
+    )
+    assert looks_like_challenge_html(habr_css) is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_falls_back_to_reader(monkeypatch) -> None:
+    import sys
+
+    page_fetch = load_service_module("app.domain.fetch_article_from_url.page_fetch")
+    url_mod = sys.modules["app.domain.fetch_article_from_url.url"]
+    monkeypatch.setattr(url_mod, "is_blocked_host", lambda _host: False)
+
+    async def fake_direct(_client, _url):
+        return "text/html", "<html><body>Just a moment... cf-browser-verification</body></html>"
+
+    async def fake_reader(_client, *, reader_base: str, source_url: str):
+        assert "jina" in reader_base
+        assert source_url.startswith("https://")
+        body = "# Hello\n\n" + ("Full article body from reader. " * 40)
+        return "text/markdown", body
+
+    monkeypatch.setattr(page_fetch, "_fetch_direct", fake_direct)
+    monkeypatch.setattr(page_fetch, "_fetch_via_reader", fake_reader)
+
+    content_type, raw = await page_fetch.fetch_page(
+        object(),
+        "https://example.com/a",
+        reader_base="https://r.jina.ai",
+    )
+    assert "markdown" in content_type or raw.startswith("# Hello")
+    assert "Full article body from reader" in raw
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_keeps_direct_when_readable(monkeypatch) -> None:
+    page_fetch = load_service_module("app.domain.fetch_article_from_url.page_fetch")
+
+    async def fake_direct(_client, _url):
+        body = "<html><head><title>T</title></head><body><div class='article-formatted-body'><p>"
+        # Выше SKIP_READER_CHARS — reader не вызываем.
+        body += "Readable article paragraph. " * 80
+        body += "</p></div></body></html>"
+        return "text/html", body
+
+    async def boom(*_args, **_kwargs):
+        raise AssertionError("reader must not run")
+
+    monkeypatch.setattr(page_fetch, "_fetch_direct", fake_direct)
+    monkeypatch.setattr(page_fetch, "_fetch_via_reader", boom)
+
+    content_type, raw = await page_fetch.fetch_page(
+        object(),
+        "https://example.com/a",
+        reader_base="https://r.jina.ai",
+    )
+    assert "html" in content_type
+    assert "Readable article paragraph" in raw
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_picks_longer_reader(monkeypatch) -> None:
+    page_fetch = load_service_module("app.domain.fetch_article_from_url.page_fetch")
+
+    async def fake_direct(_client, _url):
+        thin = "<html><body><div class='article-formatted-body'><p>"
+        thin += "Short stub only. " * 8
+        thin += "</p></div></body></html>"
+        return "text/html", thin
+
+    async def fake_reader(_client, *, reader_base: str, source_url: str):
+        body = "# Full\n\n" + ("Longer article body from reader proxy. " * 50)
+        return "text/markdown", body
+
+    monkeypatch.setattr(page_fetch, "_fetch_direct", fake_direct)
+    monkeypatch.setattr(page_fetch, "_fetch_via_reader", fake_reader)
+
+    _ct, raw = await page_fetch.fetch_page(
+        object(),
+        "https://example.com/thin",
+        reader_base="https://r.jina.ai",
+    )
+    assert "Longer article body from reader" in raw
+
+
+@pytest.mark.asyncio
+async def test_fetch_article_accepts_short_news(monkeypatch) -> None:
+    """Короткая новость (~200 символов) не должна отбрасываться порогом 500."""
+    import uuid
+    from types import SimpleNamespace
+
+    from studio_contracts.studio_schemas import FetchArticleFromUrlRequest
+
+    service = load_service_module("app.domain.fetch_article_from_url.service")
+    body = (
+        "Короткая новость про релиз Docker Desktop и новые флаги CLI. "
+        "Текст намеренно короче старого порога в пятьсот символов."
+    )
+    html = (
+        "<html><head><title>News</title></head>"
+        f"<body><article><p>{body}</p></article></body></html>"
+    )
+
+    async def fake_fetch(_client, url, *, reader_base=None):
+        return "text/html", html
+
+    async def no_settings(*_args, **_kwargs):
+        from app.domain.errors import TutorError
+        from fastapi import status
+
+        raise TutorError(status.HTTP_503_SERVICE_UNAVAILABLE, "no settings")
+
+    monkeypatch.setattr(service, "fetch_page", fake_fetch)
+    monkeypatch.setattr(service, "validate_public_http_url", lambda u: u.strip())
+    monkeypatch.setattr(service, "fetch_user_settings", no_settings)
+
+    config = SimpleNamespace(article_fetch_reader_url="")
+    result = await service.fetch_article_from_url(
+        object(),
+        config,
+        user_id=uuid.uuid4(),
+        body=FetchArticleFromUrlRequest(url="https://example.com/news"),
+    )
+    assert "Docker Desktop" in result.content
+    assert len(result.content) >= 80
 
 
 def test_parse_article_json_ok(fetch_mod) -> None:
@@ -89,3 +332,196 @@ def test_plaintext_fallback_builds_markdown(fetch_mod) -> None:
     )
     assert result.videos[0].url.endswith("abcdefghijk")
     assert any(video.url.endswith("zzzzzzzzzzz") for video in result.videos)
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_reader_when_chrome_markdown(monkeypatch) -> None:
+    """Даже «длинный» extract с шапкой ленты не должен блокировать reader."""
+    page_fetch = load_service_module("app.domain.fetch_article_from_url.page_fetch")
+
+    chrome = (
+        "<html><body><main><p>Все потоки Войти Подписаться Охват за 30 дней Рейтинг "
+        + ("nav pad " * 200)
+        + "</p><p>tiny</p></main></body></html>"
+    )
+
+    async def fake_direct(_client, _url):
+        return "text/html", chrome
+
+    async def fake_reader(_client, *, reader_base: str, source_url: str):
+        return "text/markdown", "# Real\n\n" + ("Article from reader about docker. " * 60)
+
+    monkeypatch.setattr(page_fetch, "_fetch_direct", fake_direct)
+    monkeypatch.setattr(page_fetch, "_fetch_via_reader", fake_reader)
+
+    _ct, raw = await page_fetch.fetch_page(
+        object(),
+        "https://example.com/chrome",
+        reader_base="https://r.jina.ai",
+    )
+    assert "Article from reader" in raw
+
+
+@pytest.mark.asyncio
+async def test_fetch_article_is_deterministic_without_llm(monkeypatch) -> None:
+    """Зона A: длинная страница → полный markdown; без LLM target оставляем черновик."""
+    import uuid
+    from types import SimpleNamespace
+
+    from studio_contracts.studio_schemas import FetchArticleFromUrlRequest
+
+    service = load_service_module("app.domain.fetch_article_from_url.service")
+    long_body = "Paragraph about docker images and layers. " * 400
+    html = (
+        "<html><head><title>Long Docker</title></head>"
+        f"<body><article><p>{long_body}</p></article></body></html>"
+    )
+
+    async def fake_fetch(_client, url, *, reader_base=None):
+        assert url.startswith("https://")
+        return "text/html", html
+
+    async def no_settings(*_args, **_kwargs):
+        from app.domain.errors import TutorError
+        from fastapi import status
+
+        raise TutorError(status.HTTP_503_SERVICE_UNAVAILABLE, "no settings")
+
+    monkeypatch.setattr(service, "fetch_page", fake_fetch)
+    monkeypatch.setattr(service, "validate_public_http_url", lambda u: u.strip())
+    monkeypatch.setattr(service, "fetch_user_settings", no_settings)
+
+    config = SimpleNamespace(article_fetch_reader_url="https://r.jina.ai")
+    result = await service.fetch_article_from_url(
+        object(),
+        config,
+        user_id=uuid.uuid4(),
+        body=FetchArticleFromUrlRequest(url="https://example.com/long"),
+    )
+    assert "docker images" in result.content.casefold()
+    assert len(result.content) > 8_000
+
+
+@pytest.mark.asyncio
+async def test_fetch_article_applies_llm_dechrome(monkeypatch) -> None:
+    import uuid
+    from types import SimpleNamespace
+
+    from studio_contracts.studio_schemas import FetchArticleFromUrlRequest
+    from studio_contracts.tutor_schemas import TutorSettings
+
+    service = load_service_module("app.domain.fetch_article_from_url.service")
+    article = (
+        "# Title\n\n"
+        + ("Useful teaching paragraph about networking. " * 30)
+        + "\n\nAD BLOCK BUY NOW CHEAP VPS OFFER\n\n"
+        + ("More useful content continues here with details. " * 20)
+    )
+    html = (
+        "<html><head><title>Title</title></head>"
+        f"<body><div class='article-formatted-body'><p>{article}</p></div></body></html>"
+    )
+
+    async def fake_fetch(_client, url, *, reader_base=None):
+        return "text/html", html
+
+    async def fake_settings(*_args, **_kwargs):
+        return TutorSettings()
+
+    async def fake_polish(_client, _config, _target, *, source_url, page_title, markdown):
+        cleaned = markdown.replace("AD BLOCK BUY NOW CHEAP VPS OFFER", "")
+        return page_title, cleaned
+
+    monkeypatch.setattr(service, "fetch_page", fake_fetch)
+    monkeypatch.setattr(service, "validate_public_http_url", lambda u: u.strip())
+    monkeypatch.setattr(service, "fetch_user_settings", fake_settings)
+    monkeypatch.setattr(
+        service,
+        "resolve_llm_target",
+        lambda *_a, **_k: SimpleNamespace(model="x", base_url="http://x"),
+    )
+    monkeypatch.setattr(service, "polish_article_markdown", fake_polish)
+
+    config = SimpleNamespace(article_fetch_reader_url="")
+    result = await service.fetch_article_from_url(
+        object(),
+        config,
+        user_id=uuid.uuid4(),
+        body=FetchArticleFromUrlRequest(url="https://example.com/a"),
+    )
+    assert "AD BLOCK" not in result.content
+    assert "Useful teaching paragraph" in result.content
+
+
+def test_extract_http_urls_from_multiline_paste(fetch_mod, monkeypatch) -> None:
+    import sys
+
+    url_mod = sys.modules["app.domain.fetch_article_from_url.url"]
+    monkeypatch.setattr(url_mod, "is_blocked_host", lambda _host: False)
+    urls = fetch_mod.extract_http_urls(
+        "https://example.com/a\n"
+        "see https://example.com/b,\n"
+        "https://example.com/a\n"
+        "not-a-url\n"
+        "ftp://ignore.example/x"
+    )
+    assert urls == ["https://example.com/a", "https://example.com/b"]
+
+
+def test_extract_http_urls_accepts_list_separators(fetch_mod, monkeypatch) -> None:
+    import sys
+
+    url_mod = sys.modules["app.domain.fetch_article_from_url.url"]
+    monkeypatch.setattr(url_mod, "is_blocked_host", lambda _host: False)
+    urls = fetch_mod.extract_http_urls(
+        "https://example.com/a, https://example.com/b;https://example.com/c|https://example.com/d"
+    )
+    assert urls == [
+        "https://example.com/a",
+        "https://example.com/b",
+        "https://example.com/c",
+        "https://example.com/d",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_articles_from_urls_continues_after_error(monkeypatch) -> None:
+    import uuid
+    from types import SimpleNamespace
+
+    from studio_contracts.studio_schemas import (
+        FetchArticleFromUrlResponse,
+        FetchArticlesFromUrlsRequest,
+    )
+
+    service = load_service_module("app.domain.fetch_article_from_url.service")
+    errors = __import__("sys").modules["app.domain.errors"]
+
+    async def fake_one(_client, _config, *, user_id, body):
+        if "fail" in body.url:
+            raise errors.TutorError(422, "boom")
+        return FetchArticleFromUrlResponse(
+            title="T",
+            content="body " * 20,
+            source_url=body.url,
+            videos=[],
+        )
+
+    monkeypatch.setattr(service, "fetch_article_from_url", fake_one)
+    url_mod = __import__("sys").modules["app.domain.fetch_article_from_url.url"]
+    monkeypatch.setattr(url_mod, "is_blocked_host", lambda _host: False)
+
+    result = await service.fetch_articles_from_urls(
+        object(),
+        SimpleNamespace(article_fetch_reader_url=""),
+        user_id=uuid.uuid4(),
+        body=FetchArticlesFromUrlsRequest(
+            urls=["https://example.com/ok", "https://example.com/fail"],
+        ),
+    )
+    assert result.total == 2
+    assert result.ok_count == 1
+    assert result.error_count == 1
+    assert result.results[0].ok is True
+    assert result.results[1].ok is False
+    assert result.results[1].error

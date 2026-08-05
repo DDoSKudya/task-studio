@@ -55,12 +55,20 @@ async def grade_code_via_stepik(
         raise StepikQuizError(last_error or "stepik code submission failed")
 
     status = str(submission.get("status") or "").casefold()
+    if status in {"evaluation", "pending", ""}:
+        details: dict[str, object] = {
+            "checker": "stepik",
+            "status": "still_evaluating",
+            "external_step_id": external_id,
+            "gradable": False,
+        }
+        return False, "evaluation still in progress", details
     passed = status in {"correct", "passed", "ok"}
     feedback = _submission_feedback(
         submission,
         fallback=None if passed else "incorrect solution",
     )
-    details: dict[str, object] = {
+    details = {
         "checker": "stepik",
         "status": status,
         "external_step_id": external_id,

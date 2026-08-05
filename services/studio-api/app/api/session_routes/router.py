@@ -10,6 +10,7 @@ from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream, parse_upstream_list
 from fastapi import APIRouter, Depends
 from studio_contracts.session_schemas import (
+    PackProgressItem,
     SessionState,
     SessionSummary,
     StartSessionRequest,
@@ -34,6 +35,22 @@ async def list_sessions(
         user_id=user_id,
     )
     return parse_upstream_list(upstream, SessionSummary)
+
+
+@router.get("/pack-progress", response_model=list[PackProgressItem])
+async def list_pack_progress(
+    user_id: UserId,
+    settings: Settings,
+    client: UpstreamClient,
+) -> list[PackProgressItem]:
+    upstream = await call_service(
+        client,
+        settings.sessions_service_url,
+        "get",
+        "/internal/v1/sessions/pack-progress",
+        user_id=user_id,
+    )
+    return parse_upstream_list(upstream, PackProgressItem)
 
 
 @router.post("", response_model=SessionState)

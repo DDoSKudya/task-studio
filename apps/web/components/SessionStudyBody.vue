@@ -28,6 +28,7 @@ type MermaidApi = {
 }
 
 const studyHtmlEl = ref<HTMLElement | null>(null)
+const { t } = useI18n()
 let mermaidReady: Promise<MermaidApi> | null = null
 let mermaidConfigured = false
 let renderToken = 0
@@ -185,7 +186,7 @@ async function hydrateMermaid(root: HTMLElement) {
   if (!mermaidConfigured) {
     mermaid.initialize({
       startOnLoad: false,
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       theme: 'dark',
       fontFamily: 'inherit',
     })
@@ -208,18 +209,97 @@ async function hydrateMermaid(root: HTMLElement) {
     try {
       const { svg } = await mermaid.render(id, graph)
       if (token !== renderToken || !root.contains(pre)) {
+        removeMermaidArtifacts(id)
         return
       }
       const wrap = document.createElement('div')
       wrap.className = 'study-mermaid'
       wrap.setAttribute('role', 'img')
-      wrap.innerHTML = svg
+      wrap.setAttribute('tabindex', '0')
+      const viewport = document.createElement('div')
+      viewport.className = 'study-mermaid-viewport'
+      const canvas = document.createElement('div')
+      canvas.className = 'study-mermaid-canvas'
+      canvas.innerHTML = svg
+      viewport.appendChild(canvas)
+      wrap.appendChild(viewport)
+      const hint = document.createElement('p')
+      hint.className = 'study-mermaid-hint'
+      hint.textContent = mermaidZoomHint()
+      wrap.appendChild(hint)
+      scrubMermaidSvg(canvas)
+      bindMermaidZoom(wrap, canvas)
       pre.replaceWith(wrap)
+      removeMermaidArtifacts(id)
     } catch (error) {
+      removeMermaidArtifacts(id)
       console.warn('[study] mermaid render failed', error, graph.slice(0, 120))
       pre.classList.add('study-mermaid-failed')
       pre.setAttribute('title', 'Не удалось отрисовать диаграмму')
     }
+  }
+}
+
+function mermaidZoomHint(): string {
+  return String(t('session.mermaidZoomHint'))
+}
+
+function scrubMermaidSvg(wrap: HTMLElement) {
+  const svg = wrap.querySelector('svg')
+  if (!svg) {
+    return
+  }
+  svg.removeAttribute('height')
+  svg.removeAttribute('width')
+  svg.style.width = '100%'
+  svg.style.height = 'auto'
+  svg.style.maxHeight = 'none'
+}
+
+function bindMermaidZoom(wrap: HTMLElement, canvas: HTMLElement) {
+  let scale = 1
+  const min = 0.55
+  const max = 2.75
+
+  const apply = () => {
+    canvas.style.transform = `scale(${scale})`
+  }
+
+  wrap.addEventListener(
+    'wheel',
+    (event) => {
+      if (event.ctrlKey || event.metaKey) {
+        return
+      }
+      event.preventDefault()
+      const factor = event.deltaY > 0 ? 0.9 : 1.1
+      scale = Math.min(max, Math.max(min, scale * factor))
+      apply()
+    },
+    { passive: false },
+  )
+
+  wrap.addEventListener('dblclick', () => {
+    scale = 1
+    apply()
+  })
+}
+
+function removeMermaidArtifacts(renderId: string) {
+  const selectors = [
+    `#${CSS.escape(renderId)}`,
+    `#d${CSS.escape(renderId)}`,
+    `#${CSS.escape(renderId)}-svg`,
+    `body > svg[id^="study-mmd-"]`,
+    `body > div[id^="dstudy-mmd-"]`,
+  ]
+  for (const selector of selectors) {
+    document.querySelectorAll(selector).forEach((node) => {
+      if (node.closest('.study-mermaid')) {
+        return
+      }
+      node.remove()
+    })
   }
 }
 
@@ -246,6 +326,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   renderToken += 1
+  removeMermaidArtifacts(`study-mmd-${renderToken}`)
+  document.querySelectorAll('body > svg[id^="study-mmd-"], body > div[id^="dstudy-mmd-"]').forEach((node) => {
+    node.remove()
+  })
 })
 </script>
 
@@ -255,7 +339,7 @@ onBeforeUnmount(() => {
     class="study-body"
     :class="{ 'study-body-compact': compact }"
   >
-    
+
     <div
       v-if="showBody"
       ref="studyHtmlEl"
@@ -277,6 +361,6 @@ onBeforeUnmount(() => {
         <pre><code :class="`language-${example.language}`" v-html="example.html" /></pre>
       </div>
     </div>
-    
+
   </div>
 </template>

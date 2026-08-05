@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from analytics_helpers.loaders import load_analytics_module
+from clickhouse_connect.driver.exceptions import DatabaseError
 from studio_contracts.analytics_schemas import AnalyticsEventMessage
 
 events = load_analytics_module("app.domain.events")
@@ -60,7 +61,9 @@ async def test_process_event_is_idempotent() -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_event_survives_clickhouse_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_process_event_does_not_mark_processed_on_clickhouse_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     event = AnalyticsEventMessage(
         event_id=uuid.uuid4(),
         event_type="session_started",
@@ -83,9 +86,11 @@ async def test_process_event_survives_clickhouse_failure(monkeypatch: pytest.Mon
     session.commit = AsyncMock()
 
     async def boom(*_a, **_k):
-        raise RuntimeError("clickhouse down")
+        raise DatabaseError("clickhouse down")
 
     monkeypatch.setattr(events.asyncio, "to_thread", boom)
-    await process_event(session, MagicMock(), "analytics", event)
+    with pytest.raises(DatabaseError, match="clickhouse down"):
+        await process_event(session, MagicMock(), "analytics", event)
 
-    assert session.commit.await_count == 1
+    assert session.commit.await_count == 0
+    session.add.assert_not_called()

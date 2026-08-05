@@ -52,6 +52,7 @@ async def build_hints(
         provider_url=view.user_settings.provider_url,
         api_key_encrypted=view.user_settings.api_key_encrypted,
         model=view.user_settings.model,
+        task="hints",
     )
     if target is not None:
         try:

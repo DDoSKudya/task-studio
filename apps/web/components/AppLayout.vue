@@ -11,8 +11,15 @@ const route = useRoute()
 const { t } = useI18n()
 const { user, logout } = useAuth()
 const { confirm } = useConfirm()
+const { version, shortVersion, build } = useAppVersion()
 
 const sidebarExpanded = ref(false)
+
+const versionTitle = computed(() =>
+  build > 0
+    ? t('app.versionFull', { version, build })
+    : t('app.versionLabel', { version }),
+)
 
 const navItems = [
   { to: '/catalog', labelKey: 'nav.catalog', icon: AcademicCapIcon, match: (path: string) => path.startsWith('/catalog') || path.startsWith('/sessions/') || path.startsWith('/search') || path === '/' },
@@ -82,6 +89,17 @@ const userInitials = computed(() => {
           <div class="sidebar-brand-copy">
             <div class="sidebar-title">{{ t('app.title') }}</div>
           </div>
+        </div>
+        <div
+          class="sidebar-version"
+          :title="versionTitle"
+          :aria-label="versionTitle"
+        >
+          <span class="sidebar-version-short">{{ shortVersion }}</span>
+          <span class="sidebar-version-full">{{ version }}</span>
+          <span v-if="build > 0" class="sidebar-version-build">
+            {{ t('app.buildLabel', { build }) }}
+          </span>
         </div>
       </div>
 

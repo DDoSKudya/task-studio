@@ -9,6 +9,7 @@ from studio_contracts.studio_schemas import CourseFromArticleRequest
 
 from .messages import _quiz_one_user_message
 from .normalize import _normalize_quizzes
+from .source_exercise_harvest import HarvestedExercise
 from .stage_llm import _stage_json
 
 
@@ -33,27 +34,33 @@ async def generate_quizzes(
     chapters: list[dict[str, str]],
     outcomes: list[str],
     theory_steps: list[dict[str, object]],
+    exercise_seeds: list[HarvestedExercise] | None = None,
 ) -> list[dict[str, object]]:
     collected: list[dict[str, object]] = []
     count = max(1, int(body.quiz_count))
     for index in range(count):
         prior_titles = [str(item.get("title") or "") for item in collected]
-        payload = await _stage_json(
-            client,
-            target,
-            compact=compact,
-            stage="quizzes",
-            user_message=_quiz_one_user_message(
-                body,
-                outcomes=outcomes,
-                chapters=chapters,
-                theory_steps=theory_steps,
-                index=index,
-                prior_titles=prior_titles,
-            ),
-            max_tokens=1200 if compact else 2000,
-        )
-        batch = _normalize_quizzes(_coerce_quizzes_payload(payload), count=1)
+        batch: list[dict[str, object]] = []
+        for _attempt in range(3):
+            payload = await _stage_json(
+                client,
+                target,
+                compact=compact,
+                stage="quizzes",
+                user_message=_quiz_one_user_message(
+                    body,
+                    outcomes=outcomes,
+                    chapters=chapters,
+                    theory_steps=theory_steps,
+                    index=index,
+                    prior_titles=prior_titles,
+                    exercise_seeds=exercise_seeds,
+                ),
+                max_tokens=1200 if compact else 2000,
+            )
+            batch = _normalize_quizzes(_coerce_quizzes_payload(payload), count=1)
+            if batch:
+                break
         if not batch:
             raise TutorError(
                 status.HTTP_502_BAD_GATEWAY,

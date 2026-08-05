@@ -114,3 +114,34 @@ async def test_grade_quiz_stepik_fallback(monkeypatch: pytest.MonkeyPatch) -> No
     )
     assert outcome.passed is True
     assert outcome.checker == "stepik"
+
+
+@pytest.mark.asyncio
+async def test_grade_quiz_stepik_prefers_remote_over_local_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_creds(*_args: object, **_kwargs: object) -> dict[str, str]:
+        return {}
+
+    async def _fake_stepik(
+        *_args: object, **_kwargs: object
+    ) -> tuple[bool, None, dict[str, object]]:
+        return True, None, {"checker": "stepik", "gradable": True}
+
+    monkeypatch.setattr("app.domain.quiz_grade.fetch_stepik_credentials", _fake_creds)
+    monkeypatch.setattr("app.domain.quiz_grade.grade_via_stepik", _fake_stepik)
+
+    outcome = await grade_quiz(
+        {
+            "kind": "quiz",
+            "source_platform": "stepik",
+            "external_step_id": "13940",
+            "answer": 0,
+            "choices": ["A", "B"],
+        },
+        {"choice_index": 1},
+        settings=_settings(),
+        client=AsyncMock(spec=httpx.AsyncClient),
+    )
+    assert outcome.passed is True
+    assert outcome.checker == "stepik"

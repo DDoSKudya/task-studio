@@ -65,7 +65,7 @@ async def stream_chat(
             code=504,
         ).encode()
         yield b"data: [DONE]\n\n"
-    except Exception as exc:  # noqa: BLE001 - boundary of SSE generator
+    except Exception as exc:  # noqa: BLE001
         log.exception("cursor_chat_failed", error=exc.__class__.__name__)
         yield openai_error_chunk(
             f"cursor-proxy failure: {exc.__class__.__name__}",

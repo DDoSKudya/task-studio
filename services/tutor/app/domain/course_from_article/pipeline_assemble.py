@@ -7,7 +7,11 @@ from fastapi import status
 from studio_contracts.pack import collect_manifest_errors
 from studio_contracts.studio_schemas import CourseDeviation, CourseFromArticleMeta
 
-from .assemble import _assemble_manifest, _repair_manifest_shapes
+from .assemble_manifest import (
+    _assemble_interleaved_manifest,
+    _assemble_manifest,
+    _repair_manifest_shapes,
+)
 from .progress import _stage_event
 
 
@@ -28,6 +32,7 @@ async def iter_assemble_stage(
     deviations: list[CourseDeviation],
     sources_count: int,
     band_assemble: tuple[float, float],
+    interleaved: bool = False,
 ) -> AsyncIterator[dict[str, object]]:
     if not theory_steps and not quiz_steps and not code_steps and not video_steps:
         raise TutorError(status.HTTP_502_BAD_GATEWAY, "course generation produced no content steps")
@@ -39,16 +44,31 @@ async def iter_assemble_stage(
         message="Assembling and validating pack manifest",
         message_key="assembleRunning",
     )
-    manifest = _assemble_manifest(
-        pack_id=pack_id,
-        title=title,
-        locale=locale,
-        runtime=runtime,
-        runtime_version=runtime_version,
-        theory_steps=theory_steps,
-        video_steps=video_steps,
-        quiz_steps=quiz_steps,
-        code_steps=code_steps,
+    manifest = (
+        _assemble_interleaved_manifest(
+            pack_id=pack_id,
+            title=title,
+            locale=locale,
+            runtime=runtime,
+            runtime_version=runtime_version,
+            chapters=chapters,
+            theory_steps=theory_steps,
+            video_steps=video_steps,
+            quiz_steps=quiz_steps,
+            code_steps=code_steps,
+        )
+        if interleaved and chapters
+        else _assemble_manifest(
+            pack_id=pack_id,
+            title=title,
+            locale=locale,
+            runtime=runtime,
+            runtime_version=runtime_version,
+            theory_steps=theory_steps,
+            video_steps=video_steps,
+            quiz_steps=quiz_steps,
+            code_steps=code_steps,
+        )
     )
     issues = collect_manifest_errors(manifest)
     if issues:
@@ -74,6 +94,7 @@ async def iter_assemble_stage(
         deviations=deviations,
         article_count=sources_count,
     )
+    polish_incomplete = any(item.startswith("book polish skipped") for item in warnings)
     yield _stage_event(
         stage="assemble",
         status="done",
@@ -94,10 +115,14 @@ async def iter_assemble_stage(
     yield {
         "type": "done",
         "stage": "done",
-        "status": "done",
+        "status": "partial" if polish_incomplete else "done",
         "progress": 1.0,
-        "message": "Course generation complete",
-        "message_key": "generationComplete",
+        "message": (
+            "Course generation complete with incomplete book polish"
+            if polish_incomplete
+            else "Course generation complete"
+        ),
+        "message_key": ("generationCompletePartial" if polish_incomplete else "generationComplete"),
         "manifest": manifest,
         "meta": meta.model_dump(mode="json"),
     }

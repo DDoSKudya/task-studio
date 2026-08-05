@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import shutil
 import uuid
 from pathlib import Path
@@ -29,9 +30,9 @@ async def upload_pack(
     staging.mkdir(parents=True, exist_ok=True)
 
     try:
-        parsed = extract_pack_archive(archive, staging)
+        parsed = await asyncio.to_thread(extract_pack_archive, archive, staging)
     except (ValueError, OSError) as exc:
-        shutil.rmtree(staging, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, staging, True)
         raise PackError(422, str(exc)) from exc
 
     pack = await get_or_create_pack(session, user_id, parsed)
@@ -41,11 +42,11 @@ async def upload_pack(
 
     final_path.parent.mkdir(parents=True, exist_ok=True)
     if final_path.exists():
-        shutil.rmtree(final_path)
+        await asyncio.to_thread(shutil.rmtree, final_path)
     try:
         staging.rename(final_path)
     except OSError as exc:
-        shutil.rmtree(staging, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, staging, True)
         raise PackError(500, "pack could not be stored on disk") from exc
 
     pack_version = await persist_pack_version(

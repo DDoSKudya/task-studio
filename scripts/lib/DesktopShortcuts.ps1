@@ -184,6 +184,22 @@ function Get-TsStudioLaunchPaths {
   }
 }
 
+function Get-TsPowerShellExe {
+  foreach ($name in @("powershell.exe", "pwsh", "pwsh.exe")) {
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+  }
+  throw "PowerShell executable was not found (powershell.exe / pwsh)."
+}
+
+function Test-TsWindowsLauncherHost {
+  if ($env:OS -match 'Windows') { return $true }
+  if (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue) {
+    try { if ($IsWindows) { return $true } } catch { }
+  }
+  return $false
+}
+
 function Start-TsStudioConsole {
   param(
     [Parameter(Mandatory = $true)][string]$Root,
@@ -195,15 +211,19 @@ function Start-TsStudioConsole {
   $paths = Get-TsStudioLaunchPaths -Root $Root
   $studioCmd = $paths.Cmd
   $studioPs1 = $paths.Ps1
-  if (Test-Path $studioCmd) {
-    if ($Arguments -and $Arguments.Count -gt 0) {
-      & cmd.exe /c "`"$studioCmd`" $($Arguments -join ' ')"
+  # Normalize: a bare string must not go through -join (char-split: "help" → "h e l p").
+  $argList = @($Arguments | ForEach-Object { $_ })
+  $onWindows = Test-TsWindowsLauncherHost
+  if ($onWindows -and (Test-Path $studioCmd) -and (Get-Command cmd.exe -ErrorAction SilentlyContinue)) {
+    if ($argList.Count -gt 0) {
+      & cmd.exe /c "`"$studioCmd`" $($argList -join ' ')"
     } else {
       & cmd.exe /c "`"$studioCmd`""
     }
     return $LASTEXITCODE
   }
-  & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $studioPs1 @Arguments
+  $psExe = Get-TsPowerShellExe
+  & $psExe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $studioPs1 @argList
   return $LASTEXITCODE
 }
 
@@ -215,15 +235,18 @@ function Start-TsStudioNewWindow {
   Enable-TsScriptExecution | Out-Null
   Unlock-TaskStudioScripts -Root $Root
   $paths = Get-TsStudioLaunchPaths -Root $Root
-  if (Test-Path $paths.Cmd) {
-    if ($Arguments -and $Arguments.Count -gt 0) {
-      Start-Process -FilePath $paths.Cmd -ArgumentList ($Arguments -join " ") -WorkingDirectory $Root
+  $argList = @($Arguments | ForEach-Object { $_ })
+  $onWindows = Test-TsWindowsLauncherHost
+  if ($onWindows -and (Test-Path $paths.Cmd) -and (Get-Command cmd.exe -ErrorAction SilentlyContinue)) {
+    if ($argList.Count -gt 0) {
+      Start-Process -FilePath $paths.Cmd -ArgumentList ($argList -join " ") -WorkingDirectory $Root
     } else {
       Start-Process -FilePath $paths.Cmd -WorkingDirectory $Root
     }
     return
   }
-  $argList = @(
+  $psExe = Get-TsPowerShellExe
+  $psArgs = @(
     "-NoLogo"
     "-NoProfile"
     "-ExecutionPolicy"
@@ -231,8 +254,8 @@ function Start-TsStudioNewWindow {
     "-File"
     $paths.Ps1
   )
-  if ($Arguments -and $Arguments.Count -gt 0) {
-    $argList += $Arguments
+  if ($argList.Count -gt 0) {
+    $psArgs += $argList
   }
-  Start-Process -FilePath "powershell.exe" -ArgumentList $argList -WorkingDirectory $Root
+  Start-Process -FilePath $psExe -ArgumentList $psArgs -WorkingDirectory $Root
 }

@@ -11,6 +11,10 @@ export type PackSummary = {
   installed_at: string
   integrity: PackIntegrityStatus
   integrity_issues: string[]
+  has_theory: boolean
+  has_video: boolean
+  has_quiz: boolean
+  has_practice: boolean
 }
 
 export type PackVersionInfo = {

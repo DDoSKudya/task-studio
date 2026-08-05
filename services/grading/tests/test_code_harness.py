@@ -86,6 +86,20 @@ def test_build_io_job_scripted_run_does_not_require_entrypoint() -> None:
     assert "def __run_tests():" in body
 
 
+def test_build_io_job_installs_python_dependencies() -> None:
+    job = build_io_job(
+        language="python",
+        version="3.12",
+        source="import requests\n\ndef solve():\n    return 1\n",
+        tests=[{"input": [], "output": 1}],
+        entrypoint="solve",
+        dependencies=["requests"],
+    )
+    body = job.files[0]["content"]
+    assert "'pip'" in body
+    assert "requests" in body
+
+
 def test_build_exercism_python_job_infers_filenames() -> None:
     job = build_exercism_job(
         runtime="python",

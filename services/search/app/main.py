@@ -25,11 +25,16 @@ def build_app() -> FastAPI:
     log = structlog.get_logger("search")
     settings = load_settings()
     client = meili_client(settings)
-    ensure_index(client, settings.index_name, ollama_url=settings.ollama_url)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         worker_task: asyncio.Task[None] | None = None
+        await asyncio.to_thread(
+            ensure_index,
+            client,
+            settings.index_name,
+            ollama_url=settings.ollama_url,
+        )
         async with httpx.AsyncClient(timeout=60.0) as http_client:
             worker_task = start_index_worker(settings, client, http_client)
             log.info("service_started")

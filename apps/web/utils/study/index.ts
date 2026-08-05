@@ -1,4 +1,5 @@
 export * from './highlightCode'
 export * from './mermaid'
+export * from './purifyStudyHtml'
 export * from './sanitizeEncoding'
 export * from './sanitizeHtml'

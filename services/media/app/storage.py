@@ -13,6 +13,7 @@ __all__ = [
     "build_client",
     "ensure_bucket",
     "user_object_key",
+    "presign_get_url",
     "put_object_bytes",
     "object_exists",
     "get_object_stream",
@@ -36,6 +37,27 @@ def ensure_bucket(client: Minio, bucket: str) -> None:
 
 def user_object_key(user_id: uuid.UUID, asset_id: str) -> str:
     return f"users/{user_id}/{asset_id.lstrip('/')}"
+
+
+def presign_get_url(
+    client: Minio,
+    settings: MediaSettings,
+    object_key: str,
+    *,
+    expires_seconds: int | None = None,
+) -> str:
+    from datetime import timedelta
+
+    from app.config import clamp_presign_ttl_seconds
+
+    ttl = clamp_presign_ttl_seconds(
+        expires_seconds if expires_seconds is not None else settings.presign_ttl_seconds
+    )
+    return client.presigned_get_object(
+        settings.bucket,
+        object_key,
+        expires=timedelta(seconds=ttl),
+    )
 
 
 def put_object_bytes(

@@ -44,7 +44,16 @@ def verify_system_token(
     settings: Annotated[OrchestratorSettings, Depends(get_settings)],
     x_system_token: Annotated[str | None, Header(alias="X-System-Token")] = None,
 ) -> None:
-    if settings.system_token and x_system_token != settings.system_token:
+    from studio_common.system_auth import allow_insecure_defaults
+
+    if not settings.system_token:
+        if allow_insecure_defaults():
+            return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="system token not configured",
+        )
+    if x_system_token != settings.system_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid system token")
 
 

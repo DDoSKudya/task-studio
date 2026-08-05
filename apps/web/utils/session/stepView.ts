@@ -1,4 +1,4 @@
-import type { OutlineStep, OutlineTopic } from './types'
+import type { OutlineStep, OutlineTopic, PhaseProgress } from './types'
 import { resolveAssetIdSrc, resolveMediaSrc } from '../media'
 
 export type StepReveal = {
@@ -22,6 +22,59 @@ export function moduleDoneCount(
   return topic.steps.filter((lesson) => isLessonDone(lesson, passedStepIds, completedStepIds)).length
 }
 
+/** Фазы, которые реально есть в теме (study / practice / assess). */
+export function phasesInTopic(topic: OutlineTopic): Set<OutlineStep['phase']> {
+  return new Set(topic.steps.map((step) => step.phase))
+}
+
+function topicProgressRow(
+  phaseProgress: readonly PhaseProgress[],
+  topicId: string,
+): PhaseProgress | undefined {
+  return phaseProgress.find((row) => row.topic_id === topicId)
+}
+
+/**
+ * Тема считается пройденной, когда закрыты все её фазы (не каждый шаг отдельно).
+ * Опирается на phase_progress с бэкенда; без него — все шаги в completed/passed.
+ */
+export function isTopicComplete(
+  topic: OutlineTopic,
+  phaseProgress: readonly PhaseProgress[],
+  passedStepIds: ReadonlySet<string>,
+  completedStepIds: ReadonlySet<string>,
+): boolean {
+  if (!topic.steps.length) {
+    return false
+  }
+  const row = topicProgressRow(phaseProgress, topic.topic_id)
+  const phases = phasesInTopic(topic)
+  if (row) {
+    if (phases.has('study') && !(row.study_completed || row.study_skipped)) {
+      return false
+    }
+    if (phases.has('practice') && !row.practice_completed) {
+      return false
+    }
+    if (phases.has('assess') && !row.assess_completed) {
+      return false
+    }
+    return true
+  }
+  return topic.steps.every((lesson) => isLessonDone(lesson, passedStepIds, completedStepIds))
+}
+
+export function outlineTopicsCompleted(
+  outline: readonly OutlineTopic[],
+  phaseProgress: readonly PhaseProgress[],
+  passedStepIds: ReadonlySet<string>,
+  completedStepIds: ReadonlySet<string>,
+): number {
+  return outline.filter((topic) =>
+    isTopicComplete(topic, phaseProgress, passedStepIds, completedStepIds),
+  ).length
+}
+
 export function isCurrentLesson(
   currentTopicId: string | null | undefined,
   currentStepId: string | null | undefined,
@@ -38,7 +91,7 @@ export function stepNeedsPassToAdvance(
   if (!requirePass) {
     return false
   }
-  return kind === 'quiz' || kind === 'code' || kind === 'task'
+  return kind === 'quiz' || kind === 'code' || kind === 'task' || kind === 'lab'
 }
 
 export function isStepPassedLocally(input: {
@@ -62,13 +115,7 @@ export function isStepPassedLocally(input: {
   if (kind === 'code' && input.codeReveal?.passed) {
     return true
   }
-  if (kind === 'code' && input.codeReveal && input.codeReveal.gradable === false) {
-    return true
-  }
   if (kind === 'task' && input.taskReveal?.passed) {
-    return true
-  }
-  if (kind === 'task' && input.taskReveal && input.taskReveal.gradable === false) {
     return true
   }
   return false
@@ -182,4 +229,29 @@ export function resolveStepVideoPoster(
   }
   const first = Array.isArray(content.images) ? content.images.find((item) => typeof item === 'string') : null
   return typeof first === 'string' ? first : ''
+}
+
+const STEP_KIND_MARK_FALLBACK: Record<string, string> = {
+  theory: 'T',
+  video: 'V',
+  quiz: 'Q',
+  code: 'C',
+  lab: 'L',
+  task: 'A',
+}
+
+export function stepKindMark(
+  kind: string,
+  label: (key: string) => string,
+  hasKey: (key: string) => boolean,
+): string {
+  const i18nKey = `session.kindMark.${kind}`
+  if (hasKey(i18nKey)) {
+    return label(i18nKey)
+  }
+  const fallback = STEP_KIND_MARK_FALLBACK[kind]
+  if (fallback) {
+    return fallback
+  }
+  return kind.slice(0, 1).toUpperCase()
 }

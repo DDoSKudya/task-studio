@@ -7,6 +7,7 @@ from app.config import SessionsSettings
 from app.domain.session_errors import SessionError
 from app.infra.models import Attempt
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from studio_contracts.grading_schemas import GradingCheckResponse
 
@@ -62,3 +63,39 @@ async def next_attempt_number(
     )
     current = result.scalar_one_or_none()
     return 1 if current is None else current + 1
+
+
+async def create_attempt(
+    session: AsyncSession,
+    *,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    topic_id: str,
+    phase: str,
+    step_id: str,
+    submission: dict[str, object],
+    result: dict[str, object] | None = None,
+    retries: int = 3,
+) -> Attempt:
+    last_error: IntegrityError | None = None
+    for _ in range(retries):
+        attempt_number = await next_attempt_number(session, session_id, topic_id, phase, step_id)
+        attempt = Attempt(
+            session_id=session_id,
+            user_id=user_id,
+            topic_id=topic_id,
+            phase=phase,
+            step_id=step_id,
+            attempt_number=attempt_number,
+            submission=submission,
+            result=result,
+        )
+        try:
+            async with session.begin_nested():
+                session.add(attempt)
+                await session.flush()
+            return attempt
+        except IntegrityError as exc:
+            last_error = exc
+    assert last_error is not None
+    raise last_error

@@ -30,11 +30,13 @@ def provider_error_message(exc: Exception) -> str:
 
 
 def http_error_detail(exc: httpx.HTTPStatusError) -> str:
+    from app.domain.llm.errors import sanitize_provider_error_body
+
     raw = ""
     if exc.args and isinstance(exc.args[0], str):
         candidate = exc.args[0].strip()
 
-        if candidate and not candidate.startswith(("Client error", "Server error")):
+        if candidate and not candidate.startswith(("Client error", "Server error", "LLM HTTP")):
             raw = candidate
     if not raw:
         raw = (exc.response.text or "").strip()
@@ -43,7 +45,7 @@ def http_error_detail(exc: httpx.HTTPStatusError) -> str:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
-        return raw[:280]
+        return sanitize_provider_error_body(raw, status_code=exc.response.status_code)[:280]
     if isinstance(payload, dict):
         detail = payload.get("detail")
         if isinstance(detail, str) and detail.strip():
@@ -55,4 +57,4 @@ def http_error_detail(exc: httpx.HTTPStatusError) -> str:
                 return message.strip()[:280]
         if isinstance(error, str) and error.strip():
             return error.strip()[:280]
-    return raw[:280]
+    return sanitize_provider_error_body(raw, status_code=exc.response.status_code)[:280]

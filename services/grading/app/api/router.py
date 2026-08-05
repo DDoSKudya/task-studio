@@ -7,6 +7,7 @@ from app.api.deps import DbSession, GradingHttpClient, Settings
 from app.domain.check import parse_attempt_id
 from app.domain.lab import complete_lab_job, enqueue_lab_job
 from fastapi import APIRouter
+from studio_common.system_auth import SystemAuth
 from studio_contracts.grading_schemas import (
     GradingCheckRequest,
     GradingCheckResponse,
@@ -51,6 +52,7 @@ async def complete_lab(
     session: DbSession,
     settings: Settings,
     client: GradingHttpClient,
+    _auth: SystemAuth,
 ) -> dict[str, str]:
     attempt_id = parse_attempt_id({"attempt_id": body.attempt_id})
     await complete_lab_job(

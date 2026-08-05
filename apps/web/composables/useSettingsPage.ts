@@ -28,7 +28,6 @@ import {
   platformHelp as platformHelpCopy,
   requiredFieldsFilled,
   requiredFieldsFor as requiredFieldsForCopy,
-  selectProjectModels,
   settingsFormDirty,
   tutorFormDirty,
   buildProviderProfilesPayload,
@@ -260,26 +259,43 @@ export function useSettingsPage() {
     void loadAvailableModels({ quiet: true })
   })
 
-  const projectModelSelection = computed(() => {
-    return selectProjectModels(rawLlmModels())
+  const rawUniqueSortedModels = computed(() => {
+    const raw = rawLlmModels()
+    const unique = [...new Set(raw.map((m) => m.trim()).filter(Boolean))]
+    unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    return unique
   })
 
+  const preferredSortedModels = computed(() => {
+    const unique = rawUniqueSortedModels.value
+    return unique.filter((id) => Boolean(findCatalogEntry(id)?.preferred))
+  })
+
+  // В списке всегда показываем ВСЕ доступные модели.
+  // Предпочтительные — в начале, чтобы пользователь мог выбрать их быстрее.
   const availableLlmModels = computed(() => {
-    const preferred = projectModelSelection.value.models
-    const current = (tutor.value.model ?? '').trim()
-    if (!current || isModelInList(current, preferred)) {
-      return preferred
+    const all = rawUniqueSortedModels.value
+    const preferred = preferredSortedModels.value
+    if (!preferred.length) {
+      return all
     }
-
-    if (isModelInList(current, rawLlmModels())) {
-      return [...preferred, current]
-    }
-    return preferred
+    const preferredSet = new Set(preferred)
+    const rest = all.filter((m) => !preferredSet.has(m))
+    return [...preferred, ...rest]
   })
 
-  const modelsFilteredToPreferred = computed(
-    () => projectModelSelection.value.filteredToPreferred,
-  )
+  const modelsFilteredToPreferred = computed(() => preferredSortedModels.value.length > 0)
+
+  const llmStatusDetail = computed(() => {
+    const detail = llmStatus.value?.detail?.trim()
+    if (!detail) {
+      return ''
+    }
+    if (detail === 'Endpoint is available') {
+      return t('settings.tutor.statusAvailable')
+    }
+    return detail
+  })
 
   const selectedModelDescription = computed(() => {
     const entry = findCatalogEntry(tutor.value.model)
@@ -759,6 +775,7 @@ export function useSettingsPage() {
     tutorProviderMode,
     hasStoredApiKey,
     llmStatus,
+    llmStatusDetail,
     llmStatusPending,
     modelsLoadPending,
     baseline,

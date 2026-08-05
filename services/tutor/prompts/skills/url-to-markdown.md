@@ -7,3 +7,4 @@ When converting scraped page text to markdown:
 - Do not translate the article into another language.
 - Do not add a preface like "Here is the article".
 - Title comes from `<title>` / H1 when present; otherwise first strong heading.
+- For the **analyze** stage: mark ads/chrome as `remove_excerpts` only; never rewrite the body.

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import httpx
 import structlog
@@ -17,7 +18,10 @@ from studio_common.otel import configure_otel
 
 from app.api.router import router as sessions_router
 from app.config import load_settings
+from app.domain import messaging as session_messaging
 from app.domain.sessions import SessionError
+
+_OUTBOX_FLUSH_SEC = 30.0
 
 
 def build_app() -> FastAPI:
@@ -31,7 +35,25 @@ def build_app() -> FastAPI:
         if engine is not None:
             await ensure_schema(engine, "sessions")
             await upgrade_head()
-            app.state.db_session_factory = create_session_factory(engine)
+            factory = create_session_factory(engine)
+            app.state.db_session_factory = factory
+            session_messaging.bind_session_factory(factory)
+
+        async def flush_outbox_loop() -> None:
+            while True:
+                try:
+                    await session_messaging.flush_analytics_outbox(sessions_settings)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    log.warning(
+                        "analytics_outbox_flush_failed",
+                        error=str(exc),
+                        error_type=type(exc).__name__,
+                    )
+                await asyncio.sleep(_OUTBOX_FLUSH_SEC)
+
+        outbox_task = asyncio.create_task(flush_outbox_loop())
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(connect=10.0, read=600.0, write=120.0, pool=10.0)
         ) as client:
@@ -41,6 +63,10 @@ def build_app() -> FastAPI:
             try:
                 yield
             finally:
+                outbox_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await outbox_task
+                session_messaging.bind_session_factory(None)
                 if engine is not None:
                     await engine.dispose()
                 log.info("service_stopped")

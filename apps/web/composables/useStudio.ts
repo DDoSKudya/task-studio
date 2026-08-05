@@ -2,6 +2,8 @@ import {
   consumeCourseSseBuffer,
   finalizeCourseStream,
   type CourseArticleVideo,
+  type CourseBuildDetail,
+  type CourseBuildSummary,
   type CourseFromArticleBody,
   type CourseFromArticleMeta,
   type CourseFromArticleResponse,
@@ -12,6 +14,8 @@ import {
 
 export type {
   CourseArticleVideo,
+  CourseBuildDetail,
+  CourseBuildSummary,
   CourseFromArticleMeta,
   CourseFromArticleResponse,
   CourseStageEvent,
@@ -34,6 +38,24 @@ export type FetchArticleFromUrlResponse = {
   videos?: CourseArticleVideo[]
 }
 
+export type FetchArticleBatchItem = {
+  url: string
+  ok: boolean
+  index: number
+  title?: string | null
+  content?: string | null
+  source_url?: string | null
+  videos?: CourseArticleVideo[]
+  error?: string | null
+}
+
+export type FetchArticlesFromUrlsResponse = {
+  results: FetchArticleBatchItem[]
+  total: number
+  ok_count: number
+  error_count: number
+}
+
 export function useStudio() {
   const config = useRuntimeConfig()
   const { request } = useApi()
@@ -42,6 +64,20 @@ export function useStudio() {
     return request<FetchArticleFromUrlResponse>('/v1/studio/ai/fetch-article-from-url', {
       method: 'POST',
       body: { url },
+      signal: options?.signal,
+    })
+  }
+
+  async function fetchArticlesFromUrls(
+    input: { urls?: string[]; text?: string },
+    options?: { signal?: AbortSignal },
+  ) {
+    return request<FetchArticlesFromUrlsResponse>('/v1/studio/ai/fetch-articles-from-urls', {
+      method: 'POST',
+      body: {
+        urls: input.urls ?? [],
+        text: input.text ?? null,
+      },
       signal: options?.signal,
     })
   }
@@ -145,10 +181,26 @@ export function useStudio() {
     )
   }
 
+  async function listCourseBuilds() {
+    return request<CourseBuildSummary[]>('/v1/studio/ai/course-builds')
+  }
+
+  async function getCourseBuild(buildId: string) {
+    return request<CourseBuildDetail>(`/v1/studio/ai/course-builds/${buildId}`)
+  }
+
+  async function discardCourseBuild(buildId: string) {
+    await request(`/v1/studio/ai/course-builds/${buildId}`, { method: 'DELETE' })
+  }
+
   return {
     buildPack,
     fetchArticleFromUrl,
+    fetchArticlesFromUrls,
     streamCourseFromArticle,
     validateManifest,
+    listCourseBuilds,
+    getCourseBuild,
+    discardCourseBuild,
   }
 }

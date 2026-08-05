@@ -43,6 +43,43 @@ async def test_register_sets_auth_cookie(jwt_env: None, build_app) -> None:
 
 
 @pytest.mark.asyncio
+async def test_me_rotates_auth_cookie(jwt_env: None, build_app) -> None:
+    from studio_common.jwt_tokens import create_access_token
+
+    app = build_app()
+    user_id = "11111111-1111-1111-1111-111111111111"
+    mock_client = AsyncMock()
+    mock_client.get.return_value = Response(
+        200,
+        json={
+            "user": {
+                "id": user_id,
+                "email": "a@b.com",
+                "locale": "en",
+                "theme": "system",
+            },
+            "settings": {},
+        },
+    )
+    app.state.upstream_client = mock_client
+    token = create_access_token(
+        user_id,
+        secret="dev-only-change-me-32-bytes-secret!",
+        expire_hours=1,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        client.cookies.set("studio_access_token", token)
+        response = await client.get("/v1/auth/me")
+
+    assert response.status_code == 200
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "studio_access_token=" in set_cookie
+    assert "HttpOnly" in set_cookie
+
+
+@pytest.mark.asyncio
 async def test_me_requires_cookie(jwt_env: None, build_app) -> None:
     app = build_app()
     app.state.upstream_client = AsyncMock()

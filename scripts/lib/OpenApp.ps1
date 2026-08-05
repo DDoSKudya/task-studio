@@ -1,42 +1,33 @@
 ﻿#Requires -Version 5.1
 
-$script:AppUiUrl = if ($env:TASK_STUDIO_UI_URL) { $env:TASK_STUDIO_UI_URL } else { "http://localhost" }
-$script:AppUiProbeUrl = if ($env:TASK_STUDIO_UI_PROBE_URL) { $env:TASK_STUDIO_UI_PROBE_URL } else { "http://127.0.0.1" }
+# Do not use $scriptDir / $ScriptDir — PowerShell is case-insensitive and would
+# clobber studio.ps1 / ProgressWorker.ps1 launcher paths (…/scripts/lib/lib/…).
+$tsOpenAppDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+. (Join-Path $tsOpenAppDir 'Health.ps1')
 
 function Test-HttpOk {
   param(
     [string]$Url = $script:AppUiProbeUrl,
     [int]$TimeoutSec = 3
   )
-  try {
-    $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec
-    return ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400)
-  } catch {
-    return $false
-  }
+  return (Test-TsUiFingerprint -Url $Url -TimeoutSec $TimeoutSec)
 }
 
 function Test-StackEdgeOk {
   param(
-    [string]$ComposeFile = "deploy/docker-compose.yml"
+    [string]$ComposeFile = 'deploy/docker-compose.yml'
   )
-  if (-not (Test-Path ".env")) { return $true }
-  try {
-    $pname = "task-studio"
-    foreach ($line in (Get-Content ".env" -ErrorAction SilentlyContinue)) {
+  $pname = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { 'task-studio' }
+  if (Test-Path '.env') {
+    foreach ($line in (Get-Content '.env' -ErrorAction SilentlyContinue)) {
       if ($line -match '^COMPOSE_PROJECT_NAME=(.*)$') {
         $pname = $Matches[1].Trim().Trim('"').Trim("'")
-        if (-not $pname) { $pname = "task-studio" }
+        if (-not $pname) { $pname = 'task-studio' }
         break
       }
     }
-    $lines = docker compose -p $pname -f $ComposeFile --env-file .env --profile full ps --format "{{.Service}} {{.State}} {{.Health}}" 2>$null
-    $nginx = $lines | Where-Object { $_ -match '^nginx\b' } | Select-Object -First 1
-    if (-not $nginx) { return $true }
-    return ($nginx -match 'running|healthy')
-  } catch {
-    return $true
   }
+  return (Test-TsStackEdgeOk -ComposeFile $ComposeFile -ProjectName $pname)
 }
 
 function Wait-AppReady {
@@ -70,6 +61,11 @@ function Invoke-TsOpen {
   $root = Resolve-TsRoot
   if (-not $root) { throw (Get-TsText err_not_installed_ps) }
   Set-Location $root
+  if (Get-Command Ensure-TsEnv -ErrorAction SilentlyContinue) {
+    Ensure-TsEnv
+  } elseif (Get-Command Resolve-TsHttpPort -ErrorAction SilentlyContinue) {
+    [void](Resolve-TsHttpPort)
+  }
   if (-not ((Test-HttpOk -TimeoutSec 2) -and (Test-StackEdgeOk))) {
     Write-TsWarn (Get-TsText warn_ui_unreachable $script:AppUiUrl)
   }
