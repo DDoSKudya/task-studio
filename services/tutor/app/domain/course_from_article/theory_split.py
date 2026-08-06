@@ -31,9 +31,21 @@ def split_long_theory_steps(
         base_id = str(step.get("id") or "theory")
         base_title = str(step.get("title") or "Theory")
         chapter_id = step.get("chapter_id")
+        step_images = step.get("images")
+        image_urls = (
+            [
+                url
+                for url in step_images
+                if isinstance(url, str) and url.startswith(("http://", "https://"))
+            ]
+            if isinstance(step_images, list)
+            else []
+        )
         for index, (part_title, part_body) in enumerate(parts, start=1):
             payload = {
-                key: value for key, value in step.items() if key not in {"id", "title", "content"}
+                key: value
+                for key, value in step.items()
+                if key not in {"id", "title", "content", "images"}
             }
             payload["id"] = base_id if index == 1 else f"{base_id}-{index}"
             payload["kind"] = "theory"
@@ -41,6 +53,8 @@ def split_long_theory_steps(
                 base_title if index == 1 else f"{base_title} ({index})"
             )
             payload["content"] = part_body
+            if part_images := [url for url in image_urls if url in part_body]:
+                payload["images"] = part_images
             if chapter_id is not None:
                 payload["chapter_id"] = chapter_id
             out.append(payload)

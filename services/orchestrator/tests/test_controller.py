@@ -20,6 +20,7 @@ def _settings(config, *, mode: OrchestratorMode = "balancing"):
         redis_url="",
         system_token="",
         tutor_default_provider_url="",
+        ollama_url="http://ollama:11434",
     )
 
 
@@ -45,11 +46,23 @@ def _policies(policies_mod):
     )
 
 
+def _http_with_ollama_ps(*, busy: bool) -> AsyncMock:
+    from unittest.mock import MagicMock
+
+    http = AsyncMock()
+    response = MagicMock()
+    response.raise_for_status = MagicMock(return_value=None)
+    response.json = MagicMock(return_value={"models": [{"name": "qwen2.5:3b"}] if busy else []})
+    http.get = AsyncMock(return_value=response)
+    return http
+
+
 def _controller(
     orchestrator_modules,
     *,
     mode: OrchestratorMode = "balancing",
     docker: AsyncMock | None = None,
+    ollama_busy: bool = False,
 ):
     config, policies_mod, controller_mod, state_mod, metrics_mod = orchestrator_modules
     state = state_mod.ControllerState(mode=mode)
@@ -67,7 +80,7 @@ def _controller(
         docker_mock = docker
     docker_mock.stop_service = AsyncMock(return_value=True)
     docker_mock.start_service = AsyncMock(return_value=True)
-    http = AsyncMock()
+    http = _http_with_ollama_ps(busy=ollama_busy)
     controller = controller_mod.OrchestratorController(
         _settings(config, mode=mode),
         _policies(policies_mod),
@@ -148,6 +161,65 @@ async def test_maximum_keeps_services_running(orchestrator_modules, monkeypatch)
     await controller.tick()
 
     docker.start_service.assert_any_call("ollama")
+    docker.stop_service.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_balancing_keeps_ollama_when_busy_despite_low_ram(
+    orchestrator_modules,
+    monkeypatch,
+) -> None:
+    controller, state, docker, controller_mod, _host = _controller(
+        orchestrator_modules,
+        ollama_busy=True,
+    )
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
+    tight = metrics_mod.HostMetrics(free_ram_mb=512, load_average=0.2)
+    monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=tight))
+    monkeypatch.setattr(
+        metrics_mod,
+        "fetch_tutor_llm_summary",
+        AsyncMock(
+            return_value=TutorLlmSummaryResponse(
+                user_count=1,
+                local_fallback_users=1,
+                all_external=False,
+            )
+        ),
+    )
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+
+    await controller.tick()
+
+    docker.stop_service.assert_not_called()
+    assert state.ollama_last_activity is not None
+
+
+@pytest.mark.asyncio
+async def test_balancing_does_not_idle_stop_local_ollama_by_start_clock(
+    orchestrator_modules,
+    monkeypatch,
+) -> None:
+    controller, state, docker, controller_mod, host = _controller(orchestrator_modules)
+    _config, _policies_mod, _controller_mod, _state_mod, metrics_mod = orchestrator_modules
+    state.ollama_last_started = datetime.now(UTC) - timedelta(minutes=90)
+    state.ollama_last_activity = datetime.now(UTC) - timedelta(minutes=90)
+    monkeypatch.setattr(controller_mod, "fetch_host_metrics", AsyncMock(return_value=host))
+    monkeypatch.setattr(
+        metrics_mod,
+        "fetch_tutor_llm_summary",
+        AsyncMock(
+            return_value=TutorLlmSummaryResponse(
+                user_count=1,
+                local_fallback_users=1,
+                all_external=False,
+            )
+        ),
+    )
+    monkeypatch.setattr(metrics_mod, "grading_cpu_hot", AsyncMock(return_value=False))
+
+    await controller.tick()
+
     docker.stop_service.assert_not_called()
 
 

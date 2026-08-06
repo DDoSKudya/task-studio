@@ -209,6 +209,7 @@ docker-compose.override.yml
 # Studio console local state (update check + installed version)
 .studio-update-check
 .studio-update-cache.json
+.studio-update-reexec
 .studio-state.json
 .studio-consumer
 

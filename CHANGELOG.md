@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 with the pre-release and build rules described in [docs/VERSIONING.md](docs/VERSIONING.md).
 
+## [1.1.1-beta.1] - 2026-08-06
+
+**Build:** `101012001`  
+**Channel:** `beta`  
+
+Patch beta after `1.1.0-beta.1`: Windows install reliability, launcher self-update after checksum, course UI polish, theory figure attachment, and local Ollama staying available during long article/course jobs.
+
+### Fixed
+
+#### Install (Windows)
+- `irm …/install.ps1 | iex` failed because `#Requires` / `param` are not valid when piped into `Invoke-Expression`.
+- Added `scripts/install-bootstrap.ps1` one-liner entrypoint (download + `-File`); README / PREVIEW / i18n copy updated.
+- Bootstrap smoke covers the `iex` path via `TASK_STUDIO_INSTALL_SCRIPT`.
+
+#### Launcher self-update
+- After checksum verify, preserving `data/` no longer nests user files under `data/data/` when the payload also contains `data/`.
+- Content fingerprint ignores `.studio-update-cache.json` (aligned bash ↔ PowerShell) so a local cache does not force a false mismatch.
+- Unreadable files fail the fingerprint instead of poisoning an empty digest; reexec runs only after a successful apply.
+- If the install root cannot be renamed, sync falls back to in-place replace; smoke covers nesting, cache exclude, and fingerprint failure.
+
+#### Course author UI
+- Course depth cards (`01` / `02` / `03`) no longer overlap titles (flex layout with fixed index width).
+
+#### Theory figures
+- Stopped attaching the same catalog image to every theory chapter when relevance score was zero.
+- Catalog figures require a strong title match; common tokens (`docker`, `server`, `схема`, …) are ignored.
+- One figure URL is used at most once across chapters; theory split keeps `images` only on parts that contain the URL.
+- Prompt text: do not reuse figures from other chapters.
+
+#### Local Ollama / orchestrator
+- Auto-attach `deploy/docker-compose.ollama-gpu.yml` when `nvidia-smi` works (`OLLAMA_ACCELERATOR=auto|gpu`); CPU hosts stay without the overlay.
+- Launcher writes `OLLAMA_GPU_AVAILABLE` / `OLLAMA_PROFILE` / optional `OLLAMA_GPU_VRAM_GB`; tutor compose receives runtime policy env.
+- Orchestrator no longer stops Ollama by wall-clock from container start (broke long course builds).
+- Orchestrator does not stop Ollama while `/api/ps` reports a resident model (avoids mid-request kills under low RAM).
+
+### Changed
+
+- Prefer leaving chapters without a figure over injecting an off-topic diagram.
+
 ## [1.1.0-beta.1] - 2026-08-05
 
 **Build:** `101002001`  
@@ -127,5 +166,6 @@ Large minor pre-release after `1.0.0-alpha`: redesigned learning/catalog UI, str
 - **Security & CI**: AES-GCM encryption for local integration credentials, comprehensive CI/CD pipeline, pre-commit hooks, and 157+ automated tests (backend + frontend).
 - **Documentation**: Complete developer guide (`DEVELOPERS.md`) and fully localized interface (RU/EN).
 
+[1.1.1-beta.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.1.1-beta.1
 [1.1.0-beta.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.1.0-beta.1
 [1.0.0-alpha.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.0.0-alpha.1

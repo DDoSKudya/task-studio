@@ -13,7 +13,7 @@ curl -fsSL https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scrip
 **Windows · PowerShell:**
 
 ```powershell
-irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install-bootstrap.ps1 | iex
 ```
 
 ## Документация

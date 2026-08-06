@@ -99,7 +99,10 @@ studio_run_action() {
     update)
       TS_UPDATE_REEXEC=0
       ui_run_progress "$(ts_t title_update)" ops_update_apply || true
-      if [[ "${TS_UPDATE_REEXEC:-0}" == "1" ]]; then
+      if [[ -n "${ROOT:-}" ]]; then
+        cd -P "$ROOT" 2>/dev/null || true
+      fi
+      if ops_update_consume_reexec "${ROOT:-.}"; then
         ui_session_end
         exec bash "$SCRIPT_DIR/studio.sh"
       fi
@@ -280,15 +283,20 @@ main() {
       if { [[ -t 2 ]] || [[ -r /dev/tty ]]; } && ui_supports_color; then
         ui_session_start
         trap 'ui_session_end' EXIT
-        TS_UPDATE_REEXEC=0
         ui_run_progress "$(ts_t title_update)" ops_update_apply "$@" || true
         trap - EXIT
         ui_session_end
-        if [[ "${TS_UPDATE_REEXEC:-0}" == "1" ]]; then
+        if [[ -n "${ROOT:-}" ]]; then
+          cd -P "$ROOT" 2>/dev/null || true
+        fi
+        if ops_update_consume_reexec "${ROOT:-.}"; then
           exec bash "$SCRIPT_DIR/studio.sh"
         fi
       else
         ops_update_apply "$@"
+        if [[ -n "${ROOT:-}" ]]; then
+          cd -P "$ROOT" 2>/dev/null || true
+        fi
       fi
       ;;
     help|-h|--help) studio_usage ;;

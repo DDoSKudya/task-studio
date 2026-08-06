@@ -22,6 +22,7 @@ class OrchestratorSettings:
     redis_url: str
     system_token: str
     tutor_default_provider_url: str
+    ollama_url: str
 
 
 def load_settings() -> OrchestratorSettings:
@@ -40,6 +41,7 @@ def load_settings() -> OrchestratorSettings:
         redis_url=os.getenv("REDIS_URL", "").strip(),
         system_token=os.getenv("ORCHESTRATOR_SYSTEM_TOKEN", "").strip(),
         tutor_default_provider_url=os.getenv("TUTOR_DEFAULT_PROVIDER_URL", "").strip(),
+        ollama_url=os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/"),
     )
 
 

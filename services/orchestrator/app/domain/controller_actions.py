@@ -61,4 +61,10 @@ async def ensure_stopped(
 
 
 def mark_ollama_started(state: ControllerState) -> None:
-    state.ollama_last_started = datetime.now(UTC)
+    now = datetime.now(UTC)
+    state.ollama_last_started = now
+    state.ollama_last_activity = now
+
+
+def mark_ollama_activity(state: ControllerState) -> None:
+    state.touch_ollama()

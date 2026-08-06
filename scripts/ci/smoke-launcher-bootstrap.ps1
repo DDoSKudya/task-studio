@@ -62,6 +62,26 @@ try {
     throw "bootstrap state is missing version"
   }
 
+  $iexWork = Join-Path $work "iex-smoke"
+  $iexInstallDir = Join-Path $iexWork "install"
+  New-Item -ItemType Directory -Path $iexWork -Force | Out-Null
+  $remoteBootstrap = Join-Path $Root "scripts\install-bootstrap.ps1"
+  $env:TASK_STUDIO_INSTALL_SCRIPT = $bootstrap
+  $env:TASK_STUDIO_DIR = $iexInstallDir
+  $env:TASK_STUDIO_NO_PAUSE = "1"
+  Push-Location $iexWork
+  try {
+    $scriptText = Get-Content -Raw $remoteBootstrap
+    $ErrorActionPreference = "Stop"
+    Invoke-Expression $scriptText
+  } finally {
+    Pop-Location
+    Remove-Item Env:TASK_STUDIO_INSTALL_SCRIPT -ErrorAction SilentlyContinue
+  }
+  if (-not (Test-Path (Join-Path $iexInstallDir "scripts\studio.ps1"))) {
+    throw "install-bootstrap.ps1 via iex did not create scripts\studio.ps1"
+  }
+
   Write-Host "smoke-launcher-bootstrap.ps1: OK"
 } finally {
   Remove-Item Env:TASK_STUDIO_ARCHIVE_URL_ZIP -ErrorAction SilentlyContinue

@@ -229,7 +229,7 @@ from pathlib import Path
 import re
 import sys
 
-paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1"), Path("scripts/install-bootstrap.ps1")]
 paths += sorted(Path("scripts/lib").glob("*.ps1"))
 bad = []
 for path in paths:
@@ -273,7 +273,8 @@ if command -v pwsh >/dev/null 2>&1; then
     }
     $files = @(
       "scripts/studio.ps1",
-      "scripts/install.ps1"
+      "scripts/install.ps1",
+      "scripts/install-bootstrap.ps1"
     ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
     $failed = $false
     foreach ($path in $files) {
@@ -297,7 +298,7 @@ from pathlib import Path
 import sys
 
 bom = b"\xef\xbb\xbf"
-paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1"), Path("scripts/install-bootstrap.ps1")]
 paths += sorted(Path("scripts/lib").glob("*.ps1"))
 missing = [str(p) for p in paths if p.is_file() and not p.read_bytes().startswith(bom)]
 if missing:

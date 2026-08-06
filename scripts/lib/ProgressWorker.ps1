@@ -54,7 +54,7 @@ try {
   Fail-TsProgress $msg
 }
 
-$reexec = if ($script:UpdateReexec) { "1" } else { "0" }
+$reexec = if (($exitCode -eq 0) -and $script:UpdateReexec) { "1" } else { "0" }
 $uninstallExit = if ($script:UninstallExit) { "1" } else { "0" }
 @(
   "ExitCode=$exitCode"

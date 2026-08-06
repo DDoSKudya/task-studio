@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from app.domain.controller_actions import ensure_running
 from app.domain.controller_balance import balance_lsp, balance_ollama
 from app.domain.docker import DockerControl
@@ -15,6 +16,8 @@ async def apply_balancing(
     policies: OrchestratorPolicies,
     host: HostMetrics,
     lab_runner: str,
+    http: httpx.AsyncClient,
+    ollama_url: str,
 ) -> None:
     all_external = state.all_users_external_llm or False
     await balance_ollama(
@@ -23,6 +26,8 @@ async def apply_balancing(
         policies=policies,
         host=host,
         all_external=all_external,
+        http=http,
+        ollama_url=ollama_url,
     )
     await balance_lsp(
         docker=docker,

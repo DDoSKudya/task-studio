@@ -33,6 +33,34 @@ def test_split_long_theory_by_headings() -> None:
     assert split[1]["id"] == "theory-intro-2"
 
 
+def test_split_long_theory_keeps_images_only_on_matching_part() -> None:
+    split_mod = load_service_module("app.domain.course_from_article.theory_split")
+    figure = "https://cdn.example.com/images/arch.png"
+    body = "\n\n".join(
+        [
+            "## One",
+            "a" * 800,
+            f"![diagram]({figure})",
+            "## Two",
+            "b" * 800,
+        ]
+    )
+    steps = [
+        {
+            "id": "theory-intro",
+            "kind": "theory",
+            "title": "Intro",
+            "images": [figure],
+            "content": body,
+        }
+    ]
+    split = split_mod.split_long_theory_steps(steps, enabled=True, max_chars=900)
+    assert len(split) >= 2
+    parts_with_images = [item for item in split if item.get("images")]
+    assert len(parts_with_images) == 1
+    assert parts_with_images[0]["images"] == [figure]
+
+
 def test_split_disabled_keeps_single_step() -> None:
     split_mod = load_service_module("app.domain.course_from_article.theory_split")
     steps = [

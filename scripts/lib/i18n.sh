@@ -133,7 +133,7 @@ ts_t() {
     boot_ps_shortcut_fail) en="Warning: desktop shortcut was not created — %s"; ru="Предупреждение: ярлык на рабочем столе не создан — %s" ;;
     boot_ps_fallback) en="  You can still start with: %s"; ru="  Можно запустить вручную: %s" ;;
     boot_ps_studio_missing) en="studio.ps1 was not found under %s\\scripts."; ru="studio.ps1 не найден в %s\\scripts." ;;
-    boot_ps_git_missing) en="git was not found. Install Git for Windows, then run again: irm …/install.ps1 | iex"; ru="git не найден. Установите Git for Windows и снова выполните: irm …/install.ps1 | iex" ;;
+    boot_ps_git_missing) en="git was not found. Install Git for Windows, then run again: irm …/install-bootstrap.ps1 | iex"; ru="git не найден. Установите Git for Windows и снова выполните: irm …/install-bootstrap.ps1 | iex" ;;
     title_install) en="Install"; ru="Установка" ;;
     title_rebuild_packages) en="Rebuild packages"; ru="Пересборка пакетов" ;;
     title_start) en="Start"; ru="Запуск" ;;

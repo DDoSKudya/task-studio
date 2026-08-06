@@ -370,7 +370,8 @@ def _theory_shared_context(
             f"## Source excerpt\n<source_excerpt>\n{excerpt}\n</source_excerpt>",
             (
                 "## Source figures (optional)\n"
-                "Embed at most 1–2 lines EXACTLY as given when they illustrate this chapter. "
+                "Embed at most 1–2 lines EXACTLY as given only when they illustrate THIS chapter. "
+                "If none apply, omit images entirely — do not reuse figures from other chapters. "
                 "Do not invent URLs.\n"
                 f"{source_images}"
                 if source_images

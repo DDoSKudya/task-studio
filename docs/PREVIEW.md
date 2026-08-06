@@ -9,7 +9,7 @@
   <img src="assets/logo.png" alt="" width="40" height="40" style="display:block;border-radius:0">
   <span style="display:flex;flex-direction:column;gap:2px;min-width:0">
     <span style="font-weight:700;font-size:17px;letter-spacing:-0.03em;color:#ffffff">Task Studio</span>
-    <span style="font-size:10px;color:#737373;font-variant-numeric:tabular-nums;letter-spacing:0.02em" title="build 101002001">v1.1.0-beta.1</span>
+    <span style="font-size:10px;color:#737373;font-variant-numeric:tabular-nums;letter-spacing:0.02em" title="build 101012001">v1.1.1-beta.1</span>
   </span>
 </p>
 
@@ -159,7 +159,7 @@
       <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">1.12</td>
     </tr>
   </table>
-  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185;text-align:center">v1.1.0-beta.1 · AGPL-3.0</div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185;text-align:center">v1.1.1-beta.1 · AGPL-3.0</div>
 </div>
 
 </td>
@@ -290,7 +290,7 @@
     <td width="50%" valign="top" style="padding:0 0 0 8px">
       <div style="padding:14px;border:1px solid rgba(255,255,255,0.1);background:#12121c;border-radius:0">
         <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#b366ff;margin-bottom:10px;font-weight:700">Windows · PowerShell</div>
-        <pre style="margin:0;padding:12px;background:rgba(8,8,14,0.94);border:1px solid rgba(255,255,255,0.06);color:#e5e5e5;font-size:11px;line-height:1.5;overflow:auto;border-radius:0;white-space:pre-wrap">irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install.ps1 | iex</pre>
+        <pre style="margin:0;padding:12px;background:rgba(8,8,14,0.94);border:1px solid rgba(255,255,255,0.06);color:#e5e5e5;font-size:11px;line-height:1.5;overflow:auto;border-radius:0;white-space:pre-wrap">irm https://raw.githubusercontent.com/DDoSKudya/task-studio/develop/scripts/install-bootstrap.ps1 | iex</pre>
       </div>
     </td>
   </tr>
@@ -426,7 +426,7 @@
 </div>
 
 <div style="padding:16px 24px 22px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;color:#737373;font-size:11px;letter-spacing:0.06em;text-transform:uppercase">
-  Task Studio · v1.1.0-beta.1 · Docker · Nuxt · FastAPI · AGPL-3.0
+  Task Studio · v1.1.1-beta.1 · Docker · Nuxt · FastAPI · AGPL-3.0
 </div>
 
 </td>

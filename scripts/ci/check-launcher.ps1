@@ -26,6 +26,7 @@ function Test-TsPsParseUtf8 {
 Write-Host "==> PowerShell parse (Windows PowerShell, UTF-8)"
 $files = @(
   "scripts\install.ps1",
+  "scripts\install-bootstrap.ps1",
   "scripts\studio.ps1"
 ) + (Get-ChildItem -Path "scripts\lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
 
