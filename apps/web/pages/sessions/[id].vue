@@ -49,6 +49,13 @@ const pending = ref(true)
 const codeSource = ref('')
 const quizChoice = ref<number | null>(null)
 const quizReveal = ref<{ passed: boolean; expectedIndex: number | null } | null>(null)
+
+watch(quizChoice, () => {
+  // Allow retry after a wrong answer without revealing the key.
+  if (quizReveal.value && !quizReveal.value.passed) {
+    quizReveal.value = null
+  }
+})
 const codeReveal = ref<{ passed: boolean; feedback: string | null; gradable: boolean } | null>(null)
 const taskText = ref('')
 const taskReveal = ref<{ passed: boolean; feedback: string | null; gradable: boolean } | null>(null)
@@ -593,7 +600,7 @@ function isCurrentLesson(topicId: string, stepId: string) {
                 v-if="step.kind === 'quiz'"
                 class="session-nav-btn session-nav-btn-primary"
                 type="button"
-                :disabled="actionPending || quizChoice === null || !quizChoices.length || Boolean(quizReveal)"
+                :disabled="actionPending || quizChoice === null || !quizChoices.length || quizReveal?.passed === true"
                 @click="onSubmitQuiz"
               >
                 <CheckIcon class="icon-sm session-nav-icon" />

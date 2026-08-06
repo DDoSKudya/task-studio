@@ -1,5 +1,7 @@
-﻿#Requires -Version 5.1
-param([Parameter(ValueFromRemainingArguments = $true)]$Rest)
+﻿# iex-safe: do not put #Requires or param() at the file head — `irm … | iex` rejects them.
+if ($PSVersionTable.PSVersion.Major -lt 5 -or ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -lt 1)) {
+  throw "PowerShell 5.1 or newer is required."
+}
 
 $ErrorActionPreference = "Stop"
 $RepoBranch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "develop" }
@@ -168,8 +170,7 @@ if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefa
 }
 
 # Single remaining arg may arrive as a bare string; @() keeps one argv (avoids "help" → "h e l p").
-$launchArgs = @()
-if ($null -ne $Rest) { $launchArgs = @($Rest) }
+$launchArgs = @($args)
 $inlineLaunch = ($env:TASK_STUDIO_INSTALL_INLINE -eq "1") -or ($launchArgs.Count -gt 0)
 if ($inlineLaunch) {
   if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {

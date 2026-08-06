@@ -18,18 +18,20 @@ function optionClass(index: number) {
   if (!reveal) {
     return { 'quiz-option-selected': selected.value === index }
   }
-  const isCorrect =
-    (reveal.expectedIndex !== null && reveal.expectedIndex === index)
-    || (reveal.passed && selected.value === index)
-  const isWrong =
-    !reveal.passed
-    && selected.value === index
-    && (reveal.expectedIndex === null || reveal.expectedIndex !== index)
+  // Wrong: mark only the chosen option. Do not reveal the correct answer.
+  if (!reveal.passed) {
+    return {
+      'quiz-option-selected': selected.value === index,
+      'quiz-option-wrong': selected.value === index,
+    }
+  }
+  // Passed: confirm the chosen answer; still do not paint other options.
   return {
-    'quiz-option-correct': isCorrect,
-    'quiz-option-wrong': isWrong,
+    'quiz-option-correct': selected.value === index,
   }
 }
+
+const locked = computed(() => props.disabled || props.reveal?.passed === true)
 </script>
 
 <template>
@@ -47,7 +49,7 @@ function optionClass(index: number) {
           class="quiz-option-input"
           type="radio"
           :value="index"
-          :disabled="props.disabled || Boolean(props.reveal)"
+          :disabled="locked"
         >
         <span class="quiz-option-letter">{{ letters[index] || index + 1 }}</span>
         <span class="quiz-option-text">{{ choice }}</span>

@@ -1200,6 +1200,47 @@ async def test_generate_quizzes_retries_invalid_payload() -> None:
     assert quizzes[0]["answer"] == 0
 
 
+@pytest.mark.asyncio
+async def test_generate_quizzes_skips_empty_slot_instead_of_abort() -> None:
+    quiz_mod = load_service_module("app.domain.course_from_article.quiz_generate")
+    body = CourseFromArticleRequest(
+        article="Path helps with files. " * 20,
+        title="Path",
+        locale="ru",
+        quiz_count=3,
+    )
+    calls = {"n": 0}
+
+    async def fake_stage_json(*_args, **_kwargs):
+        calls["n"] += 1
+        # First quiz slot: always empty. Later slots: one good quiz.
+        if calls["n"] <= 5:
+            return {"quizzes": []}
+        return {
+            "quiz": {
+                "id": f"quiz-{calls['n']}",
+                "title": "Ok",
+                "question": "Works?",
+                "choices": ["a", "b", "c", "d"],
+                "answer": 0,
+            }
+        }
+
+    with patch.object(quiz_mod, "_stage_json", new=AsyncMock(side_effect=fake_stage_json)):
+        quizzes = await quiz_mod.generate_quizzes(
+            AsyncMock(),
+            object(),
+            body=body,
+            compact=True,
+            chapters=[{"id": "c1", "title": "Intro", "source_excerpt": "x"}],
+            outcomes=["use Path"],
+            theory_steps=[{"title": "Intro", "content": "Path wraps paths."}],
+        )
+
+    assert len(quizzes) == 2
+    assert all(q.get("question") for q in quizzes)
+
+
 def test_retarget_code_fences_fixes_python_mislabeled_as_sql() -> None:
     course = load_service_module("app.domain.course_from_article")
     md = """## Unit of Work

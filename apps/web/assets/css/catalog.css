@@ -1412,7 +1412,8 @@ body.lc-modal-open{
     width 280ms var(--ease-soft, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-.lc-modal.is-sources{
+.lc-modal.is-sources,
+.lc-modal.is-options{
   width: min(60rem, 100%);
   height: min(94vh, 54rem);
   max-height: min(94vh, 54rem);
@@ -1421,11 +1422,6 @@ body.lc-modal-open{
 .lc-modal.is-progress{
   height: auto;
   max-height: min(88vh, 36rem);
-}
-
-.lc-modal.is-options{
-  height: min(92vh, 48rem);
-  max-height: min(92vh, 48rem);
 }
 
 .lc-modal::before{
@@ -2604,15 +2600,16 @@ body.lc-modal-open{
   appearance: none;
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  gap: 0.7rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
   margin: 0;
-  min-height: 5.25rem;
-  padding: 0.85rem 0.9rem;
+  min-height: 3.25rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid rgb(255 255 255 / 0.12);
   background: rgb(0 0 0 / 0.28);
   color: rgb(255 255 255 / 0.78);
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   transition:
     color var(--motion-fast) var(--ease-soft),
@@ -2662,10 +2659,10 @@ body.lc-modal-open{
 .lc-depth-copy{
   display: grid;
   flex: 1 1 0;
-  gap: 0.35rem;
+  gap: 0;
   min-width: 0;
-  align-content: start;
-  padding-top: 0.1rem;
+  align-content: center;
+  justify-items: center;
 }
 
 .lc-depth-name{
@@ -2679,17 +2676,11 @@ body.lc-modal-open{
 }
 
 .lc-depth-hint{
-  display: block;
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 450;
-  line-height: 1.4;
-  color: rgb(255 255 255 / 0.52);
-  text-wrap: pretty;
+  display: none;
 }
 
 .lc-depth-card.is-on .lc-depth-hint{
-  color: rgb(255 255 255 / 0.68);
+  display: none;
 }
 
 .lc-segment-item{

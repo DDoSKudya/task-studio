@@ -41,7 +41,7 @@ async def generate_quizzes(
     for index in range(count):
         prior_titles = [str(item.get("title") or "") for item in collected]
         batch: list[dict[str, object]] = []
-        for _attempt in range(3):
+        for _attempt in range(5):
             payload = await _stage_json(
                 client,
                 target,
@@ -62,11 +62,9 @@ async def generate_quizzes(
             if batch:
                 break
         if not batch:
-            raise TutorError(
-                status.HTTP_502_BAD_GATEWAY,
-                f"course quizzes stage returned no quiz for index={index + 1}",
-            )
+            # One empty LLM answer must not kill the whole course build.
+            continue
         collected.append(batch[0])
-    if len(collected) < min(3, count):
-        raise TutorError(status.HTTP_502_BAD_GATEWAY, "course quizzes stage returned too few items")
+    if not collected:
+        raise TutorError(status.HTTP_502_BAD_GATEWAY, "course quizzes stage returned no quizzes")
     return collected

@@ -271,13 +271,9 @@ const canGoNext = computed(
 const depthOptions = computed(() =>
   (
     [
-      { id: 'light' as const, label: t('libraryCreate.depthLight'), hint: t('libraryCreate.depthHintLight') },
-      {
-        id: 'standard' as const,
-        label: t('libraryCreate.depthStandard'),
-        hint: t('libraryCreate.depthHintStandard'),
-      },
-      { id: 'deep' as const, label: t('libraryCreate.depthDeep'), hint: t('libraryCreate.depthHintDeep') },
+      { id: 'light' as const, label: t('libraryCreate.depthLight') },
+      { id: 'standard' as const, label: t('libraryCreate.depthStandard') },
+      { id: 'deep' as const, label: t('libraryCreate.depthDeep') },
     ] as const
   ),
 )
@@ -1435,7 +1431,7 @@ onBeforeUnmount(() => {
                       :aria-label="t('libraryCreate.courseDepth')"
                     >
                       <button
-                        v-for="(option, depthIndex) in depthOptions"
+                        v-for="option in depthOptions"
                         :key="option.id"
                         class="lc-depth-card"
                         type="button"
@@ -1444,13 +1440,7 @@ onBeforeUnmount(() => {
                         :class="{ 'is-on': courseDepth === option.id }"
                         @click="courseDepth = option.id"
                       >
-                        <span class="lc-depth-index" aria-hidden="true">
-                          {{ String(depthIndex + 1).padStart(2, '0') }}
-                        </span>
-                        <span class="lc-depth-copy">
-                          <span class="lc-depth-name">{{ option.label }}</span>
-                          <span class="lc-depth-hint">{{ option.hint }}</span>
-                        </span>
+                        <span class="lc-depth-name">{{ option.label }}</span>
                       </button>
                     </div>
                   </div>

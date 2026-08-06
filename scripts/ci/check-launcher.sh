@@ -34,6 +34,29 @@ else
   echo "==> shellcheck skipped (not installed)"
 fi
 
+echo "==> install.ps1 must stay iex-safe (no #Requires / param at head)"
+python3 - <<'PY' || fail "install.ps1 is not iex-safe"
+from pathlib import Path
+text = Path("scripts/install.ps1").read_text(encoding="utf-8-sig")
+# Strip BOM / leading blank/comment-only lines for the first real statement window.
+lines = []
+for raw in text.splitlines():
+    s = raw.strip()
+    if not s:
+        continue
+    if s.startswith("#") and not s.lower().startswith("#requires"):
+        continue
+    lines.append(s)
+    if len(lines) >= 8:
+        break
+head = "\n".join(lines)
+if any(line.lower().startswith("#requires") for line in lines):
+    raise SystemExit("install.ps1 still has #Requires near the top (breaks irm|iex)")
+if any(line.lower().startswith("param(") or line.lower().startswith("param (") for line in lines):
+    raise SystemExit("install.ps1 still has param() near the top (breaks irm|iex)")
+print("ok iex-safe head")
+PY
+
 echo "==> studio.cmd must be CRLF"
 cmd_file=scripts/studio.cmd
 [[ -f "$cmd_file" ]] || fail "missing $cmd_file"
