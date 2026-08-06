@@ -1418,9 +1418,9 @@ ops_sync_inplace_from_staging() {
   # Keep the install directory inode (cwd / bind-mount friendly). Wipe children, then extract.
   local child
   while IFS= read -r -d '' child; do
-    rm -rf "$child"
-  done < <(find "$dst" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
-  tar -C "$staging" -cf - . | tar -C "$dst" -xf -
+    rm -rf "${child:?}"
+  done < <(find "${dst:?}" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+  tar -C "${staging:?}" -cf - . | tar -C "${dst:?}" -xf -
 }
 
 ops_sync_payload() {
@@ -1438,12 +1438,12 @@ ops_sync_payload() {
     ops_sync_die "$(ts_t err_update_in_progress)"
   fi
 
-  rm -rf "$work"
-  mkdir -p "$staging"
+  rm -rf "${work:?}"
+  mkdir -p "${staging:?}"
 
   if ! tar -C "$src" -cf - . | tar -C "$staging" -xf -; then
     ops_sync_release_lock
-    rm -rf "$work"
+    rm -rf "${work:?}"
     return 1
   fi
 
@@ -1451,11 +1451,11 @@ ops_sync_payload() {
   while IFS= read -r rel; do
     [[ -n "$rel" ]] || continue
     [[ -e "$dst/$rel" ]] || continue
-    rm -rf "$staging/$rel"
+    rm -rf "${staging:?}/${rel:?}"
     mkdir -p "$staging/$(dirname "$rel")"
     if ! cp -a "$dst/$rel" "$staging/$rel"; then
       ops_sync_release_lock
-      rm -rf "$work"
+      rm -rf "${work:?}"
       return 1
     fi
   done < <(ops_update_preserve_paths)
@@ -1463,30 +1463,30 @@ ops_sync_payload() {
   # Prefer atomic directory swap; if the root cannot be renamed (EBUSY / locked cwd), copy in place.
   if mv "$dst" "$backup" 2>/dev/null; then
     if ! mv "$staging" "$dst"; then
-      rm -rf "$dst" 2>/dev/null || true
+      rm -rf "${dst:?}" 2>/dev/null || true
       mv "$backup" "$dst" 2>/dev/null || true
       ops_sync_release_lock
-      rm -rf "$work"
+      rm -rf "${work:?}"
       return 1
     fi
     if ! cd "$dst"; then
       ops_sync_release_lock
-      rm -rf "$backup" "$work"
+      rm -rf "${backup:?}" "${work:?}"
       return 1
     fi
-    rm -rf "$backup" "$work"
+    rm -rf "${backup:?}" "${work:?}"
   else
     if ! ops_sync_inplace_from_staging "$staging" "$dst"; then
       ops_sync_release_lock
-      rm -rf "$work"
+      rm -rf "${work:?}"
       return 1
     fi
     if ! cd "$dst"; then
       ops_sync_release_lock
-      rm -rf "$work"
+      rm -rf "${work:?}"
       return 1
     fi
-    rm -rf "$work"
+    rm -rf "${work:?}"
   fi
   ops_sync_release_lock
 }
