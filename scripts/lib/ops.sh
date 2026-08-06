@@ -386,6 +386,16 @@ ops_prepare_dirs() {
   fi
 }
 
+ops_compose_file_args() {
+  local -a files=("-f" "$COMPOSE_FILE")
+  local accel overlay="deploy/docker-compose.ollama-gpu.yml"
+  accel="$(ops_detect_ollama_accelerator)"
+  if [[ "$accel" == "gpu" && -f "$overlay" ]]; then
+    files+=("-f" "$overlay")
+  fi
+  printf '%s\0' "${files[@]}"
+}
+
 ops_compose() {
   if [[ -f .env ]]; then
     local pname http_port
@@ -403,7 +413,15 @@ ops_compose() {
   export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-$(ops_default_parallel_limit)}"
   export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
   export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
-  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" --env-file .env "$@"
+  local -a file_args=()
+  local arg
+  while IFS= read -r -d '' arg; do
+    file_args+=("$arg")
+  done < <(ops_compose_file_args)
+  if [[ ${#file_args[@]} -eq 0 ]]; then
+    file_args=("-f" "$COMPOSE_FILE")
+  fi
+  docker compose -p "$COMPOSE_PROJECT_NAME" "${file_args[@]}" --env-file .env "$@"
 }
 
 ops_compose_container_name() {
@@ -509,14 +527,12 @@ ops_wait_catalog_healthy() {
 }
 
 ops_compose_up() {
-  # shellcheck disable=SC2086
   local profile_args="$*"
+  ops_configure_ollama_profile
   if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
     ts_prog_status "$(ts_t status_starting_infra 2>/dev/null || echo "Starting data services…")"
   fi
-  # shellcheck disable=SC2086
   ops_compose $profile_args up -d postgres redis rabbitmq minio meilisearch 2>/dev/null || true
-  # shellcheck disable=SC2086
   if ! ops_compose $profile_args up -d --wait --wait-timeout 180 postgres redis rabbitmq; then
     ops_dump_compose_failure
     return 1
@@ -524,13 +540,11 @@ ops_compose_up() {
   if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
     ts_prog_status "$(ts_t status_starting_catalog 2>/dev/null || echo "Starting catalog…")"
   fi
-  # shellcheck disable=SC2086
   ops_compose $profile_args up -d --no-deps catalog || true
   local catalog_ok=0
   if ops_wait_catalog_healthy 240; then
     catalog_ok=1
   else
-    # shellcheck disable=SC2086
     ops_compose $profile_args up -d --force-recreate --no-deps catalog || true
     if ops_wait_catalog_healthy 240; then
       catalog_ok=1
@@ -545,12 +559,10 @@ ops_compose_up() {
   if declare -f ts_prog_status >/dev/null 2>&1 && ts_prog_active 2>/dev/null; then
     ts_prog_status "$(ts_t status_starting_containers)"
   fi
-  # shellcheck disable=SC2086
   if ops_compose $profile_args up -d --remove-orphans; then
     return 0
   fi
   sleep 10
-  # shellcheck disable=SC2086
   if ops_compose $profile_args up -d --remove-orphans; then
     return 0
   fi
@@ -671,26 +683,62 @@ ops_detect_ollama_accelerator() {
   printf '%s' "cpu"
 }
 
+ops_detect_ollama_vram_gb() {
+  local mib gb
+  mib="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d '[:space:]')"
+  if [[ ! "$mib" =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+  gb=$((mib / 1024))
+  if ((gb < 1)); then
+    gb=1
+  fi
+  printf '%s' "$gb"
+}
+
+ops_env_upsert() {
+  local key="$1"
+  local value="$2"
+  [[ -f .env ]] || return 0
+  if grep -q "^${key}=" .env; then
+    sed -i.bak "s|^${key}=.*|${key}=${value}|" .env
+  else
+    printf '\n%s=%s\n' "$key" "$value" >> .env
+  fi
+}
+
 ops_configure_ollama_profile() {
-  local accel profile
+  local accel profile vram_gb
   accel="$(ops_detect_ollama_accelerator)"
   profile="${OLLAMA_PROFILE:-}"
   if [[ -z "$profile" ]]; then
     case "$accel" in
-      gpu) profile="gpu-balanced" ;;
+      gpu)
+        if vram_gb="$(ops_detect_ollama_vram_gb)"; then
+          if ((vram_gb < 10)); then
+            profile="gpu-light"
+          else
+            profile="gpu-balanced"
+          fi
+        else
+          profile="gpu-balanced"
+        fi
+        ;;
       *) profile="cpu-balanced" ;;
     esac
   fi
   export OLLAMA_GPU_AVAILABLE="$([[ "$accel" == "gpu" ]] && echo 1 || echo 0)"
   export OLLAMA_ACCELERATOR="${OLLAMA_ACCELERATOR:-auto}"
   export OLLAMA_PROFILE="$profile"
+  if [[ "$accel" == "gpu" ]] && vram_gb="$(ops_detect_ollama_vram_gb)"; then
+    export OLLAMA_GPU_VRAM_GB="$vram_gb"
+  fi
   if [[ -f .env ]]; then
-    grep -q '^OLLAMA_GPU_AVAILABLE=' .env \
-      && sed -i.bak "s|^OLLAMA_GPU_AVAILABLE=.*|OLLAMA_GPU_AVAILABLE=$OLLAMA_GPU_AVAILABLE|" .env \
-      || printf '\nOLLAMA_GPU_AVAILABLE=%s\n' "$OLLAMA_GPU_AVAILABLE" >> .env
-    grep -q '^OLLAMA_PROFILE=' .env \
-      && sed -i.bak "s|^OLLAMA_PROFILE=.*|OLLAMA_PROFILE=$OLLAMA_PROFILE|" .env \
-      || printf '\nOLLAMA_PROFILE=%s\n' "$OLLAMA_PROFILE" >> .env
+    ops_env_upsert OLLAMA_GPU_AVAILABLE "$OLLAMA_GPU_AVAILABLE"
+    ops_env_upsert OLLAMA_PROFILE "$OLLAMA_PROFILE"
+    if [[ -n "${OLLAMA_GPU_VRAM_GB:-}" ]]; then
+      ops_env_upsert OLLAMA_GPU_VRAM_GB "$OLLAMA_GPU_VRAM_GB"
+    fi
   fi
 }
 
@@ -799,13 +847,13 @@ ops_install() {
   else
     ts_prog_enter build "$(ts_t status_build_slow)"
   fi
-  # shellcheck disable=SC2086
+
   if ! ops_compose $profile_args build; then
     ui_die "$(ts_t err_build)"
   fi
 
   ts_prog_enter start "$(ts_t status_starting_containers)"
-  # shellcheck disable=SC2086
+
   if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up)"
   fi
@@ -867,7 +915,7 @@ ops_start() {
   fi
 
   ts_prog_enter start "$(ts_t status_starting_ts)"
-  # shellcheck disable=SC2086
+
   if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_short)"
   fi
@@ -923,7 +971,7 @@ ops_restart() {
   profile_args="$(profiles_args | tr '\n' ' ')"
 
   ts_prog_enter start "$(ts_t status_starting_containers)"
-  # shellcheck disable=SC2086
+
   if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_after_restart)"
   fi
@@ -1252,6 +1300,7 @@ ops_is_updatable_install() {
 ops_content_sha256() {
   local root="$1"
   (
+    set -o pipefail
     cd "$root" || exit 1
     # shellcheck disable=SC2016
     find . -type f \
@@ -1266,6 +1315,7 @@ ops_content_sha256() {
       ! -name '.env' \
       ! -name '.env.local' \
       ! -name '.studio-update-check' \
+      ! -name '.studio-update-cache.json' \
       ! -name '.studio-state.json' \
       ! -name '.studio-consumer' \
       ! -name 'compose.override.yml' \
@@ -1273,11 +1323,15 @@ ops_content_sha256() {
       | LC_ALL=C sort \
       | while IFS= read -r f; do
           [[ -n "$f" ]] || continue
+          dig=""
           if command -v sha256sum >/dev/null 2>&1; then
-            printf '%s  %s\n' "$(sha256sum "$f" | awk '{print $1}')" "$f"
+            dig="$(sha256sum "$f" 2>/dev/null | awk '{print $1}')"
           else
-            printf '%s  %s\n' "$(shasum -a 256 "$f" | awk '{print $1}')" "$f"
+            dig="$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')"
           fi
+          # Unreadable files must fail the fingerprint, not poison it with an empty digest.
+          [[ -n "$dig" ]] || exit 2
+          printf '%s  %s\n' "$dig" "$f"
         done \
       | if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi \
       | awk '{print $1}'
@@ -1290,11 +1344,33 @@ ops_update_preserve_paths() {
     '.env' \
     '.env.local' \
     '.studio-update-check' \
+    '.studio-update-cache.json' \
     '.studio-state.json' \
     '.studio-consumer' \
     '.git' \
     'compose.override.yml' \
     'docker-compose.override.yml'
+}
+
+ops_update_reexec_marker() {
+  local root="${1:-${ROOT:-.}}"
+  printf '%s\n' "$root/.studio-update-reexec"
+}
+
+ops_update_mark_reexec() {
+  local root="${1:-${ROOT:-.}}"
+  : >"$(ops_update_reexec_marker "$root")"
+}
+
+ops_update_consume_reexec() {
+  local root="${1:-${ROOT:-.}}"
+  local marker
+  marker="$(ops_update_reexec_marker "$root")"
+  if [[ -f "$marker" ]]; then
+    rm -f "$marker"
+    return 0
+  fi
+  return 1
 }
 
 ops_sync_die() {
@@ -1337,60 +1413,81 @@ ops_sync_release_lock() {
   fi
 }
 
+ops_sync_inplace_from_staging() {
+  local staging="$1" dst="$2"
+  # Keep the install directory inode (cwd / bind-mount friendly). Wipe children, then extract.
+  local child
+  while IFS= read -r -d '' child; do
+    rm -rf "${child:?}"
+  done < <(find "${dst:?}" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+  tar -C "${staging:?}" -cf - . | tar -C "${dst:?}" -xf -
+}
+
 ops_sync_payload() {
   local src="$1" dst="$2"
   command -v tar >/dev/null 2>&1 || ops_sync_die "$(ts_t err_tar)"
 
-  local parent base work newroot preserve backup rel lock
+  local parent work staging backup rel lock
   parent="$(dirname "$dst")"
-  base="$(basename "$dst")"
   lock="$parent/.task-studio-update.lock"
   work="$parent/.task-studio-update.$$"
-  newroot="$work/newroot"
-  preserve="$work/preserve"
+  staging="$work/staging"
   backup="$work/backup"
 
   if ! ops_sync_acquire_lock "$lock"; then
     ops_sync_die "$(ts_t err_update_in_progress)"
   fi
 
-  rm -rf "$work"
-  mkdir -p "$newroot" "$preserve"
+  rm -rf "${work:?}"
+  mkdir -p "${staging:?}"
 
-  if ! tar -C "$src" -cf - . | tar -C "$newroot" -xf -; then
+  if ! tar -C "$src" -cf - . | tar -C "$staging" -xf -; then
     ops_sync_release_lock
-    rm -rf "$work"
+    rm -rf "${work:?}"
     return 1
   fi
 
+  # Live user paths win. Replace payload copies (e.g. empty data/) — never nest via mv-into-dir.
   while IFS= read -r rel; do
     [[ -n "$rel" ]] || continue
     [[ -e "$dst/$rel" ]] || continue
-    mkdir -p "$preserve/$(dirname "$rel")" "$newroot/$(dirname "$rel")"
-    mv "$dst/$rel" "$preserve/$rel"
-    mv "$preserve/$rel" "$newroot/$rel"
+    rm -rf "${staging:?}/${rel:?}"
+    mkdir -p "$staging/$(dirname "$rel")"
+    if ! cp -a "$dst/$rel" "$staging/$rel"; then
+      ops_sync_release_lock
+      rm -rf "${work:?}"
+      return 1
+    fi
   done < <(ops_update_preserve_paths)
 
-  if ! mv "$dst" "$backup"; then
-    ops_sync_release_lock
-    rm -rf "$work"
-    return 1
+  # Prefer atomic directory swap; if the root cannot be renamed (EBUSY / locked cwd), copy in place.
+  if mv "$dst" "$backup" 2>/dev/null; then
+    if ! mv "$staging" "$dst"; then
+      rm -rf "${dst:?}" 2>/dev/null || true
+      mv "$backup" "$dst" 2>/dev/null || true
+      ops_sync_release_lock
+      rm -rf "${work:?}"
+      return 1
+    fi
+    if ! cd "$dst"; then
+      ops_sync_release_lock
+      rm -rf "${backup:?}" "${work:?}"
+      return 1
+    fi
+    rm -rf "${backup:?}" "${work:?}"
+  else
+    if ! ops_sync_inplace_from_staging "$staging" "$dst"; then
+      ops_sync_release_lock
+      rm -rf "${work:?}"
+      return 1
+    fi
+    if ! cd "$dst"; then
+      ops_sync_release_lock
+      rm -rf "${work:?}"
+      return 1
+    fi
+    rm -rf "${work:?}"
   fi
-
-  if ! mv "$newroot" "$dst"; then
-    rm -rf "$dst"
-    mv "$backup" "$dst" 2>/dev/null || true
-    ops_sync_release_lock
-    rm -rf "$work"
-    return 1
-  fi
-
-  cd "$dst" || {
-    ops_sync_release_lock
-    rm -rf "$backup" "$work"
-    return 1
-  }
-  rm -rf "$backup" "$work"
   ops_sync_release_lock
 }
 
@@ -1576,14 +1673,18 @@ ops_update_apply() {
 
   ts_prog_enter verify "$(ts_t status_compare_hash)"
   local old_hash new_hash
-  old_hash="$(ops_content_sha256 "$ROOT")"
-  new_hash="$(ops_content_sha256 "$payload")"
+  if ! old_hash="$(ops_content_sha256 "$ROOT")"; then
+    rm -rf "$work"
+    ui_die "$(ts_t err_fingerprint)"
+  fi
+  if ! new_hash="$(ops_content_sha256 "$payload")"; then
+    rm -rf "$work"
+    ui_die "$(ts_t err_fingerprint)"
+  fi
   if [[ -z "$new_hash" ]]; then
     rm -rf "$work"
     ui_die "$(ts_t err_fingerprint)"
   fi
-
-  export TS_UPDATE_REEXEC=1
 
   if [[ "$old_hash" == "$new_hash" ]]; then
     ts_prog_enter apply "$(ts_t status_hash_same)"
@@ -1597,6 +1698,8 @@ ops_update_apply() {
       rm -rf "$work"
       ui_die "$(ts_t err_sync)"
     fi
+    # Sync may replace the install inode; re-anchor this process and the absolute root.
+    cd -P "$ROOT" 2>/dev/null || cd "$ROOT" || true
     if [[ -n "$env_before" ]]; then
       [[ -f "$ROOT/.env" ]] || { rm -rf "$work"; ui_die "$(ts_t err_env_gone)"; }
     fi
@@ -1606,10 +1709,12 @@ ops_update_apply() {
   fi
   rm -rf "$work"
   work=""
+  ops_update_write_cache up_to_date "$remote_ver" "$archive_url"
 
   ts_prog_enter rebuild "$(ts_t status_rebuild)"
   if [[ ! -f .env ]]; then
     ts_prog_status "$(ts_t status_no_env)"
+    ops_update_mark_reexec "$ROOT"
     ts_prog_done
     return 0
   fi
@@ -1618,11 +1723,11 @@ ops_update_apply() {
   ops_need_docker
   local profile_args
   profile_args="$(profiles_args | tr '\n' ' ')"
-  # shellcheck disable=SC2086
+
   if ! ops_compose $profile_args build; then
     ui_die "$(ts_t err_build_update)"
   fi
-  # shellcheck disable=SC2086
+
   if ! ops_compose_up $profile_args; then
     ui_die "$(ts_t err_up_update)"
   fi
@@ -1633,5 +1738,6 @@ ops_update_apply() {
   fi
   ensure_script_permissions "$ROOT"
   create_desktop_shortcuts "$ROOT" || true
+  ops_update_mark_reexec "$ROOT"
   ts_prog_done
 }

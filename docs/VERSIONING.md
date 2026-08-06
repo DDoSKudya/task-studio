@@ -54,6 +54,7 @@ build = MAJOR * 100_000_000
 | `1.0.0-alpha.1` | 1 | 1 | `100001001` |
 | `1.0.0-alpha.2` | 1 | 2 | `100001002` |
 | `1.1.0-beta.1` | 2 | 1 | `101002001` |
+| `1.1.1-beta.1` | 2 | 1 | `101012001` |
 | `1.1.0-rc.1` | 3 | 1 | `101003001` |
 | `1.1.0` (GA) | 9 | 1 | `101009001` |
 | `1.1.1` (GA) | 9 | 1 | `101019001` |
@@ -70,7 +71,7 @@ The terminal launcher (bash / PowerShell) reads [`scripts/launcher-version.json`
 
 | Artifact | Role | Example |
 | --- | --- | --- |
-| `apps/web/app-version.json` | Web UI sidebar | `1.1.0-beta.1` / `101002001` |
+| `apps/web/app-version.json` | Web UI sidebar | `1.1.1-beta.1` / `101012001` |
 | `scripts/launcher-version.json` | Installer / TUI chrome | `1.0.0-beta.1` / `100002001` |
 | `studio-version.json` | Consumer update channel | `0.0.0-develop` on develop tip |
 

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
-from app.domain.controller_actions import ensure_running, ensure_stopped, mark_ollama_started
+import httpx
+from app.domain.controller_actions import (
+    ensure_running,
+    ensure_stopped,
+    mark_ollama_activity,
+    mark_ollama_started,
+)
 from app.domain.docker import DockerControl
 from app.domain.llm_signals import ollama_stop_reason
 from app.domain.metrics import HostMetrics
+from app.domain.ollama_probe import ollama_is_busy
 from app.domain.policies import OrchestratorPolicies
 from app.domain.state import ControllerState
 
@@ -15,11 +22,17 @@ async def balance_ollama(
     policies: OrchestratorPolicies,
     host: HostMetrics,
     all_external: bool,
+    http: httpx.AsyncClient,
+    ollama_url: str,
 ) -> None:
     policy = policies.balancing.ollama
     service = policies.managed_services.ollama
     running = state.managed_running.get(service, False)
     low_ram = host.free_ram_mb is not None and host.free_ram_mb < policy.min_free_ram_mb
+    busy = await ollama_is_busy(http, ollama_url) if running else False
+    if busy:
+        mark_ollama_activity(state)
+        return
 
     if all_external or low_ram or state.grading_cpu_hot:
         if running:
@@ -44,9 +57,7 @@ async def balance_ollama(
         mark_ollama_started(state)
         return
 
-    idle_minutes = state.minutes_since(state.ollama_last_started)
-    if idle_minutes is not None and idle_minutes >= policy.idle_stop_minutes:
-        await ensure_stopped(docker=docker, state=state, service=service, reason="idle_timeout")
+    mark_ollama_activity(state)
 
 
 async def balance_lsp(

@@ -66,6 +66,142 @@ def test_attach_source_images_prefers_excerpt_figures() -> None:
     assert "bind.png" in updated[0]["source_images"]
 
 
+def test_attach_source_images_does_not_repeat_catalog_across_chapters() -> None:
+    source = load_service_module("app.domain.course_from_article.source_images")
+    chapters = [
+        {
+            "id": "ch-1",
+            "title": "Introduction",
+            "source_excerpt": "Overview of the platform.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+        {
+            "id": "ch-2",
+            "title": "Advanced topics",
+            "source_excerpt": "Deeper dive into architecture.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+    ]
+    sources = [
+        {
+            "title": "Guide",
+            "content": "x" * 80,
+            "images": [
+                {"url": "https://cdn.example.com/images/shared.png", "alt": "shared diagram"},
+            ],
+        }
+    ]
+    updated = source.attach_source_images_to_chapters(chapters, sources)
+    assert updated[0]["source_images"] == ""
+    assert updated[1]["source_images"] == ""
+
+
+def test_attach_source_images_uses_catalog_only_when_relevant() -> None:
+    source = load_service_module("app.domain.course_from_article.source_images")
+    chapters = [
+        {
+            "id": "ch-redis",
+            "title": "Redis replication",
+            "source_excerpt": "Primary and replica nodes in Redis replication topology.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+        {
+            "id": "ch-other",
+            "title": "Team rituals",
+            "source_excerpt": "Daily standups keep the team aligned on priorities.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+    ]
+    sources = [
+        {
+            "title": "Redis guide",
+            "content": "x" * 80,
+            "images": [
+                {
+                    "url": "https://cdn.example.com/images/redis-replication.png",
+                    "alt": "Redis replication topology",
+                },
+                {
+                    "url": "https://cdn.example.com/images/logging.png",
+                    "alt": "logging pipeline",
+                },
+            ],
+        }
+    ]
+    updated = source.attach_source_images_to_chapters(chapters, sources)
+    assert "redis-replication.png" in updated[0]["source_images"]
+    assert updated[1]["source_images"] == ""
+
+
+def test_attach_rejects_generic_tokens_and_offtopic_diagram() -> None:
+    source = load_service_module("app.domain.course_from_article.source_images")
+    chapters = [
+        {
+            "id": "ch-why",
+            "title": "Почему это удобно?",
+            "source_excerpt": "Сравнение на схеме. Docker containers and virtualization overview.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+        {
+            "id": "ch-myth",
+            "title": "Миф про изоляцию",
+            "source_excerpt": "Контейнеры делят ядро хостовой ОС.",
+            "purpose": "",
+            "source_titles": "",
+            "bridge_from_prev": "",
+            "assumes_known": "",
+            "must_not_reteach": "",
+            "learning_objective": "",
+            "source_images": "",
+        },
+    ]
+    sources = [
+        {
+            "title": "Containers guide",
+            "content": "x" * 80,
+            "images": [
+                {
+                    "url": "https://cdn.example.com/images/vm-vs-docker.png",
+                    "alt": "SERVER WITH VIRTUAL MACHINES vs DOCKER CONTAINERS",
+                },
+            ],
+        }
+    ]
+    updated = source.attach_source_images_to_chapters(chapters, sources)
+    assert updated[0]["source_images"] == ""
+    assert updated[1]["source_images"] == ""
+
+
 def test_articles_from_body_collects_images() -> None:
     course = load_service_module("app.domain.course_from_article")
     from studio_contracts.studio_schemas import CourseArticleInput, CourseFromArticleRequest

@@ -13,6 +13,7 @@ class ControllerState:
     editor_open: bool = False
     editor_last_activity: datetime | None = None
     ollama_last_started: datetime | None = None
+    ollama_last_activity: datetime | None = None
     warnings: list[str] = field(default_factory=list)
     free_ram_mb: int | None = None
     load_average: float | None = None
@@ -28,6 +29,12 @@ class ControllerState:
             return
         self.editor_open = False
         self.editor_last_activity = now
+
+    def touch_ollama(self) -> None:
+        now = datetime.now(UTC)
+        self.ollama_last_activity = now
+        if self.ollama_last_started is None:
+            self.ollama_last_started = now
 
     def minutes_since(self, moment: datetime | None) -> float | None:
         if moment is None:

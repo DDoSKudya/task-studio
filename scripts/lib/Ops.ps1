@@ -26,27 +26,69 @@ function Get-TsOllamaAccelerator {
   return "cpu"
 }
 
+function Get-TsOllamaVramGb {
+  $nvidia = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+  if (-not $nvidia) { return $null }
+  $r = Invoke-TsNative nvidia-smi "--query-gpu=memory.total" "--format=csv,noheader,nounits"
+  if ($r.ExitCode -ne 0) { return $null }
+  $mibText = ($r.Text -split "[\r\n]+" | Select-Object -First 1).Trim()
+  $mib = 0
+  if (-not [int]::TryParse($mibText, [ref]$mib) -or $mib -le 0) { return $null }
+  $gb = [int][Math]::Floor($mib / 1024)
+  if ($gb -lt 1) { $gb = 1 }
+  return $gb
+}
+
+function Set-TsEnvUpsert {
+  param([string]$Key, [string]$Value)
+  if (-not (Test-Path .env)) { return }
+  if (Select-String -Path .env -Pattern "^${Key}=" -Quiet) {
+    (Get-Content .env) -replace "^${Key}=.*", "${Key}=${Value}" | Set-Content .env
+  } else {
+    Add-Content .env "`n${Key}=${Value}"
+  }
+}
+
 function Set-TsOllamaProfile {
   $accel = Get-TsOllamaAccelerator
   $profile = if ($env:OLLAMA_PROFILE) { $env:OLLAMA_PROFILE.Trim() } else { "" }
+  $vramGb = $null
+  if ($accel -eq "gpu") {
+    $vramGb = Get-TsOllamaVramGb
+  }
   if (-not $profile) {
-    $profile = if ($accel -eq "gpu") { "gpu-balanced" } else { "cpu-balanced" }
+    if ($accel -eq "gpu") {
+      if ($null -ne $vramGb -and $vramGb -lt 10) {
+        $profile = "gpu-light"
+      } else {
+        $profile = "gpu-balanced"
+      }
+    } else {
+      $profile = "cpu-balanced"
+    }
   }
   $gpuAvailable = if ($accel -eq "gpu") { "1" } else { "0" }
   $env:OLLAMA_GPU_AVAILABLE = $gpuAvailable
   $env:OLLAMA_PROFILE = $profile
+  if ($null -ne $vramGb) {
+    $env:OLLAMA_GPU_VRAM_GB = "$vramGb"
+  }
   if (Test-Path .env) {
-    if (Select-String -Path .env -Pattern '^OLLAMA_GPU_AVAILABLE=' -Quiet) {
-      (Get-Content .env) -replace '^OLLAMA_GPU_AVAILABLE=.*', "OLLAMA_GPU_AVAILABLE=$gpuAvailable" | Set-Content .env
-    } else {
-      Add-Content .env "`nOLLAMA_GPU_AVAILABLE=$gpuAvailable"
-    }
-    if (Select-String -Path .env -Pattern '^OLLAMA_PROFILE=' -Quiet) {
-      (Get-Content .env) -replace '^OLLAMA_PROFILE=.*', "OLLAMA_PROFILE=$profile" | Set-Content .env
-    } else {
-      Add-Content .env "`nOLLAMA_PROFILE=$profile"
+    Set-TsEnvUpsert -Key "OLLAMA_GPU_AVAILABLE" -Value $gpuAvailable
+    Set-TsEnvUpsert -Key "OLLAMA_PROFILE" -Value $profile
+    if ($null -ne $vramGb) {
+      Set-TsEnvUpsert -Key "OLLAMA_GPU_VRAM_GB" -Value "$vramGb"
     }
   }
+}
+
+function Get-TsComposeFileArgs {
+  $files = @("-f", $script:ComposeFile)
+  $overlay = "deploy/docker-compose.ollama-gpu.yml"
+  if ((Get-TsOllamaAccelerator) -eq "gpu" -and (Test-Path $overlay)) {
+    $files += @("-f", $overlay)
+  }
+  return ,$files
 }
 
 function Write-TsUtf8NoBom {
@@ -432,7 +474,7 @@ function Invoke-TsCompose {
     [object[]]$ComposeArgs
   )
   $pname = Initialize-TsComposeEnv
-  $argList = @("compose", "-p", $pname, "-f", $script:ComposeFile)
+  $argList = @("compose", "-p", $pname) + @(Get-TsComposeFileArgs)
   if (Test-Path ".env") {
     $argList += @("--env-file", ".env")
   }
@@ -451,7 +493,7 @@ function Invoke-TsComposeCaptured {
     [object[]]$ComposeArgs
   )
   $pname = Initialize-TsComposeEnv
-  $argList = @("compose", "-p", $pname, "-f", $script:ComposeFile)
+  $argList = @("compose", "-p", $pname) + @(Get-TsComposeFileArgs)
   if (Test-Path ".env") {
     $argList += @("--env-file", ".env")
   }
@@ -587,6 +629,7 @@ function Wait-TsCatalogHealthy {
 
 function Invoke-TsComposeUp {
   param([object[]]$ProfileArgs)
+  Set-TsOllamaProfile
   $msg = Get-TsText status_starting_infra
   if ($script:TsProg) {
     $script:TsProg.Status = $msg
@@ -1168,7 +1211,12 @@ function Get-TsContentSha256 {
 
   $lines = New-Object System.Collections.Generic.List[string]
   foreach ($f in $files) {
-    $hash = (Get-FileHash -Algorithm SHA256 -Path $f.FullName).Hash.ToLowerInvariant()
+    try {
+      $hash = (Get-FileHash -Algorithm SHA256 -Path $f.FullName -ErrorAction Stop).Hash.ToLowerInvariant()
+    } catch {
+      throw (Get-TsText err_fingerprint)
+    }
+    if (-not $hash) { throw (Get-TsText err_fingerprint) }
     $rel = ($f.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/')
     $lines.Add("$hash  ./$rel")
   }
@@ -1359,7 +1407,6 @@ function Invoke-TsUpdate {
     $newHash = Get-TsContentSha256 -Root $payload.FullName
     if (-not $newHash) { throw (Get-TsText err_fingerprint) }
 
-    $script:UpdateReexec = $true
     $envBefore = $null
     if (Test-Path (Join-Path $root ".env")) {
       $envBefore = (Get-Item (Join-Path $root ".env")).Length
@@ -1380,6 +1427,7 @@ function Invoke-TsUpdate {
       Write-TsUpdateState -Version $remoteVer -ContentSha $newHash
       Set-TsConsumerMarker -Root $root
     }
+    Write-TsUpdateCache -Status up_to_date -RemoteVersion $remoteVer -ArchiveUrl $archiveUrl
   } finally {
     Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
   }
@@ -1387,6 +1435,7 @@ function Invoke-TsUpdate {
   Enter-TsProgressStage -Plan $plan -Id "rebuild" -Status (Get-TsText status_rebuild)
   if (-not (Test-Path ".env")) {
     if ($script:TsProg) { $script:TsProg.Status = (Get-TsText status_no_env) }
+    $script:UpdateReexec = $true
     Complete-TsProgress
     return
   }
@@ -1407,5 +1456,6 @@ function Invoke-TsUpdate {
   } catch {
     Write-TsWarn (Get-TsText warn_refresh_shortcuts $_.Exception.Message)
   }
+  $script:UpdateReexec = $true
   Complete-TsProgress
 }

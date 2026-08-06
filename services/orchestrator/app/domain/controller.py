@@ -69,6 +69,8 @@ class OrchestratorController:
                     policies=self._policies,
                     host=host,
                     lab_runner=self._managed.lab_runner,
+                    http=self._http,
+                    ollama_url=self._settings.ollama_url,
                 )
 
         await self._sync_redis_flags()

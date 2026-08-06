@@ -39,7 +39,7 @@ function Get-TsText {
       $en = '  You can still start with: %s'; $ru = '  Можно запустить вручную: %s'
     }
     'boot_ps_git_missing' {
-      $en = 'git was not found. Install Git for Windows, then run again: irm …/install.ps1 | iex'; $ru = 'git не найден. Установите Git for Windows и снова выполните: irm …/install.ps1 | iex'
+      $en = 'git was not found. Install Git for Windows, then run again: irm …/install-bootstrap.ps1 | iex'; $ru = 'git не найден. Установите Git for Windows и снова выполните: irm …/install-bootstrap.ps1 | iex'
     }
     'boot_ps_prepare' {
       $en = 'Preparing PowerShell and the desktop shortcut…'; $ru = 'Подготовка PowerShell и ярлыка на рабочем столе…'

@@ -1,9 +1,11 @@
 # Optional override: pass host NVIDIA GPU into the Ollama container.
-# Usage (with your usual compose files):
+# Applied automatically by `studio` / ops_compose when nvidia-smi works
+# (OLLAMA_ACCELERATOR=auto|gpu). Manual usage:
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.ollama-gpu.yml --profile full up -d ollama
 #
 # Requires NVIDIA Container Toolkit on the host. Do not use on CPU-only machines.
 # After start: `docker compose exec ollama nvidia-smi` and `ollama ps` — layers should be on GPU.
+# Orchestrator balancing only start/stops this service; GPU binding is compose-time.
 
 services:
   ollama:
