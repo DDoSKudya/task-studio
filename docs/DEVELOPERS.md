@@ -2682,7 +2682,13 @@ Sanitize на клиенте обязателен для theory/html из пак
 
 Task Studio устроен как набор узких сервисов за общим BFF. Единый контракт курса — пакет (pack); источник правды по прогрессу обучающегося — сессия; проверка ответов — каскад стадий в grading. Читайте код по границам из этого документа и дополняйте сам документ проверяемыми фактами, а не общими лозунгами.
 
-Предпросмотр «лица» продукта для README лежит в [`assets/readme-preview.png`](assets/readme-preview.png) и собран из макета [`PREVIEW.md`](PREVIEW.md). Снимки живого интерфейса Nuxt/Vue и способ их переснять описаны в §17 и в скрипте `scripts/docs-capture-ui.py`.
+Предпросмотр «лица» продукта для README лежит в [`assets/readme-preview.png`](assets/readme-preview.png) и собран из макета [`PREVIEW.md`](PREVIEW.md):
+
+```bash
+python scripts/docs-capture-preview.py
+```
+
+Снимки живого интерфейса Nuxt/Vue и способ их переснять описаны в §17 и в скрипте `scripts/docs-capture-ui.py`.
 
 
 ## 60. Напоминание про иллюстрации

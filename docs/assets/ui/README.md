@@ -40,4 +40,4 @@ DOCS_UI_EMAIL='…' DOCS_UI_PASSWORD='…' python scripts/docs-capture-ui.py
 rg -a 'igor@|kud93|Client Secret' docs/assets/ui || true
 ```
 
-Макет README: [`../readme-preview.png`](../readme-preview.png) из [`../../PREVIEW.md`](../../PREVIEW.md).
+Макет README: [`../readme-preview.png`](../readme-preview.png) из [`../../PREVIEW.md`](../../PREVIEW.md) — переснять: `python scripts/docs-capture-preview.py`.

@@ -211,7 +211,7 @@
       <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
         <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">03 · РЕПЕТИТОР</div>
         <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Спросить, когда застряли</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Помогает и при сборке курса, и при проверке, и в чате. Локально через Ollama или со своим ключом к модели.</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Помогает и при сборке курса, и при проверке, и в чате. Локально через Ollama (GPU подхватывается сам, если есть) или со своим ключом к модели.</div>
       </div>
     </td>
   </tr>
@@ -257,7 +257,7 @@
       <div style="height:168px;box-sizing:border-box;position:relative;padding:14px 14px 16px;border:1px solid rgba(255,255,255,0.1);background:#12121c;overflow:hidden">
         <div style="font-size:10px;color:#b366ff;letter-spacing:0.08em;margin:0 0 8px;line-height:1.2">09 · УПРАВЛЕНИЕ</div>
         <div style="font-size:15px;font-weight:700;color:#ffffff;margin:0 0 8px;line-height:1.3;min-height:2.6em">Меню в терминале</div>
-        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Простой и компактый консольный лаунчер для управления проектом.</div>
+        <div style="font-size:12px;color:#a0a0a8;line-height:1.45">Простой и компактный консольный лаунчер для управления проектом.</div>
       </div>
     </td>
   </tr>
