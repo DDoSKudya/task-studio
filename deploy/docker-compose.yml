@@ -1,6 +1,5 @@
 name: task-studio
 
-# Memory defaults mirror deploy/profiles.json → compose_env (override via .env).
 x-mem-db: &mem-db
   mem_limit: ${MEM_LIMIT_DB:-1024m}
 x-mem-cache: &mem-cache
@@ -95,18 +94,24 @@ services:
       retries: 5
 
   traefik:
-    image: traefik:v3.4
+    image: traefik:v3.6.2
     profiles: [full]
     restart: unless-stopped
     networks: [edge, internal]
-    environment:
-      DOCKER_API_VERSION: "1.44"
+    ports:
+      - "${TASK_STUDIO_TRAEFIK_PORT:-8088}:80"
+      - "${TASK_STUDIO_TRAEFIK_DASHBOARD_PORT:-8089}:8080"
     command:
       - --configFile=/etc/traefik/traefik.yml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
   nginx:
     image: nginx:alpine
     profiles: [full]
@@ -155,8 +160,11 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=task-studio-edge
+      - traefik.http.middlewares.studio-api-strip.stripprefix.prefixes=/api
       - traefik.http.routers.studio-api.rule=PathPrefix(`/api`)
       - traefik.http.routers.studio-api.entrypoints=web
+      - traefik.http.routers.studio-api.priority=100
+      - traefik.http.routers.studio-api.middlewares=studio-api-strip
       - traefik.http.services.studio-api.loadbalancer.server.port=8000
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
@@ -396,9 +404,15 @@ services:
       SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
       COURSE_BUILDS_ROOT: /data/course-builds
       COURSE_BUILD_TTL_DAYS: ${COURSE_BUILD_TTL_DAYS:-30}
+      COURSE_ADAPTER_GOLD_ROOT: /data/course-gold
+      COURSE_ADAPTER_REGISTRY: /data/course-adapters/registry.json
       ARTICLE_FETCH_READER_URL: ${ARTICLE_FETCH_READER_URL:-https://r.jina.ai}
+      COURSE_WEB_GLOSSARY: ${COURSE_WEB_GLOSSARY:-false}
+      COURSE_WEB_ALLOWLIST: ${COURSE_WEB_ALLOWLIST:-}
     volumes:
       - ../data/course-builds:/data/course-builds
+      - ../data/course-gold:/data/course-gold
+      - ../data/course-adapters:/data/course-adapters
     depends_on:
       postgres:
         condition: service_healthy
@@ -422,13 +436,9 @@ services:
     restart: unless-stopped
     networks: [internal]
     environment:
-      # Keep weights resident across course stages (reload on CPU is brutal).
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-24h}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
-      # One model in RAM — switching chat/course models on CPU costs minutes.
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
-      # Default context; OpenAI-compat often ignores per-request num_ctx.
-      # 4096 keeps course prompts usable; cut further only on very tight RAM.
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-4096}
       OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
       OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
@@ -451,7 +461,7 @@ services:
       <<: *backend-env
       PORT: "8015"
       CURSOR_API_BASE: ${CURSOR_API_BASE:-https://api.cursor.com}
-      CURSOR_PROXY_TIMEOUT_SECONDS: ${CURSOR_PROXY_TIMEOUT_SECONDS:-180}
+      CURSOR_PROXY_TIMEOUT_SECONDS: ${CURSOR_PROXY_TIMEOUT_SECONDS:-900}
       CURSOR_PROXY_CLEANUP_AGENTS: ${CURSOR_PROXY_CLEANUP_AGENTS:-true}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8015/ready')"]
@@ -719,7 +729,7 @@ services:
       - traefik.docker.network=task-studio-edge
       - traefik.http.routers.pack-studio.rule=PathPrefix(`/pack-studio`)
       - traefik.http.routers.pack-studio.entrypoints=web
-      - traefik.http.routers.pack-studio.priority=2
+      - traefik.http.routers.pack-studio.priority=50
       - traefik.http.services.pack-studio.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/pack-studio/health"]

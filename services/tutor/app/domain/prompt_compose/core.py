@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from studio_contracts.manifest import PhaseName
-from studio_contracts.session_schemas import StepContent
+from studio_contracts.api.session_schemas import StepContent
+from studio_contracts.packs.manifest import PhaseName
 
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 
@@ -52,6 +52,8 @@ class PromptRequest:
     compact: bool = False
     sql_aware: bool = False
     course_profile: str = ""
+    local_runtime: bool = False
+    strategy_pack: str = ""
 
 
 def load_prompt(name: str) -> str:

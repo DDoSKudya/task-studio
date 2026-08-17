@@ -21,7 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover
             self.status_code = status_code
             self.detail = detail
 
-    class Request:  # minimal placeholder for `from fastapi import Request`
+    class Request:
         pass
 
     class FastAPI:
@@ -55,7 +55,6 @@ except ModuleNotFoundError:  # pragma: no cover
 
     structlog_stub.__dict__["get_logger"] = _get_logger
     sys.modules["structlog"] = structlog_stub
-
 
 try:
     import prometheus_fastapi_instrumentator  # noqa: F401
@@ -115,7 +114,7 @@ async def test_delete_pack_cleanup_failure_does_not_block_catalog_delete(
                 content=b"{}",
                 headers={"Content-Type": "application/json"},
                 request=request,
-            ),  # get pack detail
+            ),
             httpx.Response(
                 500,
                 content=b'{"detail":"sessions unavailable"}',
@@ -128,7 +127,7 @@ async def test_delete_pack_cleanup_failure_does_not_block_catalog_delete(
                 headers={"Content-Type": "application/json"},
                 request=request,
             ),
-            httpx.Response(204, request=request),  # delete pack
+            httpx.Response(204, request=request),
         ],
     )
     monkeypatch.setattr(delete_module, "call_service", call_service_mock)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from studio_contracts.normalized_pack import NormalizedPack, NormalizedStep, NormalizedTopic
+from studio_contracts.packs.normalized_pack import NormalizedPack, NormalizedStep, NormalizedTopic
 
 from .normalize_step import coerce_adapter_step
 

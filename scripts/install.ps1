@@ -1,4 +1,4 @@
-﻿# iex-safe: do not put #Requires or param() at the file head — `irm … | iex` rejects them.
+﻿
 if ($PSVersionTable.PSVersion.Major -lt 5 -or ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -lt 1)) {
   throw "PowerShell 5.1 or newer is required."
 }
@@ -47,7 +47,7 @@ function Get-TsInstallRoot {
   if (Test-Path $candidate) {
     return (Resolve-Path $InstallDir).Path
   }
-  # Smoke / explicit bootstrap: always unpack into TASK_STUDIO_DIR, never adopt a random cwd checkout.
+
   if ($env:TASK_STUDIO_DIR -or $env:TASK_STUDIO_ARCHIVE_URL_ZIP) {
     return $null
   }
@@ -121,11 +121,11 @@ if (-not (Test-Path $studioPs1)) {
 
 Convert-TsPsTreeToUtf8Bom $root
 Set-Location $root
-$i18nPath = Join-Path $root "scripts\lib\I18n.ps1"
+$i18nPath = Join-Path $root "scripts\lib\localization\I18n.ps1"
 if (Test-Path $i18nPath) {
   . $i18nPath
 }
-. (Join-Path $root "scripts\lib\DesktopShortcuts.ps1")
+. (Join-Path $root "scripts\lib\desktop\DesktopShortcuts.ps1")
 
 if (Get-Command Get-TsText -ErrorAction SilentlyContinue) {
   Write-Host (Get-TsText boot_ps_prepare)
@@ -169,7 +169,6 @@ if ($root -eq $installDefault -or ($resolvedDefault -and $root -eq $resolvedDefa
   }
 }
 
-# Single remaining arg may arrive as a bare string; @() keeps one argv (avoids "help" → "h e l p").
 $launchArgs = @($args)
 $inlineLaunch = ($env:TASK_STUDIO_INSTALL_INLINE -eq "1") -or ($launchArgs.Count -gt 0)
 if ($inlineLaunch) {

@@ -5,7 +5,7 @@ import uuid
 from app.infra.models import ImportJob
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.integration_schemas import ImportJobStatus
+from studio_contracts.api.integration_schemas import ImportJobStatus
 
 from .create import create_import_job, fail_stale_import_jobs, supersede_active_import_jobs
 from .errors import JobError

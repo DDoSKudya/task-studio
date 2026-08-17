@@ -11,7 +11,7 @@ import {
   SignalIcon,
   SparklesIcon,
 } from '@heroicons/vue/24/outline'
-import { useCredentialAutofill } from '~/composables/useCredentialAutofill'
+import { useCredentialAutofill } from '~/composables/settings/useCredentialAutofill'
 import {
   credentialFieldKey,
   isSecretCredentialField,
@@ -35,6 +35,7 @@ const {
   hasStoredApiKey,
   llmStatus,
   llmStatusDetail,
+  ollamaCourseModelLabel,
   llmStatusPending,
   modelsLoadPending,
   baseline,
@@ -520,9 +521,14 @@ const {
                       <div class="settings-field-label-row">
                         <span class="settings-field-label">
                           {{ t('settings.tutorModel') }}
-                          <span class="field-required" aria-hidden="true">*</span>
+                          <span
+                            v-if="tutorProviderMode !== 'ollama'"
+                            class="field-required"
+                            aria-hidden="true"
+                          >*</span>
                         </span>
                         <button
+                          v-if="tutorProviderMode !== 'ollama'"
                           type="button"
                           class="settings-icon-btn"
                           :disabled="modelsLoadPending || saving || llmStatusPending"
@@ -537,44 +543,66 @@ const {
                           />
                         </button>
                       </div>
-                      <select
-                        v-model="tutor.model"
-                        class="field field-input"
-                        required
-                        :aria-required="true"
-                      >
-                        <option value="" disabled>
-                          {{ t('settings.tutor.modelPlaceholder') }}
-                        </option>
-                        <option
-                          v-if="tutor.model && (!availableLlmModels.length || !isModelInList(tutor.model, availableLlmModels))"
-                          :value="tutor.model"
+                      <template v-if="tutorProviderMode === 'ollama'">
+                        <p class="settings-provider-summary-value">
+                          {{ ollamaCourseModelLabel }}
+                        </p>
+                        <span
+                          v-if="llmStatus && !llmStatus.ok"
+                          class="settings-field-hint settings-field-hint-warn"
                         >
-                          {{ tutor.model }}
-                        </option>
-                        <option
-                          v-for="modelName in availableLlmModels"
-                          :key="modelName"
-                          :value="modelName"
+                          {{ llmStatus.detail }}
+                        </span>
+                        <span
+                          v-else-if="(llmStatus?.recommended_models?.length || 0) > 0"
+                          class="settings-field-hint settings-field-hint-warn"
                         >
-                          {{ modelName }}
-                        </option>
-                      </select>
-                      <span
-                        v-if="selectedModelDescription"
-                        class="settings-model-desc"
-                      >{{ selectedModelDescription }}</span>
-                      <span class="settings-field-hint">
-                        {{
-                          !availableLlmModels.length
-                            ? t('settings.tutor.modelRequiredHint')
-                            : modelsFilteredToPreferred
-                              ? t('settings.tutor.modelsPreferredHint')
-                              : tutorProviderMode === 'ollama'
-                                ? t('settings.tutorModelHintOllama')
+                          {{
+                            t('settings.tutor.modelsMissingHint', {
+                              installed: availableLlmModels.length,
+                              missing: (llmStatus?.recommended_models || []).join(', '),
+                            })
+                          }}
+                        </span>
+                      </template>
+                      <template v-else>
+                        <select
+                          v-model="tutor.model"
+                          class="field field-input"
+                          required
+                          :aria-required="true"
+                        >
+                          <option value="" disabled>
+                            {{ t('settings.tutor.modelPlaceholder') }}
+                          </option>
+                          <option
+                            v-if="tutor.model && (!availableLlmModels.length || !isModelInList(tutor.model, availableLlmModels))"
+                            :value="tutor.model"
+                          >
+                            {{ tutor.model }}
+                          </option>
+                          <option
+                            v-for="modelName in availableLlmModels"
+                            :key="modelName"
+                            :value="modelName"
+                          >
+                            {{ modelName }}
+                          </option>
+                        </select>
+                        <span
+                          v-if="selectedModelDescription"
+                          class="settings-model-desc"
+                        >{{ selectedModelDescription }}</span>
+                        <span class="settings-field-hint">
+                          {{
+                            !availableLlmModels.length
+                              ? t('settings.tutor.modelRequiredHint')
+                              : modelsFilteredToPreferred
+                                ? t('settings.tutor.modelsPreferredHint')
                                 : t('settings.tutorModelHint')
-                        }}
-                      </span>
+                          }}
+                        </span>
+                      </template>
                     </div>
                     <label class="settings-field-block">
                       <span class="settings-field-label">{{ t('settings.tutorDailyLimit') }}</span>

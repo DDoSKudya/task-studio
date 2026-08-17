@@ -89,7 +89,7 @@ def enrich_provider_hint(detail: str) -> str:
 
 
 def sanitize_provider_error_body(text: str, *, status_code: int | None = None) -> str:
-    """Turn HTML gateway pages into a short human message."""
+
     stripped = (text or "").strip()
     if not stripped:
         return f"LLM HTTP {status_code}" if status_code else "LLM request failed"

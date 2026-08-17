@@ -10,7 +10,7 @@ from clickhouse_connect.driver.client import Client
 from clickhouse_connect.driver.exceptions import ClickHouseError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 log = structlog.get_logger("analytics.events")
 

@@ -98,6 +98,30 @@ export function localizeCourseWarning(
       return translated
     }
   }
+  const thinCorpus = raw.match(
+    /^corpus too thin for (\d+) theory slides; kept (\d+)$/i,
+  )
+  if (thinCorpus) {
+    const translated = translateIfPresent(t, `${prefix}.theoryOutlineThinCorpus`, {
+      wanted: Number(thinCorpus[1] || 0),
+      got: Number(thinCorpus[2] || 0),
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const shortAfterExpand = raw.match(
+    /^outline short after expand: (\d+) of (\d+) theory slides$/i,
+  )
+  if (shortAfterExpand) {
+    const translated = translateIfPresent(t, `${prefix}.theoryOutlineShortAfterExpand`, {
+      got: Number(shortAfterExpand[1] || 0),
+      wanted: Number(shortAfterExpand[2] || 0),
+    })
+    if (translated) {
+      return translated
+    }
+  }
   const polishCapacity = raw.match(/^book polish skipped capacity:\s*(.+)$/i)
   if (polishCapacity) {
     const translated = translateIfPresent(t, `${prefix}.bookPolishSkippedCapacity`, {
@@ -117,10 +141,58 @@ export function localizeCourseWarning(
       return translated
     }
   }
+  const theoryQualityWeak = raw.match(
+    /^theory quality gate weak after reinforce:\s*(.+?)\s*\((.+)\)$/i,
+  )
+  if (theoryQualityWeak) {
+    const translated = translateIfPresent(t, `${prefix}.theoryQualityWeak`, {
+      title: theoryQualityWeak[1]?.trim() ?? '',
+      detail: theoryQualityWeak[2]?.trim() ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const quizQualityWeak = raw.match(
+    /^quiz quality gate weak after reinforce:\s*(.+?)\s*\((.+)\)$/i,
+  )
+  if (quizQualityWeak) {
+    const translated = translateIfPresent(t, `${prefix}.quizQualityWeak`, {
+      title: quizQualityWeak[1]?.trim() ?? '',
+      detail: quizQualityWeak[2]?.trim() ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const practiceQualityWeak = raw.match(
+    /^practice quality gate weak after reinforce:\s*(.+?)\s*\((.+)\)$/i,
+  )
+  if (practiceQualityWeak) {
+    const translated = translateIfPresent(t, `${prefix}.practiceQualityWeak`, {
+      title: practiceQualityWeak[1]?.trim() ?? '',
+      detail: practiceQualityWeak[2]?.trim() ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
   const polishSkipped = raw.match(/^book polish skipped:\s*(.+)$/i)
   if (polishSkipped) {
     const translated = translateIfPresent(t, `${prefix}.bookPolishSkipped`, {
       reason: polishSkipped[1] ?? '',
+    })
+    if (translated) {
+      return translated
+    }
+  }
+  const localUnique = raw.match(
+    /^local compiler: (\d+) unique topics from sources \(requested (\d+)\)$/i,
+  )
+  if (localUnique) {
+    const translated = translateIfPresent(t, `${prefix}.localUniqueTopics`, {
+      got: Number(localUnique[1] || 0),
+      wanted: Number(localUnique[2] || 0),
     })
     if (translated) {
       return translated
@@ -139,10 +211,11 @@ export function localizeCourseError(
     return raw
   }
   for (const rule of COURSE_ERROR_PATTERNS) {
-    if (!rule.re.test(raw)) {
+    const match = raw.match(rule.re)
+    if (!match) {
       continue
     }
-    const translated = translateIfPresent(t, `${prefix}.${rule.key}`)
+    const translated = translateIfPresent(t, `${prefix}.${rule.key}`, rule.params?.(match) ?? {})
     if (translated) {
       return translated
     }

@@ -28,12 +28,9 @@ jobs:
         run: uv run ruff format --check packages/python-common packages/contracts services scripts
       - name: Mypy
         run: uv run mypy packages/python-common/src
-      - name: basedpyright (scoped)
+      - name: Pyright (scoped)
         run: >
-          uv run basedpyright
-          packages/python-common/src
-          packages/contracts/studio_contracts
-          || uv run pyright
+          uv run pyright
           packages/python-common/src
           packages/contracts/studio_contracts
       - name: Install shellcheck
@@ -44,6 +41,8 @@ jobs:
         run: bash scripts/ci/check-compose.sh
       - name: Tracked modules
         run: bash scripts/ci/check-tracked-modules.sh
+      - name: Function complexity
+        run: uv run python scripts/ci/check-complexity.py
 
   launcher-unix:
     runs-on: ${{ matrix.os }}
@@ -87,9 +86,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages
       - name: Validate pack schema
-        run: uv run python scripts/validate_pack_schema.py
+        run: uv run python scripts/validation/pack-schema.py
       - name: Validate integration fixtures
-        run: uv run python scripts/validate_integration_fixtures.py
+        run: uv run python scripts/validation/integration-fixtures.py
       - name: Tracked modules
         run: bash scripts/ci/check-tracked-modules.sh
       - name: Pytest
@@ -112,21 +111,36 @@ jobs:
             PYTHONPATH="${root}:${root}/tests:${shared_path}" uv run pytest -q "${root}/tests"
           done
 
-  web:
+  frontend:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            has_tests: true
+          - app: pack-studio
+            has_tests: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - name: Install, lint, test
-        working-directory: apps/web
-        run: |
-          npm ci
-          npm run lint
-          npm run test
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - name: Install
+        working-directory: apps/${{ matrix.app }}
+        run: npm ci
+      - name: Lint
+        working-directory: apps/${{ matrix.app }}
+        run: npm run lint
+      - name: Type check
+        working-directory: apps/${{ matrix.app }}
+        run: npm run typecheck
+      - name: Test
+        if: matrix.has_tests
+        working-directory: apps/${{ matrix.app }}
+        run: npm run test
 
   secrets-scan:
     runs-on: ubuntu-latest

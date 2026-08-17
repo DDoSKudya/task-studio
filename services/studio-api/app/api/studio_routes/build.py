@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, Response
-from studio_contracts.pack import (
-    build_pack_archive,
-    collect_manifest_errors,
-    decode_build_assets,
-)
-from studio_contracts.studio_schemas import (
+from studio_contracts.api.studio_schemas import (
     StudioBuildRequest,
     StudioValidateRequest,
     StudioValidateResponse,
     StudioValidationIssue,
+)
+from studio_contracts.packs.pack import (
+    build_pack_archive,
+    collect_manifest_errors,
+    decode_build_assets,
 )
 
 

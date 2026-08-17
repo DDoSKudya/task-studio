@@ -7,52 +7,81 @@ import {
   hydrateLibraryFormFromRequest,
   isAbortError,
   libraryEnabledStages,
+  libraryContentMixKey,
   looksLikeHttpUrl,
   extractHttpUrls,
   packFilenameFromManifest,
-  parseConsistencyGateDetail,
   planFillDraft,
   practiceLadderLevels,
   practiceLadderSummary,
   removeLibraryDraft,
-  suggestCourseScale,
-  suggestCourseScaleFromDrafts,
-  totalLibraryContentChars,
   usableLibraryDrafts,
 } from './libraryCourseCreate'
 
 describe('libraryCourseCreate', () => {
-    it('filters usable drafts and stages', () => {
+  it('filters usable drafts and stages', () => {
     const short = emptyLibraryDraft('a')
     const long = { ...emptyLibraryDraft('b'), content: 'x'.repeat(40) }
     expect(usableLibraryDrafts([short, long])).toHaveLength(1)
-    expect(libraryEnabledStages({ includeTheory: true, includeQuizzes: false, includeCode: true })).toEqual([
+    expect(
+      libraryEnabledStages({
+        includeQuizzes: true,
+        includeCode: true,
+      }),
+    ).toEqual(['analyze', 'theory', 'polish', 'assemble'])
+    expect(libraryEnabledStages({ includeQuizzes: false, includeCode: true })).toEqual([
       'analyze',
-      'code_suitability',
-      'topic_bundle',
       'theory',
       'polish',
-      'code',
       'assemble',
     ])
     expect(
       libraryEnabledStages({
-        includeTheory: true,
+        includeQuizzes: false,
+        includeCode: false,
+        layout: 'by_topic',
+      }),
+    ).toEqual(['analyze', 'theory', 'polish', 'assemble'])
+    expect(
+      libraryEnabledStages({
+        includeQuizzes: true,
+        includeCode: true,
+        layout: 'phased',
+      }),
+    ).toEqual(['analyze', 'theory', 'polish', 'quizzes', 'code', 'assemble'])
+    expect(
+      libraryEnabledStages({
         includeQuizzes: true,
         includeCode: false,
         layout: 'phased',
       }),
-    ).toEqual(['analyze', 'code_suitability', 'theory', 'polish', 'quizzes', 'assemble'])
+    ).toEqual(['analyze', 'theory', 'polish', 'quizzes', 'assemble'])
     expect(
       canStartLibraryBuild({
         usableCount: 1,
         running: false,
         urlFetching: false,
-        includeTheory: true,
+        includeQuizzes: true,
+        includeCode: false,
+      }),
+    ).toBe(true)
+    expect(
+      canStartLibraryBuild({
+        usableCount: 1,
+        running: false,
+        urlFetching: false,
         includeQuizzes: false,
         includeCode: false,
       }),
     ).toBe(true)
+    expect(libraryContentMixKey({ includeQuizzes: false, includeCode: false })).toBe('theoryOnly')
+    expect(libraryContentMixKey({ includeQuizzes: true, includeCode: false })).toBe(
+      'theoryQuizzes',
+    )
+    expect(libraryContentMixKey({ includeQuizzes: false, includeCode: true })).toBe('theoryCode')
+    expect(libraryContentMixKey({ includeQuizzes: true, includeCode: true })).toBe(
+      'theoryQuizzesCode',
+    )
   })
 
   it('validates urls and abort errors', () => {
@@ -99,7 +128,7 @@ describe('libraryCourseCreate', () => {
     expect(cleared.activeKey).toBe('')
   })
 
-  it('builds course payload', () => {
+  it('builds course payload with theory always on', () => {
     const payload = buildLibraryCoursePayload({
       articles: [{ title: 'A', content: 'text', videos: [{ url: ' https://v ' }, { url: '' }] }],
       title: ' Course ',
@@ -107,22 +136,36 @@ describe('libraryCourseCreate', () => {
       locale: 'ru',
       courseDepth: 'standard',
       layout: 'phased',
-      splitLongTheory: true,
-      theoryCount: 20,
       quizCount: 12,
       practiceCount: 2,
-      ignoreDeviations: false,
-      includeTheory: true,
       includeQuizzes: true,
       includeCode: false,
     })
     expect(payload.title).toBe('Course')
-    expect(payload.theory_count).toBe(20)
+    expect(payload.include_theory).toBe(true)
+    expect(payload.theory_count).toBeNull()
     expect(payload.layout).toBe('phased')
     expect(payload.split_long_theory).toBe(true)
     expect(payload.quiz_count).toBe(12)
     expect(payload.articles[0]?.videos).toEqual([{ url: ' https://v ' }])
     expect(payload.include_code).toBe(false)
+    expect(payload.locale).toBe('ru')
+  })
+
+  it('puts the selected course language on the payload', () => {
+    const payload = buildLibraryCoursePayload({
+      articles: [{ title: 'A', content: 'x'.repeat(50) }],
+      title: 'Pathlib',
+      audience: '',
+      locale: 'en',
+      courseDepth: 'standard',
+      layout: 'by_topic',
+      quizCount: 4,
+      practiceCount: 2,
+      includeQuizzes: true,
+      includeCode: true,
+    })
+    expect(payload.locale).toBe('en')
   })
 
   it('hydrates drafts and options from saved build request', () => {
@@ -132,12 +175,10 @@ describe('libraryCourseCreate', () => {
         title: 'Docker',
         audience: 'devs',
         locale: 'ru',
-        include_theory: true,
         include_quizzes: false,
         include_code: true,
         course_depth: 'deep',
         layout: 'phased',
-        ignore_deviations: true,
         articles: [
           { title: 'A', content: 'x'.repeat(50), videos: [{ url: 'https://youtu.be/a' }] },
           { title: 'B', content: 'y'.repeat(50) },
@@ -150,7 +191,6 @@ describe('libraryCourseCreate', () => {
     expect(hydrated.includeQuizzes).toBe(false)
     expect(hydrated.courseDepth).toBe('deep')
     expect(hydrated.layout).toBe('phased')
-    expect(hydrated.ignoreDeviations).toBe(true)
     expect(usableLibraryDrafts(hydrated.drafts)).toHaveLength(2)
   })
 
@@ -158,50 +198,12 @@ describe('libraryCourseCreate', () => {
     expect(
       buildResumeCoursePayload({
         buildId: '11111111-1111-1111-1111-111111111111',
-        ignoreDeviations: true,
         codeSuitabilityAction: 'keep_code',
       }),
     ).toEqual({
       build_id: '11111111-1111-1111-1111-111111111111',
-      ignore_deviations: true,
       code_suitability_action: 'keep_code',
     })
-  })
-
-  it('suggests realistic course scale from volume and outline beats', () => {
-    expect(totalLibraryContentChars([{ content: '  ab  ' }, { content: 'cdef' }])).toBe(6)
-
-    // 38k ≈ 9 слайдов — как типичный analyze, не 1 слайд / 1k символов.
-    expect(suggestCourseScale(38_000, 'standard')).toEqual({
-      theoryCount: 9,
-      quizCount: 8,
-      practiceCount: 3,
-    })
-    expect(suggestCourseScale(8_000, 'standard')).toEqual({
-      theoryCount: 2,
-      quizCount: 2,
-      practiceCount: 1,
-    })
-    expect(suggestCourseScale(2_000, 'standard')).toEqual({
-      theoryCount: 2,
-      quizCount: 2,
-      practiceCount: 1,
-    })
-
-    const sections = Array.from({ length: 9 }, (_, index) => {
-      const body = 'текст '.repeat(700)
-      return `## Тема ${index + 1}\n\n${body}`
-    }).join('\n\n')
-    const fromDrafts = suggestCourseScaleFromDrafts([{ content: sections }], 'standard')
-    expect(fromDrafts.theoryCount).toBeGreaterThanOrEqual(7)
-    expect(fromDrafts.theoryCount).toBeLessThanOrEqual(12)
-
-    const deep = suggestCourseScale(20_000, 'deep')
-    const light = suggestCourseScale(20_000, 'light')
-    expect(deep.theoryCount).toBeGreaterThanOrEqual(suggestCourseScale(20_000, 'standard').theoryCount)
-    expect(light.theoryCount).toBeLessThanOrEqual(suggestCourseScale(20_000, 'standard').theoryCount)
-    expect(suggestCourseScale(200_000, 'deep').theoryCount).toBe(20)
-    expect(suggestCourseScale(200_000, 'deep').practiceCount).toBe(7)
   })
 
   it('builds practice ladder by round-robin difficulty', () => {
@@ -236,25 +238,21 @@ describe('libraryCourseCreate', () => {
   it('summarizes practice ladder tallies', () => {
     expect(
       practiceLadderSummary(8, {
-        easy: 'лёгкие',
-        medium: 'нормальные',
-        hard: 'сложные',
+        easy: { one: 'лёгкое', many: 'лёгких' },
+        medium: { one: 'нормальное', many: 'нормальных' },
+        hard: { one: 'сложное', many: 'сложных' },
       }),
-    ).toBe('3× лёгкие · 3× нормальные · 2× сложные')
+    ).toBe('3× лёгких · 3× нормальных · 2× сложных')
+    expect(
+      practiceLadderSummary(3, {
+        easy: { one: 'лёгкое', many: 'лёгких' },
+        medium: { one: 'нормальное', many: 'нормальных' },
+        hard: { one: 'сложное', many: 'сложных' },
+      }),
+    ).toBe('лёгкое · нормальное · сложное')
   })
 
-  it('parses gate detail and pack filenames', () => {
-    expect(
-      parseConsistencyGateDetail({
-        deviations: [{ summary: 'x', sources: ['a'] }],
-        similarity: 0.4,
-        related: false,
-      }),
-    ).toEqual({
-      deviations: [{ summary: 'x', sources: ['a'] }],
-      similarity: 0.4,
-      related: false,
-    })
+  it('builds pack filenames', () => {
     expect(packFilenameFromManifest({ id: 'demo', version: '2.0.0' })).toBe('demo-2.0.0.studio-pack')
   })
 })

@@ -4,10 +4,10 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
-from studio_contracts.orchestrator_schemas import OrchestratorMode
+from studio_contracts.api.orchestrator_schemas import OrchestratorMode
 
 from app.config import OrchestratorSettings
-from app.domain.state import ControllerState
+from app.domain.control.state import ControllerState
 
 
 class EditorEventRequest(BaseModel):
@@ -44,7 +44,7 @@ def verify_system_token(
     settings: Annotated[OrchestratorSettings, Depends(get_settings)],
     x_system_token: Annotated[str | None, Header(alias="X-System-Token")] = None,
 ) -> None:
-    from studio_common.system_auth import allow_insecure_defaults
+    from studio_common.security.system_auth import allow_insecure_defaults
 
     if not settings.system_token:
         if allow_insecure_defaults():

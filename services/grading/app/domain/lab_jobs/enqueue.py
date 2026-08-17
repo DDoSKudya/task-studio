@@ -8,8 +8,8 @@ from app.domain.check.outcome import GradingError
 from app.domain.lab_jobs.persist import get_lab_result
 from app.infra.models import GradingResult
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_common.rabbitmq import declare_queue, publish_json, rabbit_connection
-from studio_contracts.grading_schemas import GradingLabSubmitResponse
+from studio_common.messaging.rabbitmq import declare_queue, publish_json, rabbit_connection
+from studio_contracts.api.grading_schemas import GradingLabSubmitResponse
 
 log = structlog.get_logger("grading.lab")
 

@@ -9,12 +9,12 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
-from studio_common.app import register_ops_routes
-from studio_common.db import create_engine, create_session_factory
-from studio_common.logging import configure_logging
-from studio_common.middleware import register_request_id_middleware
-from studio_common.migrations import ensure_schema, upgrade_head
-from studio_common.otel import configure_otel
+from studio_common.database.db import create_engine, create_session_factory
+from studio_common.database.migrations import ensure_schema, upgrade_head
+from studio_common.observability.logging import configure_logging
+from studio_common.observability.otel import configure_otel
+from studio_common.web.app import register_ops_routes
+from studio_common.web.middleware import register_request_id_middleware
 
 from app.config import load_settings
 from app.worker import start_lab_worker

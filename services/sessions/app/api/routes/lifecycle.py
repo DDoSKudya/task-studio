@@ -4,10 +4,10 @@ import uuid
 
 from app.api.deps import DbSession
 from app.api.session_views import build_session_state
-from app.domain.sessions import get_owned_session
+from app.domain.queries.sessions import get_owned_session
 from fastapi import APIRouter
-from studio_common.internal import InternalUserId
-from studio_contracts.session_schemas import SessionState
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.session_schemas import SessionState
 
 router = APIRouter()
 

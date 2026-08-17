@@ -6,8 +6,8 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream
 from fastapi import APIRouter, Depends, Query
-from studio_contracts.integration_schemas import ImportJobResponse
-from studio_contracts.search_schemas import SearchImportRequest, SearchResponse, SearchType
+from studio_contracts.api.integration_schemas import ImportJobResponse
+from studio_contracts.api.search_schemas import SearchImportRequest, SearchResponse, SearchType
 
 router = APIRouter(tags=["search"])
 

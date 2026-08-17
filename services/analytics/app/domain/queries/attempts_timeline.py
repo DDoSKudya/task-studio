@@ -7,7 +7,7 @@ from app.datetime_utils import ensure_utc
 from app.infra.models import AttemptTimelineRow
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import AttemptsTimelineResponse, AttemptTimelineEntry
+from studio_contracts.api.analytics_schemas import AttemptsTimelineResponse, AttemptTimelineEntry
 
 
 def parse_timeline_cursor(cursor: str) -> datetime | None:

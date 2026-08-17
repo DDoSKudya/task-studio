@@ -7,6 +7,7 @@ import re
 from collections.abc import Mapping, Sequence
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import urljoin
 
 import httpx
@@ -26,6 +27,8 @@ def _as_object_list(value: object) -> list[object]:
 
 def _as_object_dict(value: object) -> dict[str, object]:
     return dict(value) if isinstance(value, dict) else {}
+
+
 _CATALOG_TEXT_LIMIT = 400
 _STEP_TEXT_LIMIT = 50_000
 _HTML_LIMIT = 200_000
@@ -185,11 +188,7 @@ def search_remote(
         if (
             needle in str(item.get("title", "")).casefold()
             or needle in str(item.get("description", "")).casefold()
-            or any(
-                needle in str(tag).casefold()
-                for tag in tag_list
-                if isinstance(tag, str)
-            )
+            or any(needle in str(tag).casefold() for tag in tag_list if isinstance(tag, str))
         ):
             by_id[external_id] = {**item, "enrolled": True}
 
@@ -341,9 +340,7 @@ def _import_fixture(course_id: str) -> tuple[dict[str, object], dict[str, object
         "imported_full": sum(
             1 for step in steps.values() if step.get("fidelity", "full") == "full"
         ),
-        "imported_partial": sum(
-            1 for step in steps.values() if step.get("fidelity") == "partial"
-        ),
+        "imported_partial": sum(1 for step in steps.values() if step.get("fidelity") == "partial"),
         "skipped": 0,
         "warnings": [],
         "truncated": False,
@@ -357,153 +354,190 @@ def _import_live(
     token: str | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
-        course_payload = _api_get(client, f"courses/{course_id}", token=token)
-        courses = course_payload.get("courses")
-        if not isinstance(courses, list) or not courses:
-            msg = f"stepik course {course_id} not found"
-            raise ValueError(msg)
-        course = courses[0]
-        if not isinstance(course, dict):
-            msg = "invalid course payload"
-            raise ValueError(msg)
+        resources = _fetch_course_resources(client, course_id, token=token)
+    topics, steps, full, partial, warnings = _build_live_course(resources)
+    if resources.truncated:
+        warnings.append(
+            {
+                "step": "course",
+                "reason": (
+                    f"imported first {_MAX_STEPS} of {len(resources.step_ids)} steps; "
+                    "import status is partial"
+                ),
+            }
+        )
+    if not topics or not steps:
+        raise ValueError(f"stepik course {course_id} has no importable steps")
+    pack = {
+        "platform": "stepik",
+        "external_id": course_id,
+        "title": resources.title,
+        "slug": f"stepik-{course_id}",
+        "version": "1.0.0",
+        "locale": "ru",
+        "topics": topics,
+        "steps": steps,
+        "course_assess": [],
+    }
+    report = {
+        "total_items": len(steps),
+        "imported_full": full,
+        "imported_partial": partial,
+        "skipped": max(0, len(resources.step_ids) - len(steps)),
+        "warnings": warnings,
+        "truncated": resources.truncated,
+    }
+    return pack, report
 
-        title = str(course.get("title") or f"Stepik {course_id}")
-        section_ids = [
-            str(item) for item in _as_object_list(course.get("sections")) if item is not None
-        ]
-        sections_by_id = _fetch_resources(client, "sections", section_ids, token=token)
 
-        unit_ids: list[str] = []
-        for section_id in section_ids:
-            section = sections_by_id.get(section_id)
-            if not section:
+class _CourseResources(NamedTuple):
+    title: str
+    section_ids: list[str]
+    sections: dict[str, dict[str, object]]
+    units: dict[str, dict[str, object]]
+    lessons: dict[str, dict[str, object]]
+    step_ids: list[str]
+    sources: dict[str, dict[str, object]]
+    truncated: bool
+
+
+def _fetch_course_resources(
+    client: httpx.Client,
+    course_id: str,
+    *,
+    token: str | None,
+) -> _CourseResources:
+    course_payload = _api_get(client, f"courses/{course_id}", token=token)
+    courses = _as_object_list(course_payload.get("courses"))
+    if not courses:
+        raise ValueError(f"stepik course {course_id} not found")
+    course = courses[0]
+    if not isinstance(course, dict):
+        raise ValueError("invalid course payload")
+    section_ids = _string_ids(course.get("sections"))
+    sections = _fetch_resources(client, "sections", section_ids, token=token)
+    unit_ids = _nested_ids(section_ids, sections, "units")
+    units = _fetch_resources(client, "units", unit_ids, token=token)
+    lesson_ids = _scalar_ids(unit_ids, units, "lesson")
+    lessons = _fetch_resources(client, "lessons", lesson_ids, token=token)
+    step_ids = _nested_ids(lesson_ids, lessons, "steps")
+    sources = _fetch_step_sources(client, step_ids[:_MAX_STEPS], token=token)
+    return _CourseResources(
+        title=str(course.get("title") or f"Stepik {course_id}"),
+        section_ids=section_ids,
+        sections=sections,
+        units=units,
+        lessons=lessons,
+        step_ids=step_ids,
+        sources={str(item["id"]): item for item in sources if item.get("id") is not None},
+        truncated=len(step_ids) > _MAX_STEPS,
+    )
+
+
+def _string_ids(value: object) -> list[str]:
+    return [str(item) for item in _as_object_list(value) if item is not None]
+
+
+def _nested_ids(
+    parent_ids: list[str],
+    parents: dict[str, dict[str, object]],
+    field: str,
+) -> list[str]:
+    child_ids: list[str] = []
+    for parent_id in parent_ids:
+        parent = parents.get(parent_id)
+        if parent:
+            child_ids.extend(_string_ids(parent.get(field)))
+    return child_ids
+
+
+def _scalar_ids(
+    parent_ids: list[str],
+    parents: dict[str, dict[str, object]],
+    field: str,
+) -> list[str]:
+    child_ids: list[str] = []
+    for parent_id in parent_ids:
+        parent = parents.get(parent_id)
+        child_id = parent.get(field) if parent else None
+        if child_id is not None:
+            child_ids.append(str(child_id))
+    return child_ids
+
+
+def _build_live_course(
+    resources: _CourseResources,
+) -> tuple[
+    list[dict[str, object]],
+    dict[str, dict[str, object]],
+    int,
+    int,
+    list[dict[str, str]],
+]:
+    topics: list[dict[str, object]] = []
+    steps: dict[str, dict[str, object]] = {}
+    warnings: list[dict[str, str]] = []
+    imported_step_ids: set[str] = set()
+    full = 0
+    partial = 0
+    for section_id in resources.section_ids:
+        topic, mapped_steps, fidelities, topic_warnings = _build_section(
+            section_id,
+            resources,
+            imported_step_ids,
+        )
+        if topic is not None:
+            topics.append(topic)
+        steps.update(mapped_steps)
+        full += fidelities.count("full")
+        partial += fidelities.count("partial")
+        warnings.extend(topic_warnings)
+    return topics, steps, full, partial, warnings
+
+
+def _build_section(
+    section_id: str,
+    resources: _CourseResources,
+    imported_step_ids: set[str],
+) -> tuple[
+    dict[str, object] | None,
+    dict[str, dict[str, object]],
+    list[str],
+    list[dict[str, str]],
+]:
+    section = resources.sections.get(section_id) or {}
+    phase_ids: dict[str, list[str]] = {"study": [], "practice": [], "assess": []}
+    steps: dict[str, dict[str, object]] = {}
+    fidelities: list[str] = []
+    warnings: list[dict[str, str]] = []
+    for unit_id in _string_ids(section.get("units")):
+        unit = resources.units.get(unit_id) or {}
+        lesson = resources.lessons.get(str(unit.get("lesson"))) or {}
+        for sid in _string_ids(lesson.get("steps")):
+            if sid not in resources.sources or sid in imported_step_ids:
                 continue
-            unit_ids.extend(
-                str(uid) for uid in _as_object_list(section.get("units")) if uid is not None
+            mapped_id = f"step-{sid}"
+            built, fidelity, warning = _map_step_source(
+                resources.sources[sid],
+                step_id=mapped_id,
+                fallback_title=str(lesson.get("title") or ""),
             )
-        units_by_id = _fetch_resources(client, "units", unit_ids, token=token)
-
-        lesson_ids: list[str] = []
-        for unit_id in unit_ids:
-            unit = units_by_id.get(unit_id)
-            if not unit:
-                continue
-            lesson_id = unit.get("lesson")
-            if lesson_id is not None:
-                lesson_ids.append(str(lesson_id))
-        lessons_by_id = _fetch_resources(client, "lessons", lesson_ids, token=token)
-
-        step_ids: list[str] = []
-        for lesson_id in lesson_ids:
-            lesson = lessons_by_id.get(lesson_id)
-            if not lesson:
-                continue
-            step_ids.extend(
-                str(sid) for sid in _as_object_list(lesson.get("steps")) if sid is not None
-            )
-
-        truncated = len(step_ids) > _MAX_STEPS
-        limited_step_ids = step_ids[:_MAX_STEPS]
-        sources = _fetch_step_sources(client, limited_step_ids, token=token)
-        sources_by_id = {
-            str(item.get("id")): item for item in sources if item.get("id") is not None
-        }
-
-        topics: list[dict[str, object]] = []
-        steps: dict[str, dict[str, object]] = {}
-        full = 0
-        partial = 0
-        warnings: list[dict[str, str]] = []
-        imported_step_ids: set[str] = set()
-
-        for section_id in section_ids:
-            section = sections_by_id.get(section_id) or {}
-            topic_id = f"section-{section_id}"
-            study_ids: list[str] = []
-            practice_ids: list[str] = []
-            assess_ids: list[str] = []
-
-            for unit_id in [
-                str(uid) for uid in _as_object_list(section.get("units")) if uid is not None
-            ]:
-                unit = units_by_id.get(unit_id) or {}
-                lesson_id = unit.get("lesson")
-                if lesson_id is None:
-                    continue
-                lesson = lessons_by_id.get(str(lesson_id)) or {}
-                for raw_sid in _as_object_list(lesson.get("steps")):
-                    sid = str(raw_sid)
-                    if sid not in sources_by_id or sid in imported_step_ids:
-                        continue
-                    mapped_id = f"step-{sid}"
-                    built, fidelity, warning = _map_step_source(
-                        sources_by_id[sid],
-                        step_id=mapped_id,
-                        fallback_title=str(lesson.get("title") or ""),
-                    )
-                    steps[mapped_id] = built
-                    imported_step_ids.add(sid)
-                    if fidelity == "full":
-                        full += 1
-                    else:
-                        partial += 1
-                    phase = str(built.get("phase") or "study")
-                    match phase:
-                        case "assess":
-                            assess_ids.append(mapped_id)
-                        case "practice":
-                            practice_ids.append(mapped_id)
-                        case _:
-                            study_ids.append(mapped_id)
-                    if warning:
-                        warnings.append({"step": mapped_id, "reason": warning})
-
-            if study_ids or practice_ids or assess_ids:
-                topics.append(
-                    {
-                        "id": topic_id,
-                        "title": str(section.get("title") or topic_id),
-                        "study": study_ids,
-                        "practice": practice_ids,
-                        "assess": assess_ids,
-                    }
-                )
-
-        if truncated:
-            warnings.append(
-                {
-                    "step": "course",
-                    "reason": (
-                        f"imported first {_MAX_STEPS} of {len(step_ids)} steps; "
-                        "import status is partial"
-                    ),
-                }
-            )
-
-        if not topics or not steps:
-            msg = f"stepik course {course_id} has no importable steps"
-            raise ValueError(msg)
-
-        pack = {
-            "platform": "stepik",
-            "external_id": course_id,
-            "title": title,
-            "slug": f"stepik-{course_id}",
-            "version": "1.0.0",
-            "locale": "ru",
-            "topics": topics,
-            "steps": steps,
-            "course_assess": [],
-        }
-        report = {
-            "total_items": len(steps),
-            "imported_full": full,
-            "imported_partial": partial,
-            "skipped": max(0, len(step_ids) - len(steps)),
-            "warnings": warnings,
-            "truncated": truncated,
-        }
-        return pack, report
+            steps[mapped_id] = built
+            imported_step_ids.add(sid)
+            fidelities.append(fidelity)
+            phase = str(built.get("phase") or "study")
+            phase_ids.get(phase, phase_ids["study"]).append(mapped_id)
+            if warning:
+                warnings.append({"step": mapped_id, "reason": warning})
+    if not any(phase_ids.values()):
+        return None, steps, fidelities, warnings
+    topic_id = f"section-{section_id}"
+    topic = {
+        "id": topic_id,
+        "title": str(section.get("title") or topic_id),
+        **phase_ids,
+    }
+    return topic, steps, fidelities, warnings
 
 
 def _fetch_resources(
@@ -534,7 +568,6 @@ def _fetch_step_sources(
     *,
     token: str | None = None,
 ) -> list[dict[str, object]]:
-
     if not step_ids:
         return []
 
@@ -546,7 +579,6 @@ def _fetch_step_sources(
         for item in _as_object_list(payload.get("steps")):
             if isinstance(item, dict) and item.get("id") is not None:
                 by_id[str(item["id"])] = item
-
 
     for sid, step in list(by_id.items()):
         if not _looks_truncated(_block_text(step)):
@@ -562,7 +594,6 @@ def _fetch_step_sources(
         if len(_block_text(first)) > len(_block_text(step)):
             by_id[sid] = first
 
-
     if token:
         for offset in range(0, len(step_ids), _BATCH_SIZE):
             chunk = step_ids[offset : offset + _BATCH_SIZE]
@@ -577,7 +608,6 @@ def _fetch_step_sources(
                 sid = str(item["id"])
                 current = by_id.get(sid)
                 by_id[sid] = _merge_step_payload(current, item) if current else item
-
 
     _hydrate_choice_datasets(client, by_id, token=token)
 
@@ -626,14 +656,24 @@ def _step_title(
     return raw or block_name or step_id
 
 
+class _StepMapContext(NamedTuple):
+    step_id: str
+    title: str
+    phase: str
+    block_name: str
+    block: dict[str, object]
+    raw_html: str
+    text: str
+    study: dict[str, object]
+
+
 def _map_step_source(
     source: dict[str, object],
     *,
     step_id: str,
     fallback_title: str = "",
 ) -> tuple[dict[str, object], str, str | None]:
-    block = source.get("block")
-    block_dict = block if isinstance(block, dict) else {}
+    block_dict = _as_object_dict(source.get("block"))
     block_name = str(block_dict.get("name") or "text").strip().casefold()
     title = _step_title(
         source,
@@ -645,203 +685,238 @@ def _map_step_source(
     text = _plain_text(raw_html, limit=_STEP_TEXT_LIMIT) or title
     study = _study_fields(raw_html, fallback_text=text)
     phase, _ = _classify_stepik_source(source)
-
+    context = _StepMapContext(
+        step_id=step_id,
+        title=title,
+        phase=phase,
+        block_name=block_name,
+        block=block_dict,
+        raw_html=raw_html,
+        text=text,
+        study=study,
+    )
     if block_name == "text":
-        if _text_looks_like_code_task(text, raw_html, title=title):
-            runtime, runtime_version, template = _extract_code_template(block_dict)
-            if (
-                runtime == "python"
-                and not template
-                and _sqlish_text(f"{title}\n{text}\n{raw_html}")
-            ):
-                runtime, runtime_version = "sql", "15"
-            return (
-                {
-                    "id": step_id,
-                    "kind": "code",
-                    "title": title,
-                    "phase": phase,
-                    "fidelity": "partial",
-                    "payload": {
-                        **study,
-                        "runtime": runtime,
-                        "runtime_version": runtime_version,
-                        "template": template,
-                        "tests": [],
-                        "stepik_language": _stepik_language_hint(block_dict, runtime),
-                    },
-                },
-                "partial",
-                "text block recovered as code task from assignment cues",
-            )
-        return (
-            {
-                "id": step_id,
-                "kind": "theory",
-                "title": title,
-                "phase": phase,
-                "fidelity": "full",
-                "payload": study,
-            },
-            "full",
-            None,
-        )
-
+        return _map_text_step(context)
     if block_name == "video":
-        video_url, poster_url = _extract_video_meta(block_dict)
-        payload: dict[str, object] = dict(study)
-        if video_url:
-            payload["video_url"] = video_url
-        if poster_url:
-            payload["poster_url"] = poster_url
-        fidelity = "full" if video_url else "partial"
-        warning = None if video_url else "video URL was not available from Stepik"
-        return (
-            {
-                "id": step_id,
-                "kind": "video",
-                "title": title,
-                "phase": phase,
-                "fidelity": fidelity,
-                "payload": payload,
-            },
-            fidelity,
-            warning,
-        )
-
+        return _map_video_step(context)
     if block_name in _CODE_BLOCKS:
-        runtime, runtime_version, template = _extract_code_template(block_dict)
-        sqlish = _sqlish_text(f"{title}\n{text}")
-        if block_name == "sql" or (runtime == "python" and not template and sqlish):
-            runtime, runtime_version = "sql", "15"
-        return (
-            {
-                "id": step_id,
-                "kind": "code",
-                "title": title,
-                "phase": phase,
-                "fidelity": "partial",
-                "payload": {
-                    **study,
-                    "runtime": runtime,
-                    "runtime_version": runtime_version,
-                    "template": template,
-                    "tests": [],
-                    "stepik_language": _stepik_language_hint(block_dict, runtime),
-                    "stepik_reply": (
-                        "solve_sql" if runtime == "sql" or block_name == "sql" else "code"
-                    ),
-                },
-            },
-            "partial",
-            "code tests are not imported from Stepik",
-        )
-
+        return _map_code_step(context)
     if block_name == "choice":
-        choices, answer = _extract_choice_quiz(block_dict)
-        payload = {**study, "question": text, "choices": choices}
-        if answer is not None:
-            payload["answer"] = answer
-        if choices and answer is not None:
-            fidelity = "full"
-            warning = None
-        elif choices:
-            fidelity = "partial"
-            warning = "choice answer key is not available without Stepik author access"
-        else:
-            fidelity = "partial"
-            warning = "choice quiz options were not available from Stepik"
-        return (
-            {
-                "id": step_id,
-                "kind": "quiz",
-                "title": title,
-                "phase": phase,
-                "fidelity": fidelity,
-                "payload": payload,
-            },
-            fidelity,
-            warning,
-        )
-
+        return _map_choice_step(context)
     if block_name in _QUIZ_BLOCKS:
-        if block_name in _SQL_RECOVERY_BLOCKS and _sqlish_text(f"{title}\n{text}\n{raw_html}"):
-            return (
-                {
-                    "id": step_id,
-                    "kind": "code",
-                    "title": title,
-                    "phase": phase,
-                    "fidelity": "partial",
-                    "payload": {
-                        **study,
-                        "runtime": "sql",
-                        "runtime_version": "15",
-                        "template": "",
-                        "tests": [],
-                        "stepik_language": "sql",
-                        "stepik_reply": "solve_sql",
-                    },
-                },
-                "partial",
-                f"{block_name} recovered as SQL code task",
-            )
-        return (
-            {
-                "id": step_id,
-                "kind": "quiz",
-                "title": title,
-                "phase": phase,
-                "fidelity": "partial",
-                "payload": {
-                    **study,
-                    "question": text,
-                    "choices": [],
-                },
-            },
-            "partial",
-            f"{block_name} quiz options are not fully imported",
-        )
+        return _map_quiz_step(context)
+    return _map_unknown_step(context)
 
-    if _text_looks_like_code_task(text, raw_html, title=title):
-        if _sqlish_text(f"{title}\n{text}"):
-            runtime, runtime_version = "sql", "15"
-        else:
-            runtime, runtime_version = "python", "3.12"
-        return (
-            {
-                "id": step_id,
-                "kind": "code",
-                "title": title,
-                "phase": phase,
-                "fidelity": "partial",
-                "payload": {
-                    **study,
-                    "runtime": runtime,
-                    "runtime_version": runtime_version,
-                    "template": "",
-                    "tests": [],
-                    "stepik_language": _stepik_language_hint(block_dict, runtime),
-                },
-            },
-            "partial",
-            f"unsupported block type {block_name} recovered as code task",
-        )
 
+def _mapped_step(
+    context: _StepMapContext,
+    *,
+    kind: str,
+    fidelity: str,
+    payload: dict[str, object],
+    warning: str | None,
+) -> tuple[dict[str, object], str, str | None]:
     return (
         {
-            "id": step_id,
-            "kind": "theory",
-            "title": title,
-            "phase": phase,
-            "fidelity": "partial",
-            "payload": {
-                **study,
-                "instructions": text or f"Unsupported Stepik block: {block_name}",
-            },
+            "id": context.step_id,
+            "kind": kind,
+            "title": context.title,
+            "phase": context.phase,
+            "fidelity": fidelity,
+            "payload": payload,
         },
-        "partial",
-        f"unsupported block type {block_name}",
+        fidelity,
+        warning,
+    )
+
+
+def _code_payload(
+    context: _StepMapContext,
+    *,
+    runtime: str,
+    runtime_version: str,
+    template: str,
+) -> dict[str, object]:
+    return {
+        **context.study,
+        "runtime": runtime,
+        "runtime_version": runtime_version,
+        "template": template,
+        "tests": [],
+        "stepik_language": _stepik_language_hint(context.block, runtime),
+    }
+
+
+def _map_text_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    if not _text_looks_like_code_task(
+        context.text,
+        context.raw_html,
+        title=context.title,
+    ):
+        return _mapped_step(
+            context,
+            kind="theory",
+            fidelity="full",
+            payload=context.study,
+            warning=None,
+        )
+    runtime, runtime_version, template = _extract_code_template(context.block)
+    if (
+        runtime == "python"
+        and not template
+        and _sqlish_text(f"{context.title}\n{context.text}\n{context.raw_html}")
+    ):
+        runtime, runtime_version = "sql", "15"
+    return _mapped_step(
+        context,
+        kind="code",
+        fidelity="partial",
+        payload=_code_payload(
+            context,
+            runtime=runtime,
+            runtime_version=runtime_version,
+            template=template,
+        ),
+        warning="text block recovered as code task from assignment cues",
+    )
+
+
+def _map_video_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    video_url, poster_url = _extract_video_meta(context.block)
+    payload = dict(context.study)
+    if video_url:
+        payload["video_url"] = video_url
+    if poster_url:
+        payload["poster_url"] = poster_url
+    fidelity = "full" if video_url else "partial"
+    warning = None if video_url else "video URL was not available from Stepik"
+    return _mapped_step(
+        context,
+        kind="video",
+        fidelity=fidelity,
+        payload=payload,
+        warning=warning,
+    )
+
+
+def _map_code_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    runtime, runtime_version, template = _extract_code_template(context.block)
+    if context.block_name == "sql" or (
+        runtime == "python" and not template and _sqlish_text(f"{context.title}\n{context.text}")
+    ):
+        runtime, runtime_version = "sql", "15"
+    payload = _code_payload(
+        context,
+        runtime=runtime,
+        runtime_version=runtime_version,
+        template=template,
+    )
+    payload["stepik_reply"] = (
+        "solve_sql" if runtime == "sql" or context.block_name == "sql" else "code"
+    )
+    return _mapped_step(
+        context,
+        kind="code",
+        fidelity="partial",
+        payload=payload,
+        warning="code tests are not imported from Stepik",
+    )
+
+
+def _map_choice_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    choices, answer = _extract_choice_quiz(context.block)
+    payload = {**context.study, "question": context.text, "choices": choices}
+    if answer is not None:
+        payload["answer"] = answer
+    if choices and answer is not None:
+        fidelity, warning = "full", None
+    elif choices:
+        fidelity = "partial"
+        warning = "choice answer key is not available without Stepik author access"
+    else:
+        fidelity = "partial"
+        warning = "choice quiz options were not available from Stepik"
+    return _mapped_step(
+        context,
+        kind="quiz",
+        fidelity=fidelity,
+        payload=payload,
+        warning=warning,
+    )
+
+
+def _map_quiz_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    is_sql = context.block_name in _SQL_RECOVERY_BLOCKS and _sqlish_text(
+        f"{context.title}\n{context.text}\n{context.raw_html}"
+    )
+    if is_sql:
+        payload = _code_payload(
+            context,
+            runtime="sql",
+            runtime_version="15",
+            template="",
+        )
+        payload["stepik_reply"] = "solve_sql"
+        return _mapped_step(
+            context,
+            kind="code",
+            fidelity="partial",
+            payload=payload,
+            warning=f"{context.block_name} recovered as SQL code task",
+        )
+    return _mapped_step(
+        context,
+        kind="quiz",
+        fidelity="partial",
+        payload={**context.study, "question": context.text, "choices": []},
+        warning=f"{context.block_name} quiz options are not fully imported",
+    )
+
+
+def _map_unknown_step(
+    context: _StepMapContext,
+) -> tuple[dict[str, object], str, str | None]:
+    if _text_looks_like_code_task(
+        context.text,
+        context.raw_html,
+        title=context.title,
+    ):
+        runtime, runtime_version = (
+            ("sql", "15")
+            if _sqlish_text(f"{context.title}\n{context.text}")
+            else ("python", "3.12")
+        )
+        return _mapped_step(
+            context,
+            kind="code",
+            fidelity="partial",
+            payload=_code_payload(
+                context,
+                runtime=runtime,
+                runtime_version=runtime_version,
+                template="",
+            ),
+            warning=f"unsupported block type {context.block_name} recovered as code task",
+        )
+    return _mapped_step(
+        context,
+        kind="theory",
+        fidelity="partial",
+        payload={
+            **context.study,
+            "instructions": context.text or f"Unsupported Stepik block: {context.block_name}",
+        },
+        warning=f"unsupported block type {context.block_name}",
     )
 
 
@@ -997,7 +1072,7 @@ class _StudyHtmlSanitizer(HTMLParser):
                 kept.append(f'class="{html.escape(klass, quote=True)}"')
             if self._pre_depth:
                 self._code_stack.append([])
-        attr_html = ((" " + " ".join(kept)) if kept else "")
+        attr_html = (" " + " ".join(kept)) if kept else ""
         if lower in _VOID_TAGS:
             self._parts.append(f"<{lower}{attr_html} />")
             return
@@ -1107,10 +1182,14 @@ def _extract_video_poster(block: dict[str, object]) -> str | None:
             if not isinstance(item, dict):
                 continue
             url = item.get("url")
-            if isinstance(url, str) and url.startswith(("http://", "https://")) and re.search(
-                r"\.(jpe?g|png|webp)(?:$|\?)",
-                url,
-                flags=re.IGNORECASE,
+            if (
+                isinstance(url, str)
+                and url.startswith(("http://", "https://"))
+                and re.search(
+                    r"\.(jpe?g|png|webp)(?:$|\?)",
+                    url,
+                    flags=re.IGNORECASE,
+                )
             ):
                 return url
     return None
@@ -1210,7 +1289,6 @@ def _runtime_from_lang(language: str) -> tuple[str, str]:
 
 
 def _merge_step_payload(base: dict[str, object], overlay: dict[str, object]) -> dict[str, object]:
-
     merged = dict(base)
     for key, value in overlay.items():
         if key == "block" and isinstance(value, dict):
@@ -1265,7 +1343,6 @@ def _hydrate_choice_datasets(
     *,
     token: str | None = None,
 ) -> None:
-
     pending: list[str] = []
     for sid, step in steps_by_id.items():
         block = step.get("block")
@@ -1339,7 +1416,6 @@ def _fetch_attempt_dataset(
 
 
 def _extract_choice_quiz(block: dict[str, object]) -> tuple[list[str], int | None]:
-
     option_rows: list[dict[str, object]] = []
     string_rows: list[str] = []
 
@@ -1416,8 +1492,7 @@ def _text_looks_like_code_task(text: str, raw_html: str, *, title: str = "") -> 
     ):
         return False
     return bool(
-        _sqlish_text(blob)
-        or re.search(r"\b(def |class |function |print\(|return )", lowered)
+        _sqlish_text(blob) or re.search(r"\b(def |class |function |print\(|return )", lowered)
     )
 
 

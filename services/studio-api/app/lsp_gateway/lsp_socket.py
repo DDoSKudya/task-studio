@@ -7,7 +7,7 @@ import httpx
 import jwt
 from fastapi import HTTPException, WebSocket, WebSocketException
 from starlette.websockets import WebSocketDisconnect
-from studio_common.jwt_tokens import decode_user_id
+from studio_common.security.jwt_tokens import decode_user_id
 
 from app.config import StudioApiSettings
 from app.lsp_gateway.access import authorize_lsp

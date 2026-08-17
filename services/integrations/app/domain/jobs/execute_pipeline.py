@@ -9,7 +9,7 @@ from app.domain.pack.builder import (
 )
 from app.infra.models import ImportJob
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.integration_schemas import ImportReport
+from studio_contracts.api.integration_schemas import ImportReport
 from studio_integration_sdk.registry import AdapterModule
 
 from .catalog_register import register_with_catalog

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from app.domain.pack.assets import step_body
-from studio_contracts.normalized_pack import NormalizedPack
-from studio_contracts.pack import validate_manifest
+from studio_contracts.packs.normalized_pack import NormalizedPack
+from studio_contracts.packs.pack import validate_manifest
 
 
 def build_manifest(pack: NormalizedPack) -> dict[str, object]:

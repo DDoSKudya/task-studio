@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from studio_contracts.grading_schemas import GradingCheckResponse
+from studio_contracts.api.grading_schemas import GradingCheckResponse
 
 
 class GradingError(Exception):

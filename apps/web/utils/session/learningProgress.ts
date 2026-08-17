@@ -1,4 +1,4 @@
-import type { PhaseProgress, SessionState, SessionSummary } from '~/composables/useSessions'
+import type { PhaseProgress, SessionState, SessionSummary } from '~/composables/session/useSessions'
 
 function phaseWeight(row: PhaseProgress): number {
   if (row.assess_completed) {
@@ -22,7 +22,7 @@ export function sessionProgressPercent(session: SessionState): number {
   return Math.round((done / (rows.length * 3)) * 100)
 }
 
-export function sortSessionsByActivity(sessions: SessionSummary[]): SessionSummary[] {
+export function sortSessionsByActivity<T extends SessionSummary>(sessions: T[]): T[] {
   return [...sessions].sort(
     (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
   )

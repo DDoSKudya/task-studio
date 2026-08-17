@@ -32,7 +32,7 @@ try {
   $prevEap = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    # Native stderr must not trip Stop; check exit code explicitly.
+
     & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
       -Command "& '$bootstrap' help" `
       2>&1 | ForEach-Object { Write-Host $_ }

@@ -1,11 +1,11 @@
-from studio_contracts.catalog_schemas import (
+from studio_contracts.api.catalog_schemas import (
     ActivatePackRequest,
     PackDetail,
     PackSummary,
     PackUploadResponse,
     PackVersionInfo,
 )
-from studio_contracts.pack import (
+from studio_contracts.packs.pack import (
     ParsedManifest,
     extract_pack_archive,
     parse_manifest,

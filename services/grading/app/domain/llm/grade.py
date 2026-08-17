@@ -6,7 +6,7 @@ import httpx
 from app.config import GradingSettings
 from app.domain.check.outcome import CheckOutcome
 from app.domain.llm.verdict import outcome_from_tutor_verdict
-from studio_contracts.tutor_schemas import TutorGradeResponse
+from studio_contracts.api.tutor_schemas import TutorGradeResponse
 
 _GRADE_TIMEOUT = httpx.Timeout(connect=10.0, read=600.0, write=120.0, pool=10.0)
 

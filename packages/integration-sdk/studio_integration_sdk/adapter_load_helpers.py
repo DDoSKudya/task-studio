@@ -6,7 +6,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import cast
 
-from studio_contracts.integration_schemas import AdapterAuthInfo
+from studio_contracts.api.integration_schemas import AdapterAuthInfo
 
 
 def parse_auth(auth_raw: object) -> AdapterAuthInfo | None:

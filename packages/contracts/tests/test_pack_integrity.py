@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studio_contracts.pack_integrity import check_pack_integrity
+from studio_contracts.packs.pack_integrity import check_pack_integrity
 
 
 def test_check_pack_integrity_ok(tmp_path: Path) -> None:

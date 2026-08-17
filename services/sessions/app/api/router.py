@@ -7,17 +7,17 @@ from app.api.routes.attempts import router as attempts_router
 from app.api.routes.lifecycle import router as lifecycle_router
 from app.api.routes.study import router as study_router
 from app.api.session_views import build_session_state
-from app.domain import messaging as session_messaging
-from app.domain.analytics_events import analytics_event
-from app.domain.sessions import (
+from app.domain.analytics.analytics_events import analytics_event
+from app.domain.integrations import messaging as session_messaging
+from app.domain.queries.sessions import (
     abandon_sessions_for_pack_versions,
     list_pack_progress,
     list_sessions,
     start_session,
 )
 from fastapi import APIRouter
-from studio_common.internal import InternalUserId
-from studio_contracts.session_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.session_schemas import (
     AbandonSessionsRequest,
     PackProgressItem,
     SessionState,

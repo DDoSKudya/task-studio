@@ -35,6 +35,10 @@ const appVersion = loadAppVersion()
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-11',
   css: ['~/assets/css/main.css'],
+  components: [{ path: '~/components', pathPrefix: false }],
+  imports: {
+    dirs: ['~/composables', '~/composables/**'],
+  },
   app: {
     head: {
       title: 'Task Studio',

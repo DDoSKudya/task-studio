@@ -6,7 +6,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream, parse_upstream_list
 from fastapi import APIRouter, Depends, Query
-from studio_contracts.integration_schemas import (
+from studio_contracts.api.integration_schemas import (
     AdapterInfo,
     DiscoverResponse,
     ExternalCourseSummary,
@@ -30,7 +30,7 @@ async def discover_courses(
     client: UpstreamClient,
     q: Annotated[str | None, Query()] = None,
 ) -> DiscoverResponse:
-    params: dict[str, str] = {}
+    params: dict[str, str | int] = {}
     if q and q.strip():
         params["q"] = q.strip()
     upstream = await call_service(

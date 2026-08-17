@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-from studio_contracts.normalized_pack import NormalizedPack, NormalizedStep
+from studio_contracts.packs.normalized_pack import NormalizedPack, NormalizedStep
 
 
 def step_body(step: NormalizedStep, *, platform: str = "") -> dict[str, object]:

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from analytics_helpers.loaders import load_analytics_module
 from clickhouse_connect.driver.exceptions import DatabaseError
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 events = load_analytics_module("app.domain.events")
 parse_event_message = events.parse_event_message

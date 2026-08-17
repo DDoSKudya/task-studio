@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from app.infra.models import Session
-from studio_contracts.editor_schemas import runtime_lsp
-from studio_contracts.manifest import PackPolicies, PhaseName, SessionPosition, phase_step_ids
-from studio_contracts.session_schemas import StepNavTarget
-from studio_contracts.tutor_schemas import StepTutorInfo, tutor_allowed, tutor_mode_for_phase
+from studio_contracts.api.editor_schemas import runtime_lsp
+from studio_contracts.api.session_schemas import StepNavTarget
+from studio_contracts.api.tutor_schemas import StepTutorInfo, tutor_allowed, tutor_mode_for_phase
+from studio_contracts.packs.manifest import PackPolicies, PhaseName, SessionPosition, phase_step_ids
 
 
 def nav_target(position: SessionPosition | None) -> StepNavTarget | None:

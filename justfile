@@ -23,7 +23,7 @@ up mode="":
       profiles="$profiles --profile {{editor_profile}}"
     fi
     export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
-    mkdir -p data/postgres data/redis data/rabbitmq data/packs data/meilisearch data/clickhouse data/minio data/ollama data/grafana data/prometheus data/piston/packages
+    mkdir -p data/postgres data/redis data/rabbitmq data/packs data/meilisearch data/clickhouse data/minio data/ollama data/grafana data/prometheus data/piston/packages data/course-gold data/course-adapters
     chmod -R a+rwX data/packs 2>/dev/null || true
     {{compose}} $profiles build
     {{compose}} $profiles up -d --force-recreate --remove-orphans
@@ -46,7 +46,7 @@ start mode="":
     if [ "${ORCHESTRATOR_MODE:-balancing}" != "power_saving" ]; then
       profiles="$profiles --profile {{editor_profile}}"
     fi
-    mkdir -p data/postgres data/redis data/rabbitmq data/packs data/meilisearch data/clickhouse data/minio data/ollama data/grafana data/prometheus data/piston/packages
+    mkdir -p data/postgres data/redis data/rabbitmq data/packs data/meilisearch data/clickhouse data/minio data/ollama data/grafana data/prometheus data/piston/packages data/course-gold data/course-adapters
     chmod -R a+rwX data/packs 2>/dev/null || true
     {{compose}} $profiles up -d --remove-orphans
 
@@ -64,6 +64,13 @@ rebuild-svc +services:
     {{compose}} --profile {{profile}} build {{services}}
     {{compose}} --profile {{profile}} up -d --force-recreate {{services}}
     echo "Rebuilt: {{services}}"
+
+rebuild-svc-fresh +services:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    {{compose}} --profile {{profile}} build --no-cache {{services}}
+    {{compose}} --profile {{profile}} up -d --force-recreate {{services}}
+    echo "Fresh rebuild (no cache): {{services}}"
 
 web-dev:
     #!/usr/bin/env bash
@@ -93,7 +100,7 @@ piston-install:
     #!/usr/bin/env bash
     set -eo pipefail
     {{compose}} --profile {{profile}} up -d piston
-    {{compose}} --profile {{profile}} cp scripts/install_piston_packages.py grading:/tmp/install_piston_packages.py
+    {{compose}} --profile {{profile}} cp scripts/maintenance/install-piston-packages.py grading:/tmp/install_piston_packages.py
     {{compose}} --profile {{profile}} exec -T grading python /tmp/install_piston_packages.py --url http://piston:2000
 
 test:
@@ -125,10 +132,16 @@ lint:
     uv run ruff check packages/python-common packages/contracts services scripts
     uv run ruff format --check packages/python-common packages/contracts services scripts
     uv run mypy packages/python-common/src
+    uv run pyright packages/python-common/src packages/contracts/studio_contracts
+    just lint-complexity
     bash scripts/ci/check-launcher.sh
     bash scripts/ci/check-compose.sh
     bash scripts/ci/check-tracked-modules.sh
-    @if [ -d apps/web/node_modules ]; then cd apps/web && npm run lint; fi
+    @if [ -d apps/web/node_modules ]; then cd apps/web && npm run lint && npm run typecheck; fi
+    @if [ -d apps/pack-studio/node_modules ]; then cd apps/pack-studio && npm run lint && npm run typecheck; fi
+
+lint-complexity:
+    uv run python scripts/ci/check-complexity.py
 
 hooks:
     uv sync --group dev
@@ -145,11 +158,14 @@ fmt:
 validate-pack path:
     uv run python packages/contracts/validate_pack.py {{path}}
 
+course-adapters *args:
+    PYTHONPATH="services/tutor:packages/python-common/src:packages/contracts" uv run python scripts/courses/adapters.py {{args}}
+
 validate-schemas:
-    uv run python scripts/validate_pack_schema.py
+    uv run python scripts/validation/pack-schema.py
 
 validate-integrations:
-    uv run python scripts/validate_integration_fixtures.py
+    uv run python scripts/validation/integration-fixtures.py
 
 ci: lint validate-schemas validate-integrations test
 

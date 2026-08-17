@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import httpx
 from app.upstream import call_service, parse_upstream, raise_for_upstream_error
 from fastapi import HTTPException
-from studio_contracts.catalog_schemas import PackDetail
+from studio_contracts.api.catalog_schemas import PackDetail
 
 if TYPE_CHECKING:
     from app.config import StudioApiSettings
@@ -33,8 +33,6 @@ async def delete_pack_with_cleanup(
     version_ids = [version.id for version in pack.versions]
     version_id_strings = [str(item) for item in version_ids]
 
-    # Удаление пакета для пользователя критично; сайд-эффекты (abandon/unindex) не должны
-    # ломать основной запрос, даже если соседние сервисы временно недоступны.
     try:
         abandon_upstream = await call_service(
             client,

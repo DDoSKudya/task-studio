@@ -42,4 +42,4 @@ def build_app():
 
 @pytest.fixture
 def sessions_domain() -> ModuleType:
-    return import_sessions_module("app.domain.sessions")
+    return import_sessions_module("app.domain.queries.sessions")

@@ -7,9 +7,9 @@ from pathlib import Path
 
 from app.domain.pack.assets import step_body, write_assets
 from app.domain.pack.manifest_build import build_manifest
-from studio_contracts.integration_schemas import ImportReport
-from studio_contracts.normalized_pack import NormalizedPack
-from studio_contracts.pack import parse_manifest
+from studio_contracts.api.integration_schemas import ImportReport
+from studio_contracts.packs.normalized_pack import NormalizedPack
+from studio_contracts.packs.pack import parse_manifest
 
 _step_body = step_body
 _write_assets = write_assets

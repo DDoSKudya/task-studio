@@ -44,7 +44,7 @@ async def test_register_sets_auth_cookie(jwt_env: None, build_app) -> None:
 
 @pytest.mark.asyncio
 async def test_me_rotates_auth_cookie(jwt_env: None, build_app) -> None:
-    from studio_common.jwt_tokens import create_access_token
+    from studio_common.security.jwt_tokens import create_access_token
 
     app = build_app()
     user_id = "11111111-1111-1111-1111-111111111111"

@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import cast
 
-from studio_contracts.orchestrator_schemas import OrchestratorMode
+from studio_contracts.api.orchestrator_schemas import OrchestratorMode
 
 _VALID_MODES = frozenset({"balancing", "maximum", "power_saving"})
 

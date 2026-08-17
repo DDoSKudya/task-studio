@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.api.studio_routes.build import build_pack_response, validate_manifest_response
 from fastapi import APIRouter
 from fastapi.responses import Response
-from studio_contracts.studio_schemas import (
+from studio_contracts.api.studio_schemas import (
     StudioBuildRequest,
     StudioValidateRequest,
     StudioValidateResponse,

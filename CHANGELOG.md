@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 with the pre-release and build rules described in [docs/VERSIONING.md](docs/VERSIONING.md).
 
+## [1.2.0-beta.1] - 2026-08-17
+
+**Build:** `102002001`  
+**Channel:** `beta`  
+
+Minor beta after `1.1.1-beta.1`: chapter budgeting and a quality audit for article→course, quiz shortfalls that fail the build, no generation warnings on the completion screen, and source moved into domain folders.
+
+### Added
+
+#### Article → course quality
+- Chapter floor from corpus size and requested depth (`chapter_budget`): a thin outline is expanded, not shipped as is.
+- Near-duplicate chapters are collapsed by title and content before assemble.
+- Chapter titles ending in `part 2` / `(part 3)`, or cut mid-word, are rejected and replaced by a fallback.
+- Quality audit score with `must_fix` codes: service-like titles, quiz shortfall, no visuals, empty or one-line practice template.
+
+### Changed
+
+#### Article → course generation
+- Quiz shortfall fails the build: 3 compiled questions where 4 were asked is an error now.
+- Practice routing: command-oriented courses keep executable practice; empty or one-line code templates are rejected; weak practice after reinforce becomes an open task and costs audit points.
+- Build completion shows `Course ready`. Generation warnings are no longer printed there — they stay in logs and in the quality audit.
+
+#### Repository layout
+- Source regrouped by domain instead of technical layers; contracts schemas moved under `studio_contracts/api`.
+- `.gitignore` / `.dockerignore` no longer swallow real sources under `credentials` / `secrets` paths; local AI/tool junk is ignored; script `ROOT` paths fixed after the move.
+
+### Removed
+
+- Dead shims and comment-policy scripts left over from the move.
+
 ## [1.1.1-beta.1] - 2026-08-06
 
 **Build:** `101012001`  
@@ -166,6 +196,7 @@ Large minor pre-release after `1.0.0-alpha`: redesigned learning/catalog UI, str
 - **Security & CI**: AES-GCM encryption for local integration credentials, comprehensive CI/CD pipeline, pre-commit hooks, and 157+ automated tests (backend + frontend).
 - **Documentation**: Complete developer guide (`DEVELOPERS.md`) and fully localized interface (RU/EN).
 
+[1.2.0-beta.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.2.0-beta.1
 [1.1.1-beta.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.1.1-beta.1
 [1.1.0-beta.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.1.0-beta.1
 [1.0.0-alpha.1]: https://github.com/DDoSKudya/task-studio/releases/tag/v1.0.0-alpha.1

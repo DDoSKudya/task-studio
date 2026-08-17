@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 import httpx
 
 from app.config import CursorProxyConfig
-from app.domain import cursor_client
+from app.domain.cursor import client as cursor_client
 from app.domain.keepalive import wait_ready_with_keepalive
 
 

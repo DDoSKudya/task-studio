@@ -7,7 +7,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream
 from fastapi import APIRouter, Depends, File, UploadFile
-from studio_contracts.integration_schemas import (
+from studio_contracts.api.integration_schemas import (
     EnrollCourseRequest,
     EnrollCourseResponse,
     ImportJobResponse,

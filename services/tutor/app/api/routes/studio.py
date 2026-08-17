@@ -4,15 +4,15 @@ import uuid
 
 from app.api.deps import ClientDep, ConfigDep, UserId
 from app.api.routes.studio_stream import course_stream_response
+from app.domain.authoring.studio import suggest_pack_fragment
 from app.domain.course_build import CourseBuildMeta, CourseBuildStore
 from app.domain.course_from_article import generate_course_from_article, stream_course_from_article
 from app.domain.errors import TutorError
 from app.domain.fetch_article_from_url import fetch_article_from_url
-from app.domain.fetch_article_from_url.service import fetch_articles_from_urls
-from app.domain.studio import suggest_pack_fragment
+from app.domain.fetch_article_from_url.sources.service import fetch_articles_from_urls
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
-from studio_contracts.studio_schemas import (
+from studio_contracts.api.studio_schemas import (
     CourseBuildDetail,
     CourseBuildStatus,
     CourseBuildSummary,
@@ -69,7 +69,7 @@ def _detail_from_meta(
 
 @router.get("/studio/course-builds", response_model=list[CourseBuildSummary])
 async def list_course_builds(user_id: UserId, config: ConfigDep) -> list[CourseBuildSummary]:
-    items = _store(config).list_for_user(user_id)
+    items = _store(config).list_for_user(user_id, include_done=True)
     return [_summary_from_meta(item) for item in items]
 
 
@@ -106,6 +106,7 @@ async def discard_course_build(
     except PermissionError as exc:
         raise TutorError(status.HTTP_403_FORBIDDEN, "course build forbidden") from exc
     store.discard(user_id, build_id)
+    store.prune_expired(user_id)
 
 
 @router.post("/studio/suggest", response_model=StudioSuggestResponse)

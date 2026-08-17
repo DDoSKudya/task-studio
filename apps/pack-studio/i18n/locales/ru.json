@@ -36,7 +36,6 @@
     "buildCourseRunning": "Сборка…",
     "courseWorking": "Идёт сборка курса (анализ → теория → квизы → задания). Это может занять несколько минут…",
     "courseReady": "Курс собран. Главы: {chapters}. Проверьте JSON и загрузите в каталог.",
-    "courseWarnings": "Предупреждения",
     "progressTitle": "Сборка курса",
     "progressDone": "Курс готов",
     "progressFailed": "Сборка не удалась",

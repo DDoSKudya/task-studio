@@ -1,11 +1,21 @@
 # Skill: anti-hallucination from source
 
-The article is the only ground truth for APIs and behaviors.
+Source materials are the only ground truth for facts, claims, and behaviors.
 
-- If unsure whether a method exists → omit it or stick to what the article shows.
-- Do not invent CLI flags, HTTP endpoints, or version requirements not in the source.
-- When expanding prose, mark uncertainty by staying simpler — never by fabricating detail.
-- Code tests must be consistent with the template and with article semantics.
+## Always
+
+- If unsure a fact, name, date, citation, or behavior appears in the source → omit it
+  or stick to what the source shows.
+- Do not invent lesson titles, quiz facts, or “standard knowledge” to fill gaps.
+- When expanding prose, stay simpler under uncertainty — never fabricate detail.
+- Quotes and identifiers from the source stay exact.
+- Do not invent image or video URLs; only reuse figures present in the materials.
+
+## When the stage involves code / labs / CLI
+
+- Do not invent APIs, CLI flags, HTTP endpoints, package names, or version pins
+  absent from the source.
+- Code tests must match the template and source semantics.
 - The tested function name must match the template (no hidden mandatory `solve`).
-- Do not invent `"mock_session"` string inputs for object parameters — use `setup` stubs + `$call` / `run` tests.
-- Quotes and identifiers from the article stay exact.
+- Do not invent `"mock_session"` string inputs for object parameters — use `setup`
+  stubs + `$call` / `run` tests when that harness is in play.

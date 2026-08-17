@@ -4,7 +4,7 @@ import uuid
 
 import httpx
 from fastapi import HTTPException, status
-from studio_contracts.session_schemas import SessionState
+from studio_contracts.api.session_schemas import SessionState
 
 from app.config import StudioApiSettings
 

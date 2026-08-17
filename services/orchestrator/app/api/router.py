@@ -3,7 +3,7 @@ from __future__ import annotations
 import structlog
 from fastapi import APIRouter, status
 from starlette.responses import Response
-from studio_contracts.orchestrator_schemas import (
+from studio_contracts.api.orchestrator_schemas import (
     ManagedServiceStatus,
     OrchestratorMode,
     OrchestratorModeRequest,

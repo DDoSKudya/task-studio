@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from app.api.deps import Adapters
+from app.api.routes.catalog import router as catalog_router
+from app.api.routes.discovery.discover import router as discover_router
+from app.api.routes.enroll import router as enroll_router
+from app.api.routes.job_management.jobs import router as jobs_router
 from fastapi import APIRouter
-from studio_contracts.integration_schemas import AdapterInfo
-
-from .catalog import router as catalog_router
-from .discover import router as discover_router
-from .enroll import router as enroll_router
-from .jobs import router as jobs_router
+from studio_contracts.api.integration_schemas import AdapterInfo
 
 router = APIRouter(prefix="/internal/v1/integrations", tags=["integrations"])
 

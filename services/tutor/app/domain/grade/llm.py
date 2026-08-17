@@ -8,7 +8,7 @@ from app.domain.json_util.repair import parse_or_repair_json
 from app.domain.llm import LlmTarget, complete_chat_completion, is_ollama_target
 from app.domain.ollama.defaults import OLLAMA_NUM_CTX
 from app.domain.prompt_compose import grade_system_prompt
-from studio_contracts.tutor_schemas import TutorGradeRequest, TutorGradeResponse
+from studio_contracts.api.tutor_schemas import TutorGradeRequest, TutorGradeResponse
 
 
 async def grade_via_llm(

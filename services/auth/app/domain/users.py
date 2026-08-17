@@ -7,7 +7,7 @@ from app.infra.models import User, UserSetting
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_common.auth_schemas import JsonObject
+from studio_common.security.auth_schemas import JsonObject
 
 
 class EmailAlreadyRegisteredError(Exception):

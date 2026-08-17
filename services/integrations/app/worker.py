@@ -6,12 +6,17 @@ import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.orchestrator_flags import (
+from studio_common.messaging.rabbitmq import (
+    consume_json,
+    declare_dlq,
+    declare_queue,
+    rabbit_connection,
+)
+from studio_common.orchestration.orchestrator_flags import (
     PAUSE_IMPORT_KEY,
     redis_url_from_env,
     wait_while_orchestrator_paused,
 )
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 from studio_integration_sdk.registry import AdapterModule
 
 from app.config import IntegrationsSettings

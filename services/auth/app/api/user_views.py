@@ -6,7 +6,7 @@ from app.domain.users import UserNotFoundError, get_user_by_id, list_user_settin
 from app.infra.models import User
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_common.auth_schemas import AuthSuccess, MeResponse, UserProfile
+from studio_common.security.auth_schemas import AuthSuccess, MeResponse, UserProfile
 
 
 async def user_or_404(session: AsyncSession, user_id: uuid.UUID) -> User:

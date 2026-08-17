@@ -9,7 +9,7 @@ from app.api.deps import MinioClient, Settings
 from app.storage import put_object_bytes, user_object_key
 from fastapi import File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
-from studio_common.internal import InternalUserId
+from studio_common.security.internal import InternalUserId
 
 
 class MediaUploadResponse(BaseModel):

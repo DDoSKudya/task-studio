@@ -10,8 +10,13 @@ describe('mapCourseStageToUi', () => {
     expect(mapCourseStageToUi('code_suitability')).toBe('analyze')
   })
 
+  it('maps leftover consistency stage onto analyze', () => {
+    expect(mapCourseStageToUi('consistency')).toBe('analyze')
+  })
+
   it('passes through known stages', () => {
     expect(mapCourseStageToUi('theory')).toBe('theory')
+    expect(mapCourseStageToUi('polish')).toBe('polish')
     expect(mapCourseStageToUi('quizzes')).toBe('quizzes')
   })
 })

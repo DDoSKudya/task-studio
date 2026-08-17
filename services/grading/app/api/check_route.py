@@ -9,7 +9,7 @@ from app.domain.lab_jobs.persist import get_lab_result
 from app.infra.models import GradingResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.grading_schemas import GradingCheckRequest, GradingCheckResponse
+from studio_contracts.api.grading_schemas import GradingCheckRequest, GradingCheckResponse
 
 
 async def run_and_store_check(

@@ -6,8 +6,8 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.system_auth import SystemAuthRelaxed as SystemAuth
-from studio_common.system_auth import verify_system_token
+from studio_common.security.system_auth import SystemAuthRelaxed as SystemAuth
+from studio_common.security.system_auth import verify_system_token
 
 __all__ = [
     "DbSession",

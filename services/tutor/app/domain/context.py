@@ -7,9 +7,9 @@ from app.config import TutorConfig
 from app.domain.errors import TutorError
 from fastapi import status
 from pydantic import BaseModel
-from studio_common.auth_schemas import MeResponse
-from studio_contracts.session_schemas import SessionState, StepContent
-from studio_contracts.tutor_schemas import TutorSettings, parse_tutor_settings
+from studio_common.security.auth_schemas import MeResponse
+from studio_contracts.api.session_schemas import SessionState, StepContent
+from studio_contracts.api.tutor_schemas import TutorSettings, parse_tutor_settings
 
 _SESSIONS_UNAVAILABLE = "sessions unavailable"
 _SESSION_NOT_FOUND = "session not found"

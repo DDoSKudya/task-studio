@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from aio_pika.abc import AbstractChannel
 from app.config import IntegrationsSettings
 from app.domain.messaging.index import publish_external_courses
-from studio_common.rabbitmq import declare_queue, publish_json, rabbit_connection
+from studio_common.messaging.rabbitmq import declare_queue, publish_json, rabbit_connection
 
 
 async def _with_channel(

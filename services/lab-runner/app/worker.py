@@ -8,8 +8,13 @@ import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
-from studio_common.system_auth import system_token_headers
+from studio_common.messaging.rabbitmq import (
+    consume_json,
+    declare_dlq,
+    declare_queue,
+    rabbit_connection,
+)
+from studio_common.security.system_auth import system_token_headers
 
 from app.config import LabRunnerSettings
 from app.domain.runner import run_lab

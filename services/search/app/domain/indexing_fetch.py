@@ -4,7 +4,7 @@ import uuid
 
 import httpx
 from app.config import SearchSettings
-from studio_contracts.catalog_schemas import PackVersionContext
+from studio_contracts.api.catalog_schemas import PackVersionContext
 
 
 async def fetch_pack_context(

@@ -29,7 +29,11 @@ data/
 !.env.example
 .plan/
 .cursor/
+.cursor-sourcery-xdg-config/
+.cursor-sourcery-xdg-data/
+.cursor-sourcery-xdg-state/
 .serena/
+.refact/
 .claude/
 .codex/
 .idea/
@@ -59,9 +63,10 @@ storage.state
 *.pfx
 id_rsa*
 id_ed25519*
-secrets/
+# Root dumps only — do not exclude source packages named credentials/ or secrets/
+/secrets/
 .secrets/
-credentials/
+/credentials/
 .aws/
 .gcloud/
 .azure/

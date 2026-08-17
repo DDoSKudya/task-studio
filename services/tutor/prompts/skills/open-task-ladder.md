@@ -1,14 +1,19 @@
 # Skill: open task ladder
 
-Create practice tasks for **non-code** courses (languages, humanities, soft skills): free-text answers graded by AI against a rubric.
+Only when this run includes practice. Create practice tasks for **non-code** courses
+(languages, humanities, soft skills): free-text answers graded by AI against a rubric.
+If practice is OFF, do not emit tasks.
 
 ## Ladder
 
+When several tasks belong to **one** chapter, keep the **same** skill and fade
+scaffold (do not jump to a new topic).
+
 | Level | Goal |
 | --- | --- |
-| easy | Apply one idea from the material (short answer / rewrite / fill) |
-| medium | Combine ideas; handle an edge case or nuance |
-| hard | Realistic production of the skill (email, translation, short essay, critique) |
+| easy | Apply one idea from this chapter (short answer / rewrite / fill) |
+| medium | Same skill; edge case or nuance from this chapter |
+| hard | Same skill as a short authentic product (email, translation, critique) |
 
 ## Each task must include
 
@@ -26,7 +31,6 @@ Create practice tasks for **non-code** courses (languages, humanities, soft skil
 - Tasks must be answerable from the article / theory alone.
 - Rubric must match the brief — no hidden criteria.
 - Difficulty must increase across the three tasks.
-- **Docker / CLI / DevOps:** learner pastes a `Dockerfile`, shell commands, or config — never Python that returns Dockerfile text. Say so in `content`.
 - Learner-facing task text (title, prompt, rubric) follows the course locale.
-  For `domain=language`, sample phrases in the target language may appear inside the task,
-  but instructions and rubrics stay in the course locale.
+  For language-learning profiles, sample phrases in the target language may appear
+  inside the task, but instructions and rubrics stay in the course locale.

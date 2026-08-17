@@ -13,8 +13,11 @@ CourseBuildStatus = Literal["running", "paused", "failed", "done"]
 _META = "meta.json"
 _REQUEST = "request.json"
 _ANALYZE = "artifacts/analyze.json"
+_COMPILER = "artifacts/compiler.json"
+_BLUEPRINT = "artifacts/blueprint.json"
 _TOPICS = "artifacts/topics"
 _THEORY = "artifacts/theory"
+_SECTIONS = "artifacts/sections"
 _QUIZZES = "artifacts/quizzes.json"
 _CODE = "artifacts/code.json"
 _TTL_DEFAULT_DAYS = 30
@@ -60,7 +63,7 @@ class CourseBuildMeta:
     error: str | None
     created_at: str
     updated_at: str
-    mode: str  # topic_bundles | legacy
+    mode: str
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -246,6 +249,30 @@ class CourseBuildStore:
         raw = read_json(path)
         return raw if isinstance(raw, dict) else None
 
+    def save_compiler(
+        self, user_id: uuid.UUID, build_id: uuid.UUID, payload: dict[str, object]
+    ) -> None:
+        write_json(self._build_dir(user_id, build_id) / _COMPILER, payload)
+
+    def load_compiler(self, user_id: uuid.UUID, build_id: uuid.UUID) -> dict[str, object] | None:
+        path = self._build_dir(user_id, build_id) / _COMPILER
+        if not path.is_file():
+            return None
+        raw = read_json(path)
+        return raw if isinstance(raw, dict) else None
+
+    def save_blueprint(
+        self, user_id: uuid.UUID, build_id: uuid.UUID, payload: dict[str, object]
+    ) -> None:
+        write_json(self._build_dir(user_id, build_id) / _BLUEPRINT, payload)
+
+    def load_blueprint(self, user_id: uuid.UUID, build_id: uuid.UUID) -> dict[str, object] | None:
+        path = self._build_dir(user_id, build_id) / _BLUEPRINT
+        if not path.is_file():
+            return None
+        raw = read_json(path)
+        return raw if isinstance(raw, dict) else None
+
     def save_topic(
         self,
         user_id: uuid.UUID,
@@ -269,6 +296,78 @@ class CourseBuildStore:
                 "codes": codes,
             },
         )
+
+    def load_topic(
+        self,
+        user_id: uuid.UUID,
+        build_id: uuid.UUID,
+        chapter_id: str,
+    ) -> dict[str, Any] | None:
+        safe = chapter_id.replace("/", "_").strip() or "chapter"
+        path = self._build_dir(user_id, build_id) / _TOPICS / f"{safe}.json"
+        if not path.is_file():
+            return None
+        raw = read_json(path)
+        return raw if isinstance(raw, dict) else None
+
+    def _section_dir(self, user_id: uuid.UUID, build_id: uuid.UUID, chapter_id: str) -> Path:
+        safe = chapter_id.replace("/", "_").strip() or "chapter"
+        return self._build_dir(user_id, build_id) / _SECTIONS / safe
+
+    def save_section_draft(
+        self,
+        user_id: uuid.UUID,
+        build_id: uuid.UUID,
+        chapter_id: str,
+        *,
+        index: int,
+        total: int,
+        content: str,
+    ) -> None:
+        write_json(
+            self._section_dir(user_id, build_id, chapter_id) / f"{index:03d}.json",
+            {"index": index, "total": total, "content": content},
+        )
+
+    def load_section_drafts(
+        self,
+        user_id: uuid.UUID,
+        build_id: uuid.UUID,
+        chapter_id: str,
+    ) -> list[str]:
+        folder = self._section_dir(user_id, build_id, chapter_id)
+        if not folder.is_dir():
+            return []
+        by_index: dict[int, str] = {}
+        declared_total = 0
+        for path in folder.glob("*.json"):
+            try:
+                raw = read_json(path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                continue
+            if not isinstance(raw, dict):
+                continue
+            index = raw.get("index")
+            text = raw.get("content")
+            if not isinstance(index, int) or index < 1 or not isinstance(text, str):
+                continue
+            if not text.strip():
+                continue
+            by_index[index] = text
+            total = raw.get("total")
+            if isinstance(total, int):
+                declared_total = max(declared_total, total)
+        if not by_index:
+            return []
+        size = max(declared_total, max(by_index))
+        return [by_index.get(offset, "") for offset in range(1, size + 1)]
+
+    def discard_section_drafts(
+        self, user_id: uuid.UUID, build_id: uuid.UUID, chapter_id: str
+    ) -> None:
+        folder = self._section_dir(user_id, build_id, chapter_id)
+        if folder.is_dir():
+            shutil.rmtree(folder)
 
     def list_topic_ids(self, user_id: uuid.UUID, build_id: uuid.UUID) -> set[str]:
         folder = self._build_dir(user_id, build_id) / _TOPICS
@@ -380,6 +479,12 @@ class CourseBuildStore:
         build_dir = self._build_dir(user_id, build_id)
         if build_dir.is_dir():
             shutil.rmtree(build_dir)
+        user_dir = self._user_dir(user_id)
+        try:
+            if user_dir.is_dir() and not any(user_dir.iterdir()):
+                user_dir.rmdir()
+        except OSError:
+            pass
 
     def list_for_user(
         self, user_id: uuid.UUID, *, include_done: bool = False
@@ -421,15 +526,28 @@ class CourseBuildStore:
                 continue
             meta_path = child / _META
             if not meta_path.is_file():
+                shutil.rmtree(child, ignore_errors=True)
+                removed += 1
                 continue
             try:
                 raw = read_json(meta_path)
+                if not isinstance(raw, dict):
+                    shutil.rmtree(child, ignore_errors=True)
+                    removed += 1
+                    continue
                 updated = _parse_iso(str(raw.get("updated_at") or raw.get("created_at")))
             except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError):
+                shutil.rmtree(child, ignore_errors=True)
+                removed += 1
                 continue
             if updated.tzinfo is None:
                 updated = updated.replace(tzinfo=UTC)
             if updated < cutoff:
                 shutil.rmtree(child, ignore_errors=True)
                 removed += 1
+        try:
+            if user_dir.is_dir() and not any(user_dir.iterdir()):
+                user_dir.rmdir()
+        except OSError:
+            pass
         return removed

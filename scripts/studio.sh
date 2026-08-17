@@ -5,20 +5,20 @@ COMPOSE_FILE="deploy/docker-compose.yml"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_CANDIDATE="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# shellcheck source=lib/i18n.sh
-source "$SCRIPT_DIR/lib/i18n.sh"
-# shellcheck source=lib/ui.sh
-source "$SCRIPT_DIR/lib/ui.sh"
-# shellcheck source=lib/progress.sh
-source "$SCRIPT_DIR/lib/progress.sh"
-# shellcheck source=lib/profiles.sh
-source "$SCRIPT_DIR/lib/profiles.sh"
-# shellcheck source=lib/health.sh
-source "$SCRIPT_DIR/lib/health.sh"
-# shellcheck source=lib/desktop.sh
-source "$SCRIPT_DIR/lib/desktop.sh"
-# shellcheck source=lib/ops.sh
-source "$SCRIPT_DIR/lib/ops.sh"
+# shellcheck source=lib/localization/i18n.sh
+source "$SCRIPT_DIR/lib/localization/i18n.sh"
+# shellcheck source=lib/ui/ui.sh
+source "$SCRIPT_DIR/lib/ui/ui.sh"
+# shellcheck source=lib/progress/progress.sh
+source "$SCRIPT_DIR/lib/progress/progress.sh"
+# shellcheck source=lib/profiles/profiles.sh
+source "$SCRIPT_DIR/lib/profiles/profiles.sh"
+# shellcheck source=lib/health/health.sh
+source "$SCRIPT_DIR/lib/health/health.sh"
+# shellcheck source=lib/desktop/desktop.sh
+source "$SCRIPT_DIR/lib/desktop/desktop.sh"
+# shellcheck source=lib/operations/ops.sh
+source "$SCRIPT_DIR/lib/operations/ops.sh"
 
 studio_usage() {
   cat <<EOF

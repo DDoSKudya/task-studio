@@ -6,18 +6,6 @@ export type LegacyProgressPattern = {
 
 export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
   {
-    re: /^Checking topic fit and contradictions across articles$/i,
-    key: 'consistencyChecking',
-  },
-  {
-    re: /^Consistency check finished$/i,
-    key: 'consistencyDone',
-  },
-  {
-    re: /^Articles differ/i,
-    key: 'consistencyGate',
-  },
-  {
     re: /^Synthesizing one progressive syllabus from all sources$/i,
     key: 'analyzeRunning',
   },
@@ -37,6 +25,11 @@ export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
   {
     re: /^Expanding chapter:\s*(.+)$/i,
     key: 'theoryExpanding',
+    params: (m) => ({ title: m[1] ?? '' }),
+  },
+  {
+    re: /^Quality reinforce:\s*(.+)$/i,
+    key: 'theoryQuality',
     params: (m) => ({ title: m[1] ?? '' }),
   },
   {
@@ -96,7 +89,13 @@ export const LEGACY_PROGRESS_PATTERNS: LegacyProgressPattern[] = [
   },
 ]
 
-export const COURSE_ERROR_PATTERNS: Array<{ re: RegExp; key: string }> = [
+export type CourseErrorPattern = {
+  re: RegExp
+  key: string
+  params?: (match: RegExpMatchArray) => Record<string, string | number>
+}
+
+export const COURSE_ERROR_PATTERNS: CourseErrorPattern[] = [
   { re: /^no tutor provider configured$/i, key: 'noProvider' },
   { re: /^course generation returned no manifest$/i, key: 'noManifest' },
   { re: /^course generation produced no result$/i, key: 'noResult' },
@@ -110,5 +109,20 @@ export const COURSE_ERROR_PATTERNS: Array<{ re: RegExp; key: string }> = [
   { re: /^course generation produced no content steps$/i, key: 'noContentSteps' },
   { re: /^course generation failed$/i, key: 'generationFailed' },
   { re: /^invalid manifest$/i, key: 'invalidManifest' },
+  { re: /^local syllabus has no teachable/i, key: 'noTeachableSyllabus' },
+  { re: /^local theory failed/i, key: 'localTheoryFailed' },
+  { re: /^local quiz failed/i, key: 'localQuizFailed' },
+  {
+    re: /^local practice failed for «([^»]+)»/i,
+    key: 'localPracticeFailed',
+    params: (match) => ({ title: match[1] ?? '' }),
+  },
+  { re: /^local practice failed/i, key: 'localPracticeFailed' },
+  { re: /copied the excerpt instead of teaching/i, key: 'theoryCopiedExcerpt' },
+  { re: /^book polish did not finish/i, key: 'polishUnfinished' },
+  { re: /^course used template filler/i, key: 'templateFiller' },
+  { re: /^course generation requires at least/i, key: 'modelTooSmall' },
+  { re: /^ollama is missing a course-capable/i, key: 'courseModelMissing' },
+  { re: /^ollama is not reachable/i, key: 'ollamaUnreachable' },
   { re: /network\s*error|failed to fetch|load failed|err_network|networkerror/i, key: 'network' },
 ]

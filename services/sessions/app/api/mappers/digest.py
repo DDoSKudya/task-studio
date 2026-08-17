@@ -5,8 +5,8 @@ import re
 
 from app.api.mappers.session_map import build_outline
 from app.infra.models import Session
-from studio_contracts.manifest import get_step
-from studio_contracts.session_schemas import CourseDigest, CourseDigestStep
+from studio_contracts.api.session_schemas import CourseDigest, CourseDigestStep
+from studio_contracts.packs.manifest import get_step
 
 
 def build_course_digest(learning_session: Session) -> CourseDigest:

@@ -1,7 +1,3 @@
-# Mirrors the CI `lint` job (ruff / mypy / launcher / compose / tracked modules).
-# Install once: `just hooks`  or  `uv run pre-commit install`
-# Uses `uv run` so tools match uv.lock (same as GitHub Actions).
-
 default_language_version:
   python: python3.12
 
@@ -54,6 +50,14 @@ repos:
         files: ^packages/python-common/
         require_serial: true
 
+      - id: pyright-shared
+        name: pyright shared packages (uv)
+        entry: uv run pyright packages/python-common/src packages/contracts/studio_contracts
+        language: system
+        pass_filenames: false
+        files: ^packages/(python-common|contracts)/
+        require_serial: true
+
       - id: check-launcher
         name: check-launcher
         entry: bash scripts/ci/check-launcher.sh
@@ -74,3 +78,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: check-complexity
+        name: check-complexity
+        entry: uv run python scripts/ci/check-complexity.py
+        language: system
+        files: \.py$
+        pass_filenames: false

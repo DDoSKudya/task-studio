@@ -12,8 +12,8 @@
     "health"
   ],
   "shared_libs": {
-    "unix": ["scripts/lib/ops.sh", "scripts/lib/profiles.sh", "scripts/lib/health.sh"],
-    "windows": ["scripts/lib/Ops.ps1", "scripts/lib/Profiles.ps1", "scripts/lib/Health.ps1"]
+    "unix": ["scripts/lib/operations/ops.sh", "scripts/lib/profiles/profiles.sh", "scripts/lib/health/health.sh"],
+    "windows": ["scripts/lib/operations/Ops.ps1", "scripts/lib/profiles/Profiles.ps1", "scripts/lib/health/Health.ps1"]
   },
   "profiles_sot": "deploy/profiles.json"
 }

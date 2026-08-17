@@ -4,7 +4,7 @@
 
 Ориентир при сомнениях — исходники сервисов, `deploy/docker-compose.yml` и `packages/contracts`. Документ описывает **текущее** дерево репозитория.
 
-Диаграммы нарисованы в Mermaid. Внешний вид интерфейса показан PNG-снимками в [`assets/ui/`](assets/ui/) и макетом [`assets/readme-preview.png`](assets/readme-preview.png). Справочник переменных окружения — в [`env.md`](env.md), правила версий — в [`VERSIONING.md`](VERSIONING.md).
+Диаграммы нарисованы в Mermaid. Внешний вид интерфейса показан снимками в `assets/ui/` и макетом [`assets/readme-preview.png`](assets/readme-preview.png). Справочник переменных окружения лежит в `docs/env.md`, правила версий — в `docs/VERSIONING.md`.
 
 
 ## Оглавление
@@ -25,7 +25,7 @@
 14. [Проверка ответов (grading)](#section-14)
 15. [Клиентское приложение apps/web](#section-15)
 16. [Pack Studio](#section-16)
-17. [Снимки интерфейса (PNG)](#section-17)
+17. [Снимки интерфейса](#section-17)
 18. [Интеграции и runtime_modules](#section-18)
 19. [ИИ: tutor, Ollama, cursor-proxy](#section-19)
 20. [Установка пользователя и сценарии запуска](#section-20)
@@ -125,22 +125,22 @@ Task Studio — платформа обучения для развёртыва�
 
 | Путь | Назначение |
 |------|------------|
-| `services/*` | Один каталог — один FastAPI-сервис (есть Dockerfile, часто также `tests/` и `alembic/`) |
+| `services/*` | Один каталог — один FastAPI-сервис; внутри исходники сгруппированы по доменам, а не в общий набор технических слоёв |
 | `apps/web` | Клиентское приложение для обучающегося |
 | `apps/pack-studio` | Клиентское приложение автора пакетов; базовый путь `/pack-studio/` |
 | `packages/python-common` | `studio_common`: JWT, логи, RabbitMQ, ops, crypto |
-| `packages/contracts` | Pydantic-схемы API и pack, JSON Schema |
+| `packages/contracts` | `studio_contracts/api` с Pydantic-схемами HTTP и `studio_contracts/packs` с моделями pack; рядом JSON Schema |
 | `packages/editor-core` | Политики редактора / клиент LSP (TS) |
 | `integration_modules/` | Импортёры Stepik, freeCodeCamp, Exercism |
 | `runtime_modules/` | Заготовки сред выполнения (пока заглушки SoT) |
 | `deploy/` | Compose, nginx, Traefik, LSP Dockerfiles, bake, Helm, profiles.json |
-| `scripts/` | Установщик, сценарии `studio`, библиотеки `lib/*`, `docs-capture-ui.py` |
+| `scripts/` | Установщик, сценарии `studio`, библиотеки `lib/*`, проверки CI и служебные команды по доменным каталогам |
 | `docs/` | Документация для людей (не для машин) |
 
 
 ### 4.1. Типичный каркас сервиса
 
-Почти в каждом сервисе файл `app/main.py` создаёт приложение FastAPI через `studio_common.app.build_app`, подключает роутеры и регистрирует маршруты проверки готовности `/health`, `/ready` и `/metrics`. В Docker команда запуска обычно такая: `uvicorn app.main:app --host $HOST --port $PORT`. Доменная логика лежит в `app/domain/`, HTTP-обработчики — в `app/api/`. Внутренние пути вида `/internal/v1/<service>/...` снаружи через nginx не публикуются.
+Почти в каждом сервисе файл `app/main.py` создаёт приложение FastAPI через `studio_common.web.app.create_service_app`, подключает роутеры и регистрирует маршруты проверки готовности `/health`, `/ready` и `/metrics` через `register_ops_routes`. В Docker команда запуска обычно такая: `uvicorn app.main:app --host $HOST --port $PORT`. Доменная логика лежит в `app/domain/` и дальше делится по предметным областям (`course_from_article`, `course_strategies`, `chat`, `grade`), HTTP-обработчики — в `app/api/`. Внутренние пути вида `/internal/v1/<service>/...` снаружи через nginx не публикуются.
 
 <a id="section-5"></a>
 
@@ -202,7 +202,7 @@ flowchart TB
 
 ## 6. Край: nginx, Traefik, маршруты
 
-Конфигурация лежит в [`deploy/nginx/nginx.conf`](../deploy/nginx/nginx.conf). Upstream-адреса в Docker-сети: `web:3000`, `pack-studio:3000`, `studio-api:8000`.
+Конфигурация лежит в `deploy/nginx/nginx.conf`. Upstream-адреса в Docker-сети: `web:3000`, `pack-studio:3000`, `studio-api:8000`.
 
 | Location | Куда | Заметки |
 |----------|------|---------|
@@ -734,28 +734,28 @@ Privileged-доступ к Docker на хосте — зона риска; см.
 Любой новый публичный или экранный контракт начинают здесь, затем проводят через BFF и клиент. Идея простая: один источник схем и меньше расхождений вида «поле есть в клиенте, а в сервисе забыли».
 
 
-### 10.1. `*_schemas.py`
+### 10.1. `studio_contracts/api`
 
 | Файл | Примеры моделей |
 |------|-----------------|
-| `analytics_schemas` | `AnalyticsEventMessage`, `ProgressResponse`, `AttemptsTimelineResponse` |
-| `catalog_schemas` | `PackSummary`, `PackDetail`, `RegisterImportedPackRequest` |
-| `session_schemas` | `StartSessionRequest`, `SessionState`, `StepContent`, `SubmitResult` |
-| `grading_schemas` | `GradingCheckRequest/Response`, lab submit/complete |
-| `integration_schemas` | `AdapterInfo`, `ImportJobResponse`, `StartImportRequest` |
-| `tutor_schemas` | `TutorChatRequest`, `TutorHintResponse`, `TutorGradeRequest` |
-| `studio_schemas` | validate/build, course-from-article, course build summaries |
-| `search_schemas` | `SearchHit`, `SearchResponse` |
-| `orchestrator_schemas` | status/mode, managed services |
-| `editor_schemas` | autocomplete/LSP settings |
+| `api/analytics_schemas.py` | `AnalyticsEventMessage`, `ProgressResponse`, `AttemptsTimelineResponse` |
+| `api/catalog_schemas.py` | `PackSummary`, `PackDetail`, `RegisterImportedPackRequest` |
+| `api/session_schemas.py` | `StartSessionRequest`, `SessionState`, `StepContent`, `SubmitResult` |
+| `api/grading_schemas.py` | `GradingCheckRequest/Response`, lab submit/complete |
+| `api/integration_schemas.py` | `AdapterInfo`, `ImportJobResponse`, `StartImportRequest` |
+| `api/tutor_schemas.py` | `TutorChatRequest`, `TutorHintResponse`, `TutorGradeRequest` |
+| `api/studio_schemas.py` | validate/build, course-from-article, course build summaries |
+| `api/search_schemas.py` | `SearchHit`, `SearchResponse` |
+| `api/orchestrator_schemas.py` | status/mode, managed services |
+| `api/editor_schemas.py` | autocomplete/LSP settings |
 
 
-### 10.2. Pack
+### 10.2. `studio_contracts/packs`
 
 - `pack-schema-v1.json` — JSON Schema манифеста.
-- `pack.py` — parse/validate/build archive.
-- `pack_content.py`, `pack_integrity.py`, `step_dependencies.py`.
-- `manifest.py`, `normalized_pack.py`, `validate_pack.py`.
+- `packs/pack.py` — parse/validate/build archive.
+- `packs/pack_content.py`, `packs/pack_integrity.py`, `packs/step_dependencies.py`.
+- `packs/manifest.py`, `packs/normalized_pack.py`.
 
 Из корня репозитория схемы проверяют рецептами `just validate-pack`, `just validate-schemas` и `just validate-integrations`.
 
@@ -935,7 +935,7 @@ sequenceDiagram
 
 ### 13.6. Tutor
 
-Чат и подсказки идут через `/v1/tutor/…`; где нужен поток, используется SSE. Прогрев Cursor — отдельный вызов со страницы сессии. Сборка курса из статьи идёт через маршруты studio AI, а прогресс на экране показывают `CourseBuildProgress` и `utils/studio/courseStream.ts`.
+Чат и подсказки идут через `/v1/tutor/…`; где нужен поток, используется SSE. Прогрев Cursor — отдельный вызов со страницы сессии. Сборка курса из статьи идёт через маршруты studio AI, а прогресс на экране показывают `components/course/CourseBuildProgress.vue` и `utils/studio/courseStream.ts`. Успешный поток заканчивается сообщением `Course ready`; диагностические предупреждения остаются в логах и `quality_audit`, а не выводятся отдельным блоком на экране завершения.
 
 
 ### 13.7. Фазы занятия
@@ -1013,17 +1013,17 @@ sequenceDiagram
 
 ### 15.3. Composables
 
-`useApi`, `useAuth`, `useSessions`, `useSessionGradeSubmit`, `useCatalog`, `useCatalogDownloads`, `useSearch`, `useAnalytics`, `useStudio`, `useTutor`, `useTutorSessionChat`, `useEditor`, `useSettingsPage`, `useAppVersion`, `useAppPageTitle`, `useToasts`, `useConfirm`, `useElapsedTimer`, `useDiscoverCache`, `useCredentialAutofill`.
+Composables разложены по доменам: `api/useApi`, `auth/useAuth`, `session/useSessions`, `session/useSessionGradeSubmit`, `catalog/useCatalog`, `catalog/useCatalogDownloads`, `studio/useStudio`, `tutor/useTutor`, `settings/useSettingsPage` и соседние модули. Общие функции страницы и уведомлений лежат в `composables/app/`.
 
 
 ### 15.4. utils по доменам
 
-`apps/web/utils/{api,catalog,session,settings,studio,study,tutor,media,analytics,search}/`. Study sanitize: `sanitizeHtml.ts` → mojibake repair, strip опасного, таблицы, markdown/mermaid → `purifyStudyHtml.ts` (DOMPurify whitelist).
+`apps/web/utils/` также разбит по доменам. В крупных областях есть следующий уровень: каталог делит представление курсов, pack и outline, настройки — credentials, integrations, state и tutor. Study sanitize: `sanitizeHtml.ts` → исправление mojibake, удаление опасного, таблицы, markdown/mermaid → `purifyStudyHtml.ts` (белый список DOMPurify).
 
 
 ### 15.5. Стили и i18n
 
-CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, … Локали: `i18n/locales/en.json`, `ru.json`.
+CSS: `assets/css/main.css` подключает `foundation/`, `domains/` и `visual/`. Локали: `i18n/locales/en.json`, `ru.json`.
 
 
 ### 15.6. Режим разработки интерфейса
@@ -1040,13 +1040,13 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 <a id="section-17"></a>
 
-## 17. Снимки интерфейса (PNG)
+## 17. Снимки интерфейса
 
-Ниже — кадры **живого** интерфейса Nuxt/Vue из `apps/web` и `apps/pack-studio`, снятые через Playwright на поднятом стеке. Это не макет из [`PREVIEW.md`](PREVIEW.md). Векторный снимок страницы Playwright не делает, поэтому в документации лежат PNG.
+Ниже — кадры **живого** интерфейса Nuxt/Vue из `apps/web` и `apps/pack-studio` на поднятом стеке. Это не макет из [`PREVIEW.md`](PREVIEW.md). В каталоге документации остаются PNG автоматической проходки и WebP с актуальными русскими экранами.
 
-Снимки сняты в английской локали интерфейса: рядом с подписями с кадра в скобках — перевод из `apps/web/i18n/locales/ru.json` (для Pack Studio — из `apps/pack-studio/i18n/locales/ru.json`).
+Автоматическая проходка снята в английской локали, а новые WebP — в русской. Названия элементов в тексте даны так, как они видны на соответствующем кадре.
 
-Перед сохранением кадра скрипт `scripts/docs-capture-ui.py` маскирует почту и инициалы в боковой панели, очищает поля паролей, токенов и секретов клиента и подменяет пользовательские названия курсов и тем на нейтральные (`Example course …`, `Example step …`). На экранах входа поля пустые. Не коммитьте PNG с реальными учётными данными.
+Перед сохранением кадра скрипт `scripts/docs/capture-ui.py` маскирует почту и инициалы в боковой панели, очищает поля паролей, токенов и секретов клиента и подменяет пользовательские названия курсов и тем на нейтральные (`Example course …`, `Example step …`). Для кадров, добавленных вручную, действует то же правило: не публикуйте пароли, токены, ключи и почту.
 
 ### 17.1. Вход и регистрация
 
@@ -1068,9 +1068,9 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 Домашний экран после входа: здесь лежат **уже скачанные или собранные локально** учебные пакеты (паки), с которыми можно учиться офлайн. Вкладка **MY LIBRARY** (Моя библиотека) показывает счётчик курсов; фильтр **SOURCES** (Источники) сужает список по происхождению — **ALL SOURCES** (Все источники), **LOCAL** (Локальные / «Созданные и собранные здесь»), **STEPIK** и др. («Скачано в библиотеку»).
 
-Каждая карточка — один пак в каталоге: метки типа контента (**THEORY** / Теория, **QUESTIONS** / Вопросы, **VIDEO** / Видео, **TASKS** / Задания), прогресс прохождения в процентах (хранится в сессиях и отдаётся аналитикой), **CONTINUE** (Продолжить) — открыть или возобновить сессию, корзина — удалить пак из локальной библиотеки (не с внешней платформы). На docs-снимках заголовки заменены на `Example course N`; реальные названия курсов учётки в репозиторий не кладём. Слева в навигации: **Catalog** (Каталог), **Analytics** (Аналитика), **Settings** (Настройки).
+Каждая карточка — один пак в каталоге: метки типа контента (**THEORY** / Теория, **QUESTIONS** / Вопросы, **VIDEO** / Видео, **TASKS** / Задания), прогресс прохождения в процентах (хранится в сессиях и отдаётся аналитикой), **CONTINUE** (Продолжить) — открыть или возобновить сессию, корзина — удалить пак из локальной библиотеки (не с внешней платформы). Автоматическая серия подменяет заголовки на `Example course N`; актуальный WebP показывает примеры курсов из рабочей установки. Слева в навигации: **Catalog** (Каталог), **Analytics** (Аналитика), **Settings** (Настройки).
 
-![Каталог: библиотека](assets/ui/11-catalog.png)
+![Каталог: библиотека курсов](assets/ui/11-catalog-library.webp)
 
 **Поиск внешних курсов** (`/catalog?tab=discover`)
 
@@ -1078,7 +1078,7 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 Рельс **SOURCES** (Источники) показывает, сколько курсов отдаёт каждый адаптер и статус (**READY** / Готово; жёлтая/красная точка — нужна авторизация в настройках). Строка поиска и теги тем фильтруют выдачу. Кнопка **CREATE FROM ARTICLES** (Создать из статей) открывает мастер локальной сборки курса из URL/`.md` без импорта с платформы. Публичные каталоги Exercism/freeCodeCamp работают без ключей; Stepik без OAuth в настройках отдаст пусто или ошибку «нужен вход».
 
-![Каталог: найти курсы](assets/ui/12-catalog-find.png)
+![Каталог: поиск внешних курсов](assets/ui/12-catalog-find.webp)
 
 **Форма «создать курс из статей»**
 
@@ -1096,15 +1096,23 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 **NEXT** (Далее) запускает следующие шаги мастера/сборки, когда есть название и непустой источник. Результат после успешной генерации появляется в **Моей библиотеке** как локальный пак; незавершённую сборку можно возобновить оттуда. На снимке форма пустая — в docs нет чужих URL и черновиков.
 
-![Создание курса из статей](assets/ui/12b-catalog-create.png)
+![Создание курса: добавление источников](assets/ui/12c-catalog-create-sources.webp)
+
+На следующем шаге автор выбирает состав курса, число вопросов и практических заданий на тему и глубину изложения. Эти значения определяют бюджет глав и ожидаемый объём проверочных материалов.
+
+![Создание курса: состав и глубина](assets/ui/12d-catalog-create-options.webp)
+
+Во время сборки окно показывает текущую стадию и процент выполнения. После успешной проверки финальный статус меняется на **Курс готов**; предупреждения сборки нужно искать в логах и аудите качества.
+
+![Сборка курса из статей](assets/ui/12e-catalog-build-progress.webp)
 
 **Карточка курса** (`/catalog/{id}`)
 
 Карточка **уже лежащего в библиотеке** пака: что внутри, прежде чем учиться. В шапке — идентификатор/версия пака; **REMOVE** (Удалить) стирает локальную копию; **BACK TO CATALOG** (Назад в каталог) возвращает к списку.
 
-Блок программы курса (**Программа курса** в русской локали): краткое описание, метки источника (**LOCAL** / Локальный и т.п.), число тем и шагов. **START SESSION** (Начать сессию) создаёт или продолжает запись в сервисе sessions: текущий шаг, прогресс по темам, ответы. Ниже — оглавление модулей и уроков в форме, близкой к Stepik (иконки **T**/Теория, **Q**/Вопрос, **C**/Задания). На docs-снимке названия модулей и уроков нейтрализованы.
+Блок программы курса (**Программа курса** в русской локали): краткое описание, метки источника (**LOCAL** / Локальный и т.п.), число тем и шагов. **START SESSION** (Начать сессию) создаёт или продолжает запись в сервисе sessions: текущий шаг, прогресс по темам, ответы. Ниже — оглавление модулей и уроков в форме, близкой к Stepik (иконки **T**/Теория, **Q**/Вопрос, **C**/Задания).
 
-![Карточка курса](assets/ui/15-catalog-detail.png)
+![Карточка курса и программа](assets/ui/15-catalog-detail.webp)
 
 ### 17.3. Занятие и аналитика
 
@@ -1114,13 +1122,21 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 Фаза в шапке (**STUDY** и др.) в русской локали: Теория / Задание / Вопрос. Прогресс и попытки пишутся в sessions и дальше попадают в аналитику.
 
-![Сессия обучения](assets/ui/16-session.png)
+![Теоретический шаг с диаграммой и тьютором](assets/ui/16-session-theory.webp)
 
 **Область действий на шаге**
 
 Крупный кадр нижней панели шага — не отдельный экран, а те же действия сессии: **BACK** (Назад) — предыдущий шаг; **SKIP STUDY** (Пропустить теорию) — уйти с теоретической фазы без полного чтения (учитывается в аналитике пропусков); **NEXT** (Далее) — следующий шаг, когда шаг пройден или его можно пропустить. На фазах задания и вопроса вместо «далее» часто нужны **Запустить и проверить** / **Отправить ответ** — они сохраняют попытку и результат проверки.
 
 ![Действия на шаге сессии](assets/ui/16b-session-actions.png)
+
+**Вопрос и задание с кодом**
+
+Вопрос показывает варианты ответа в центральной области и отправляет выбранный вариант через sessions в grading. На практическом шаге рядом с условием открывается редактор со стартовым шаблоном; кнопка **Запустить и проверить** создаёт попытку и возвращает результат проверки.
+
+![Вопрос с выбором ответа](assets/ui/16c-session-quiz.webp)
+
+![Практическое задание с редактором](assets/ui/16d-session-code.webp)
 
 **Аналитика обучения** (`/analytics`)
 
@@ -1136,9 +1152,9 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 | **WHERE YOU FAIL MOST** | Где чаще провал | Темы/курсы с наибольшим числом непройденных попыток |
 | **RECENT ATTEMPTS** | Последние попытки | Лента с статусом **PASSED** (Зачёт) / не зачёт |
 
-На docs-снимках названия курсов и тем заменены на `Example course …` / `TOPIC: EXAMPLE-…`. Цифры на карточках — пример живой учётки, не «эталон» для всех установок.
+Автоматическая серия заменяет названия курсов и тем на `Example course …` / `TOPIC: EXAMPLE-…`; WebP показывает данные рабочей установки. Цифры на карточках — пример, не «эталон» для всех установок.
 
-![Аналитика](assets/ui/13-analytics.png)
+![Аналитика прохождения курсов](assets/ui/13-analytics.webp)
 
 ### 17.4. Настройки: интеграции, ИИ и редактор
 
@@ -1148,7 +1164,7 @@ CSS: `assets/css/studio.css`, `op-skin.css`, `catalog.css`, `transitions.css`, �
 
 Правая колонка **WORKSPACE / PREFERENCES** (Рабочая область / Параметры): раскрывающиеся блоки источников курсов и **TOOLS** (Инструменты) — **AI AGENT** (ИИ-агент) и **EDITOR** (Редактор). **SAVE CHANGES** (Сохранить изменения) / **CANCEL** (Отмена) записывают настройки пользователя на сервер. Без сохранённых ключей Stepik вкладка «Найти курсы» для Stepik не заработает полноценно.
 
-![Настройки](assets/ui/14-settings.png)
+![Настройки интеграций и ИИ-агента](assets/ui/14-settings.webp)
 
 **Форма учётных данных интеграции**
 
@@ -1290,6 +1306,11 @@ services/tutor/prompts/
 
 Тьютор в study/practice не заменяет grading как источник истины для «сдал/не сдал», хотя LLM-grade может быть стадией каскада при включённых флагах.
 
+
+### 19.5. Стратегии курса
+
+Стратегии курса живут в `services/tutor/prompts/strategies/`; программные ограничения сборки — в доменах `course_from_article` и `course_strategies`.
+
 <a id="section-20"></a>
 
 ## 20. Установка пользователя и сценарии запуска
@@ -1344,6 +1365,8 @@ services/tutor/prompts/
 
 Только по локали ОС (`ru*` → русский, иначе английский). Палитра близка к веб-токенам. Меню на стрелках без внешних TUI-зависимостей.
 
+![Запущенный стек в консоли Task Studio](assets/ui/30-launcher-running.webp)
+
 <a id="section-21"></a>
 
 ## 21. Разработка на клоне: just и Compose
@@ -1366,7 +1389,7 @@ just up   # или just start
 | `just up` | Пересборка + старт |
 | `just start` | Старт без пересборки |
 | `just down` | Остановка |
-| `just rebuild` / `rebuild-svc` / `rebuild-web` | Пересборки |
+| `just rebuild` / `rebuild-svc` / `rebuild-svc-fresh` / `rebuild-web` | Пересборки |
 | `just web-dev` / `web-local` | горячая перезагрузка UI |
 | `just logs` | Логи |
 | `just test` / `lint` / `fmt` / `ci` | Проверки |
@@ -1385,7 +1408,7 @@ just up   # или just start
 | `editor` | LSP pyright/typescript/gopls/sqls |
 | `host-metrics` | node-exporter, cAdvisor |
 
-Сценарий `studio` обычно включает всегда `--profile full`, + `editor` если не power_saving, + `host-metrics` на подходящем Linux (`scripts/lib/profiles.sh`).
+Сценарий `studio` обычно включает всегда `--profile full`, + `editor` если не power_saving, + `host-metrics` на подходящем Linux (`scripts/lib/profiles/profiles.sh`).
 
 
 ### 21.4. depends_on (смысл)
@@ -1419,7 +1442,7 @@ just up   # или just start
 
 ## 23. Секреты и переменные окружения
 
-Полный справочник: [`env.md`](env.md). Шаблон: [`.env.example`](../.env.example).
+Полный справочник: `docs/env.md`. Шаблон: `.env.example`.
 
 
 ### 23.1. Обязательные
@@ -1462,7 +1485,7 @@ Catalog entrypoint делает chown `PACKS_ROOT` на appuser (uid 10001). С�
 | Сценарии запуска | `scripts/launcher-version.json` |
 | Consumer update channel | `studio-version.json` |
 
-Каналы SemVer и формула integer build — [`VERSIONING.md`](VERSIONING.md). Скрипт: `scripts/compute-build-number.py`.
+Текущая версия web-продукта — `1.2.0-beta.1`, build `102002001`, канал `beta`. Каналы SemVer и формула integer build описаны в `docs/VERSIONING.md`. Скрипт: `scripts/maintenance/compute-build-number.py`.
 
 <a id="section-25"></a>
 
@@ -1782,7 +1805,13 @@ Mermaid fences и подсветка кода живут рядом (mermaid.ts,
 
 TTL сборок (`COURSE_BUILD_TTL_DAYS`) чистит старые артефакты.
 
-На web и pack-studio компонент `CourseBuildProgress` показывает стадии, а `localizeProgress` переводит сообщения.
+Перед генерацией `chapter_budget` вычисляет нижнюю границу числа глав из объёма корпуса и выбранной глубины. Слишком короткий план расширяется; близкие по заголовку и содержанию главы схлопываются. Заголовки с техническими суффиксами вроде `part 2`, обрывом слова или фрагментом разметки не проходят gate и заменяются безопасным вариантом.
+
+Сборщик обязан получить запрошенное число вопросов: недобор quiz завершает сборку ошибкой, а не тихим предупреждением. Для курсов, ориентированных на команды и инструменты, практика остаётся исполняемой; пустой или однострочный шаблон кода отвергается. Если слабое упражнение не удалось усилить, оно превращается в открытое задание и снижает оценку аудита.
+
+Финальный `quality_audit` сохраняет числовую оценку, уровень, пройденные проверки и коды `must_fix`. Среди проверок — качество заголовков, недобор вопросов, отсутствие визуальных материалов и неполноценный шаблон практики.
+
+На web и pack-studio компонент `CourseBuildProgress` показывает стадии, а `localizeProgress` переводит сообщения. После успеха интерфейс показывает `Course ready`; подробные предупреждения остаются в логах и `quality_audit`.
 
 Готовый результат регистрируется как pack в catalog и появляется в библиотеке.
 
@@ -1945,8 +1974,8 @@ Attempt — сущность sessions. Если клиент ударит в gra
 
 ## 33. Лицензия и куда смотреть дальше
 
-- Код: [GNU AGPL-3.0](../LICENSE)
-- Доп. условия: [LICENSE-SUPPLEMENT.md](../LICENSE-SUPPLEMENT.md)
+- Код: GNU AGPL-3.0 (`LICENSE`)
+- Доп. условия: `LICENSE-SUPPLEMENT.md`
 
 
 ### Куда смотреть
@@ -1954,1683 +1983,11 @@ Attempt — сущность sessions. Если клиент ударит в gra
 | Вопрос | Куда |
 |--------|------|
 | Контракты | `packages/contracts` |
-| Env | [`env.md`](env.md) |
-| Версии | [`VERSIONING.md`](VERSIONING.md) |
-| Интеграции | [`integrations/`](integrations/) |
+| Env | `docs/env.md` |
+| Версии | `docs/VERSIONING.md` |
+| Интеграции | `docs/integrations/` |
 | Превью | [`PREVIEW.md`](PREVIEW.md) |
 | Код сервиса | `services/<name>/app/` |
 | Compose | `deploy/docker-compose.yml` |
 
 Конец руководства разработчика. Обновляйте этот файл вместе с архитектурными изменениями кода.
-
-## 34. Полный каталог публичного HTTP API (BFF)
-
-Ниже — пути, которые видит браузер как `/api` + path (nginx срезает `/api`).
-Источник: роутеры `services/studio-api/app/api/**` и `lsp_gateway`.
-
-### 34.1. Auth — `/v1/auth`
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| POST | `/v1/auth/register` | Регистрация → cookie + профиль |
-| POST | `/v1/auth/login` | Вход |
-| POST | `/v1/auth/logout` | Выход, сброс cookie |
-| POST | `/v1/auth/refresh` | Продление сессии |
-| GET | `/v1/auth/me` | Текущий пользователь + settings |
-| PATCH | `/v1/auth/me/settings` | Обновление settings (в т.ч. секреты интеграций/tutor) |
-
-Файлы: `app/api/auth_routes/router.py` (+ session/settings helpers рядом).
-
-### 34.2. Sessions — `/v1/sessions`
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| GET | `/v1/sessions` | Список сессий |
-| GET | `/v1/sessions/pack-progress` | Прогресс по пакам для каталога |
-| POST | `/v1/sessions` | Старт / возврат active |
-| GET | `/v1/sessions/{id}` | Состояние |
-| GET | `/v1/sessions/{id}/step` | Контент текущего шага |
-| POST | `/v1/sessions/{id}/navigate` | Переход по syllabus |
-| POST | `/v1/sessions/{id}/skip-study` | Skip study-фазы |
-| POST | `/v1/sessions/{id}/submit` | Сдача шага |
-| GET | `/v1/sessions/{id}/attempts` | История попыток |
-| GET | `/v1/sessions/{id}/attempts/{attempt_id}` | Одна попытка (poll lab) |
-
-Файлы: `session_routes/router.py`, `study.py`, `attempts.py`.
-
-### 34.3. Catalog / media / search / analytics
-
-Catalog (см. `catalog_routes/`): список паков, detail, activate, upload, register, delete —
-публичные обёртки над internal catalog.
-
-Media: upload и получение asset через `/v1/media/…` (`app/api/media.py`).
-
-Search:
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| GET | `/v1/search` | Hybrid search |
-| POST | `/v1/search/import` | Импорт через search/import facade |
-
-Analytics: progress / skips / attempts — `analytics_routes/`.
-
-### 34.4. Integrations
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| GET | `/v1/integrations` | Список адаптеров |
-| GET | `/v1/integrations/discover` | Discover внешнего каталога |
-| GET | `/v1/integrations/{platform_id}/catalog` | Курсы платформы |
-| POST | `/v1/integrations/{platform_id}/enroll` | Enroll (Stepik и т.п.) |
-| POST | `/v1/integrations/{platform_id}/import` | Старт import job |
-| POST | `/v1/integrations/{platform_id}/upload` | Upload-вариант |
-| GET | `/v1/integrations/jobs/{job_id}` | Статус job |
-
-### 34.5. Tutor и Studio AI
-
-Tutor (`tutor_routes/`):
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| POST | `/v1/tutor/chat` | Чат (SSE/stream по реализации) |
-| GET | `/v1/tutor/hints/{step_id}` | Подсказка |
-| GET | `/v1/tutor/llm-status` | Статус LLM |
-| POST | `/v1/tutor/warmup` | Warmup (в т.ч. Cursor) |
-| POST | `/v1/tutor/llm-test` | Проверка конфигурации |
-
-Studio (`studio_routes/`):
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| POST | `/v1/studio/validate` | Валидация pack локально |
-| POST | `/v1/studio/build` | Сборка архива |
-| POST | `/v1/studio/ai/suggest` | Suggest фрагмента |
-| POST | `/v1/studio/ai/fetch-article-from-url` | Статья по URL |
-| POST | `/v1/studio/ai/fetch-articles-from-urls` | Несколько URL |
-| GET | `/v1/studio/ai/course-builds` | Список сборок |
-| GET | `/v1/studio/ai/course-builds/{id}` | Детали |
-| DELETE | `/v1/studio/ai/course-builds/{id}` | Удаление |
-| POST | `/v1/studio/ai/course-from-article` | Сборка курса |
-| POST | `/v1/studio/ai/course-from-article/stream` | То же со stream |
-
-### 34.6. Editor / LSP
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| WS | `/v1/lsp/{language}` | Прокси к LSP-контейнеру |
-| POST | `/v1/editor/events` | Сигнал orchestrator (нужен LSP) |
-
-
-## 35. Рецепты `just` — подробно
-
-Файл: [`justfile`](../justfile). Использует `docker compose -f deploy/docker-compose.yml --env-file .env`.
-
-### 35.1. `just up` / `just start`
-
-Оба поднимают `--profile full`. Если `ORCHESTRATOR_MODE` не `power_saving`, добавляют `--profile editor`.
-Создают каталоги `data/*` и `chmod` на packs.
-`up` делает `build` + `up -d --force-recreate`; `start` — только `up -d` без обязательной пересборки.
-Параметр `mode=` прокидывает `ORCHESTRATOR_MODE`.
-
-### 35.2. `rebuild-svc` и `rebuild-web`
-
-`rebuild-svc grading sessions` — точечная пересборка образов и recreate контейнеров.
-`rebuild-web` — только `web` + recreate `web` и `nginx`; напоминает hard-refresh.
-Для ежедневной вёрстки предпочтителен `web-dev`.
-
-### 35.3. `web-dev` и `web-local`
-
-`web-dev` подключает overlay `deploy/docker-compose.web-dev.yml` (HMR).
-`web-local` запускает `npm run dev` на хосте `:3000` с `NUXT_PUBLIC_API_BASE=/api`
-(прокси на стек `:80`).
-
-### 35.4. `test`
-
-1. `uv sync --all-packages`
-2. pytest `packages/python-common` + `packages/contracts` (без DATABASE_URL)
-3. цикл по сервисам с `tests/`
-4. при наличии `apps/web/node_modules` — `npm run test`
-
-PYTHONPATH включает `packages/python-common/src`, `packages/contracts`, `packages/integration-sdk`.
-
-### 35.5. `lint` / `fmt` / `hooks`
-
-ruff check/format, mypy на python-common, shell-скрипты `check-launcher`, `check-compose`,
-`check-tracked-modules`, npm lint web.
-`hooks` ставит pre-commit; `hooks-run` гоняет на всех файлах.
-
-### 35.6. validate-*
-
-`validate-pack path` — `packages/contracts/validate_pack.py`.
-`validate-schemas` — `scripts/validate_pack_schema.py`.
-`validate-integrations` — `scripts/validate_integration_fixtures.py`.
-`ci` = lint + validate-schemas + validate-integrations + test.
-
-### 35.7. `piston-install`
-
-Поднимает piston, копирует `scripts/install_piston_packages.py` в grading,
-exec установки пакетов языков на `http://piston:2000`.
-
-### 35.8. `build-images` / `publish`
-
-bake `deploy/docker-bake.hcl`. publish требует `DOCKER_REGISTRY` и пушит.
-
-
-## 36. Переменные окружения — развёрнуто
-
-См. также [`env.md`](env.md) и [`.env.example`](../.env.example).
-Если значения расходятся — **`.env.example` и Compose** важнее устаревшей строки в тексте.
-
-### 36.1. Обязательные
-
-| Переменная | Назначение |
-|------------|------------|
-| `SECRETS_MASTER_KEY` | Base64 → 32 байта; AES-GCM credentials |
-| `JWT_SECRET` | Подпись JWT |
-| `DATABASE_URL` | PostgreSQL async |
-| `REDIS_URL` | Redis |
-| `RABBITMQ_URL` | RabbitMQ |
-
-Установщик и сценарий `studio` заполняют секреты при первичной установке.
-
-### 36.2. Cookies
-
-| Переменная | Заметка |
-|------------|---------|
-| `COOKIE_SECURE` | `true` только HTTPS |
-| `JWT_EXPIRE_HOURS` | Срок access-токена; смотрите актуальное значение в `.env.example` |
-
-### 36.3. Внутренние URL сервисов
-
-В Compose хосты = имена сервисов. Примеры:
-
-- `AUTH_SERVICE_URL=http://auth:8001`
-- `CATALOG_SERVICE_URL=http://catalog:8002`
-- `SESSIONS_SERVICE_URL=http://sessions:8003`
-- `GRADING_SERVICE_URL=http://grading:8004`
-- `INTEGRATIONS_SERVICE_URL=http://integrations:8005`
-- `TUTOR_SERVICE_URL=http://tutor:8006`
-- `SEARCH_SERVICE_URL=http://search:8007`
-- `ANALYTICS_SERVICE_URL=http://analytics:8008`
-- `MEDIA_SERVICE_URL=http://media:8009`
-- `ORCHESTRATOR_SERVICE_URL=http://orchestrator:8011`
-
-studio-api читает этот набор, чтобы проксировать.
-
-### 36.4. ИИ
-
-| Переменная | Назначение |
-|------------|------------|
-| `OLLAMA_URL` | URL Ollama в сети Compose |
-| `OLLAMA_MODEL` | Модель по умолчанию |
-| `TUTOR_DEFAULT_PROVIDER_URL` | Пусто = Ollama |
-| `TUTOR_RATE_LIMIT_PER_MINUTE` | Rate limit |
-| `LLM_GRADE_ENABLED` | LLM-стадия в grading |
-| `LLM_GRADE_MIN_CONFIDENCE` | Порог confidence |
-| `CURSOR_API_BASE` / `CURSOR_PROXY_*` | Cursor через proxy |
-
-### 36.5. Интеграции и данные
-
-| Переменная | Назначение |
-|------------|------------|
-| `STEPIK_CLIENT_ID` / `SECRET` | OAuth-приложение развёртывания (не пароль обучающегося) |
-| `MINIO_*` | S3 медиа |
-| `MEILISEARCH_URL` / `KEY` | Поиск |
-| `CLICKHOUSE_*` | Analytics |
-| `ANALYTICS_EVENTS_QUEUE` | Имя очереди событий |
-| `ORCHESTRATOR_MODE` | Режимы balancing, maximum или power_saving |
-| `DOCKER_GID` | Доступ к Docker socket на Linux |
-| `LAB_RUNNER_DRY_RUN` | Без реального Docker lab |
-| `LAB_DEFAULT_TIMEOUT_SECONDS` | Срок ожидания лабораторной работы |
-| `PISTON_URL` | URL Piston |
-
-### 36.6. CI publish
-
-`DOCKER_REGISTRY`, `DOCKER_USERNAME`, `DOCKER_PASSWORD` — только для публикации образов, не для обычного `compose up`.
-
-
-## 37. Подсказки модели тьютора — карта ролей
-
-Источник правды: `services/tutor/prompts/ROLES.md` и дерево `prompts/`.
-
-### 37.1. Идея harness
-
-Тексты подсказок модели собираются как **roles + skills + provider** внутри harness (модель, сборка контекста, стадии и верификаторы). Правило простое: сначала чините context и skills, потом effort, и только потом меняйте модель. Полная замена `shared/core` разрушительна.
-
-### 37.2. Стадии tutor chat
-
-1. Context build — role + skills + provider + outline/page в XML-делимитерах.
-2. Draft — completion (Ollama буфер / external stream).
-3. Polish (Ollama) — язык/скрипт.
-4. Quality gate — ещё один polish при проблемах.
-5. Emit — SSE.
-
-Hints / Pack Studio пропускают polish; Pack Studio — JSON-only контракт.
-Grade / article / course — format forcing + JSON repair-pass.
-
-### 37.3. Article → course (расписание)
-
-Analyze (+ book_spine) последовательно → theory chapters 1–2 serial →
-середина parallel только на external (Ollama serial) → book polish →
-quizzes∥code parallel на external. Multi-item стадии — **один item на LLM call**,
-чтобы не резать JSON. Multi-article может останавливаться на consistency_gate.
-
-### 37.4. Контуры продукта (не смешивать историю чата)
-
-Learner study/practice chat, contextual hints, pack studio, grade_check,
-course_from_article, article_from_url — изолированные harness-вызовы с разными
-`LlmTaskKind`. Не тащите transcript study-чата в grade_check.
-
-### 37.5. Composer в коде
-
-`app.domain.prompts.build_system_prompt(PromptRequest)`.
-Оборот learner turn: `format_learner_turn` с `<learner_message>` и `<response_contract>`.
-
-
-## 38. Инвентарь Compose-сервисов
-
-Проект Compose: `task-studio`. Файл: `deploy/docker-compose.yml`.
-
-### 38.1. Инфраструктура (image)
-
-| Сервис | Image (тип) | Том данных |
-|--------|-------------|------------|
-| postgres | postgres:16-alpine | data/postgres |
-| redis | redis:7-alpine | data/redis |
-| rabbitmq | rabbitmq:3-management-alpine | data/rabbitmq |
-| traefik | traefik:v3.4 | configs + docker.sock |
-| nginx | nginx:alpine | configs |
-| piston | ghcr.io/engineer-man/piston (override) | data/piston/packages |
-| meilisearch | getmeili/meilisearch:v1.12 | data/meilisearch |
-| clickhouse | clickhouse-server:24.8-alpine | data/clickhouse |
-| ollama | ollama/ollama:0.11.x | data/ollama |
-| minio | minio RELEASE.2025-04-22… | data/minio |
-| prometheus | prom/prometheus:v3.2.1 | named volume |
-| grafana | grafana/grafana:11.5.2 | named volume |
-| pyroscope | grafana/pyroscope:1.12.0 | — |
-| node-exporter | profile host-metrics | — |
-| cadvisor | profile host-metrics | — |
-
-### 38.2. Приложения (build)
-
-studio-api, auth, catalog, sessions, grading, integrations, tutor, cursor-proxy,
-search, analytics, media, lab-runner, orchestrator, web, pack-studio,
-lsp-pyright, lsp-typescript, lsp-gopls, lsp-sqls (profile editor).
-
-### 38.3. Критичные depends_on
-
-- Backend-ядро → healthy postgres/redis/rabbitmq.
-- grading → piston + tutor/media; packs volume.
-- lab-runner → grading + docker.sock + packs:ro.
-- tutor → ollama; course-builds volume.
-- search → meilisearch; media → minio; analytics → clickhouse.
-- nginx → healthy web, pack-studio, studio-api.
-- orchestrator → redis, prometheus, auth + docker.sock.
-
-
-## 39. Внутренние API доменных сервисов (шпаргалка)
-
-### 39.1. grading
-
-- `POST /internal/v1/grading/check` — синхронная проверка.
-- `POST /internal/v1/grading/lab` — постановка lab.
-- `POST /internal/v1/grading/lab/complete` — callback от lab-runner.
-
-### 39.2. sessions (кроме уже перечисленного через BFF)
-
-Internal зеркала тех же операций; плюс `abandon-by-pack-versions`,
-`attempts/{id}/complete` для lab.
-
-### 39.3. catalog
-
-packs list/detail/activate/upload/register/delete, pack-versions get.
-
-### 39.4. integrations
-
-list, discover, catalog, enroll, import, upload, jobs get.
-
-### 39.5. tutor internal
-
-chat, hints, grade, warmup, llm-status, llm-test, studio suggest,
-course-from-article(+stream), course-builds.
-
-### 39.6. analytics / search / media / orchestrator / auth
-
-См. §8 карточки сервисов — таблицы HTTP.
-
-
-## 40. Детальный разбор каскада grading (ещё раз с файлами)
-
-Точка входа: `services/grading/app/domain/check/service.py`.
-
-### 40.1. Quiz chain
-
-`quiz/stages.py`: answer key → Stepik choice → LLM → ungradable.
-Локальный ключ сравнивает `choice_index` с `step.answer`.
-
-### 40.2. Code chain
-
-require source → Stepik code → SQL local → Piston harness → LLM → ungradable.
-Harness: `domain/code/harness.py` + `harness/resolve.py` / `harness/io/build.py`.
-
-### 40.3. Когда включать LLM
-
-Только если предыдущие стадии не дали вердикт и `LLM_GRADE_ENABLED`.
-Tutor `/internal/v1/tutor/grade` + confidence ≥ `LLM_GRADE_MIN_CONFIDENCE`.
-
-### 40.4. Lab async state machine
-
-1. sessions создаёт attempt pending.
-2. grading публикует lab.jobs.
-3. lab-runner исполняет.
-4. complete → grading → sessions attempt complete.
-5. UI poll GET attempt.
-
-Сбой на любом шаге должен оставлять attempt в терминальном failed/error,
-а не silent pending — проверяйте логи callback.
-
-
-## 41. Детальный разбор sessions create/submit/gate
-
-### 41.1. Create
-
-`session_lifecycle.start_session` → `session_create.create_new_session`.
-Active на том же pack возвращается; иначе catalog pack version + first_position(manifest).
-
-### 41.2. Submit
-
-`session_submission.submit_step`:
-- lab → lab route;
-- иначе grade submit: лимит assess → attempt → call_grading → apply → analytics.
-
-### 41.3. Gate
-
-`session_navigation` + `session_gate_leave` + `session_gating`:
-- assess blocked без practice;
-- require_pass_to_advance → 403;
-- max attempts assess → 409.
-
-Клиент дублирует UX-блокировку, но сервер — авторитет.
-
-
-## 42. Страницы web — поведение по коду
-
-### 42.1. Редиректы
-
-`/`, `/search` → `/catalog`. `/auth` → `/login`. `/register` → `/login?mode=register`.
-
-### 42.2. login.vue
-
-Единая форма login/register. useAuth + toasts + app page title.
-Успех → `/catalog`.
-
-### 42.3. catalog/index.vue
-
-Библиотека и external. LibraryCourseCreate, CourseBuildProgress, downloads,
-discover cache, pack progress, delete/discard builds.
-Утилиты `utils/catalog/*`.
-
-### 42.4. catalog/[id].vue
-
-Outline из manifest, startSession, delete, redownload broken external.
-
-### 42.5. sessions/[id].vue
-
-Syllabus + main по kind + tutor dock. Submit через useSessionGradeSubmit.
-Warmup Cursor при монтировании при необходимости.
-
-### 42.6. analytics.vue
-
-useAnalytics: progress, skips, attempts; графики PassRing/ProgressChart.
-
-### 42.7. settings.vue
-
-useSettingsPage + credential autofill: интеграции, tutor LLM, editor runtimes.
-
-
-## 43. Pack Studio — сценарии автора
-
-1. Login → cookie как у learner (тот же auth).
-2. Редактор JSON manifest.
-3. Validate через `/v1/studio/validate`.
-4. Build zip через `/v1/studio/build`.
-5. Upload в catalog.
-6. Suggest — AI fragment.
-7. Article→course stream + CourseBuildProgress.
-8. localizeProgress переводит стадии.
-
-Утилиты: `apps/pack-studio/utils/studio/*`.
-Health: `server/routes/health.get.ts`.
-
-
-## 44. Импортёры — контрольные точки качества
-
-### 44.1. Общее
-
-Каждый importer должен быть детерминирован на fixtures и устойчив к лимитам live API.
-Report обязан честно говорить full/partial/truncated.
-
-### 44.2. Stepik
-
-Токен, дерево курса, map step kinds, enroll отдельно от import.
-Partial при обрезании шагов — не маскировать под full.
-
-### 44.3. freeCodeCamp
-
-GraphQL curriculum; DOM asserts могут не работать в Piston — предупреждение в report.
-
-### 44.4. Exercism
-
-Импортёр опирается на Tracks API и файлы с GitHub; держит один topic и использует fixture id=1 в тестах.
-
-
-## 45. runtime_modules — статус заглушки
-
-По `runtime_modules/README.md` сервисы **не** читают эту папку как источник истины для execute и LSP.
-Есть манифесты python, javascript, go, sql и шаблон docker-lab.
-Не подключайте каталог «вслепую». Импортёры живут только в
-`integration_modules/{stepik,exercism,freecodecamp}`.
-
-
-## 46. Сценарии запуска: состояния меню и heal
-
-`ops_stack_state` возвращает одно из состояний: missing, stopped или running.
-Команда `heal` восстанавливает частично поднятый стек (см. реализацию в `ops.sh` / `Ops.ps1`).
-Команда `open` открывает `TASK_STUDIO_UI_URL` в браузере.
-Язык консоли берётся из локали ОС; палитра близка к токенам веб-интерфейса.
-
-
-## 47. Самообновление — алгоритм content-sha256
-
-1. Выполните HTTP GET `studio-version.json` с учётом TTL-кэша.
-2. Сравните version с локальным `.studio-state.json`.
-3. Скачайте архив по указанному URL.
-4. Посчитайте content-sha деревьев, исключая `data/`, `.env`, `node_modules`, `.git`, `.cursor` и подобные каталоги.
-5. При отличии сделайте поэтапную замену и сохраните пользовательские данные.
-6. Пересоберите и перезапустите стек по политике `ops_update_apply`.
-
-PET-checkout без маркера `.studio-consumer` не обновляется, пока не выставлен
-`TASK_STUDIO_ALLOW_SELF_UPDATE=1` (на рабочей копии это опасно).
-
-
-## 48. Безопасность HTML и XSS
-
-Sanitize на клиенте обязателен для theory/html из пакета и импортов.
-Цепочка такая: `studyBodyToHtml` → `sanitizeStudyHtml` → `purifyStudyHtml` (DOMPurify).
-Не добавляйте `v-html` мимо этой цепочки.
-Серверные импортёры тоже не должны вставлять script в контент шагов.
-
-
-## 49. Наблюдаемость запросов
-
-На BFF проставляется `X-Request-Id`. При ошибке отправки ответа ищите этот id в логах studio-api, sessions и grading.
-Структурные логи даёт `studio_common.logging`; секреты режет `log_redact`.
-Сервисы отдают `/metrics`; Grafana и Prometheus нужны человеку, а orchestrator использует метрики для авто-снятия контейнеров.
-
-
-## 50. Чеклист перед PR
-
-1. Граница сервиса не нарушена (нет SQL между доменами).
-2. Если трогали API или pack, контракт обновлён в `packages/contracts`.
-3. Есть тесты на новый или изменённый путь.
-4. `just lint` и затронутые pytest зелёные.
-5. Документация обновлена: этот файл или `env.md`, если менялись публичные поведения.
-6. В git нет секретов.
-7. Для нового контейнера учтены Compose и проверки готовности.
-
-
-## 51. Частые ошибки новичков в репозитории
-
-1. Править только web, забыв gate в sessions — интерфейс врёт, сервер отвечает 403.
-2. Добавить поле в StepContent только в клиенте без схемы в contracts.
-3. Класть бизнес-логику в studio-api «на минутку».
-4. Вызывать Piston из sessions напрямую.
-5. Коммитить `data/packs` с чужими курсами.
-6. Открывать порты Rabbit management и Postgres в LAN «для удобства».
-7. Ждать, что `runtime_modules` уже подключены к execute/LSP.
-8. Путать `studio-version.json` с `app-version.json`.
-
-
-## 52. Расширенные проходки пользователя
-
-### 52.1. Первый день на consumer-установке
-
-Запускают `install.sh`, получают ярлык, открывают меню `studio`, делают первичную установку (это долго), открывают сайт, регистрируются, видят пустой catalog, импортируют или создают курс, стартуют session и отправляют ответ.
-
-### 52.2. Разработчик правит sanitize
-
-Меняет `utils/study/*`, гоняет vitest `sanitizeHtml.spec`, проверяет theory-шаг через `web-dev` и при наличии — e2e.
-
-### 52.3. Разработчик правит quiz cascade
-
-Пишет тест quiz stages, прогоняет ручной pack с answer key через session submit без LLM.
-Затем отдельно тестирует ветки Stepik и LLM с имитациями границ.
-
-### 52.4. Разработчик добавляет analytics event
-
-Добавляет событие в sessions `analytics_events`, обновляет схему, проверяет потребителя analytics и график в интерфейсе.
-Обязательно проверяет flush outbox при недоступности RabbitMQ.
-
-
-## 53. Таблица соответствия UI-компонент ↔ API
-
-| Компонент / страница | API |
-|----------------------|-----|
-| login.vue | `/v1/auth/login|register` |
-| catalog/index | `/v1/catalog/*`, `/v1/integrations/*`, `/v1/search`, `/v1/studio/ai/*` |
-| catalog/[id] | catalog detail, `/v1/sessions` POST |
-| sessions/[id] | sessions step/navigate/submit/attempts, `/v1/tutor/*` |
-| SessionLabPanel | submit + GET attempt |
-| SessionCodeEditor | submit source; WS LSP |
-| settings.vue | PATCH `/v1/auth/me/settings`, llm-test/warmup |
-| analytics.vue | `/v1/analytics/*` |
-| pack-studio index | `/v1/studio/*`, catalog upload |
-
-
-## 54. Таблица соответствия доменных файлов sessions
-
-| Файл | Роль |
-|------|------|
-| `session_create.py` | Создание |
-| `session_lifecycle.py` | start/list facade |
-| `session_submission.py` | submit entry |
-| `session_grade_submit.py` | sync grade path |
-| `session_lab_submit.py` / `session_lab_route.py` | lab |
-| `session_navigation.py` | navigate |
-| `session_gate_leave.py` / `session_gating.py` | gate |
-| `session_completion.py` | завершение |
-| `session_attempts.py` | attempts |
-| `analytics_events.py` / `messaging.py` | события |
-| `catalog_client.py` / `session_grading_client.py` | HTTP клиенты |
-
-
-## 55. Таблица соответствия grading domain dirs
-
-| Каталог | Роль |
-|---------|------|
-| `check/` | вход, task, cascade |
-| `quiz/` | quiz stages |
-| `code/` | code grade + stepik + harness |
-| `sql/` | sql local |
-| `llm/` | LLM fallback |
-| `lab/` + `lab_jobs/` | lab sync/async |
-| `stepik_quiz/` | внешний оракул Stepik |
-| `piston/` | клиент Piston |
-| `pack/` | materialize pack для проверки |
-| `harness/` | сборка harness IO |
-| `executable/` | executable fixtures |
-
-
-## 56. Как читать код сервиса `auth`
-
-1. Начните с `api/router.py` — все внутренние auth-пути рядом.
-2. Хеширование паролей лежит в `domain/passwords.py`; не тащите свой bcrypt в другой сервис.
-3. Patch настроек проходит через secrets merge в `studio_common` для encrypted fields.
-4. При смене модели User/Settings Alembic обязателен.
-
-
-## 56. Как читать код сервиса `catalog`
-
-1. Модули `packs/store` (upload/delete) отвечают и за диск, и за метаданные.
-2. `media_*` готовят медиа пакета; это не то же самое, что отдача байтов в `services/media`.
-3. Entrypoint делает chown packs — типичный симптом PermissionError на upload после ручного копирования от root.
-
-
-## 56. Как читать код сервиса `sessions`
-
-1. Сначала смотрите `session_schemas` в contracts — это контракт интерфейса.
-2. Затем читайте domain `session_*`; `api/routes` должны оставаться тонкими.
-3. Outbox analytics важен: не удаляйте flush loop из lifespan без замены.
-
-
-## 56. Как читать код сервиса `grading`
-
-1. Начните с `check/service.py` — там карта kind.
-2. Добавляя стадию, впишите её в cascade явно и покройте тестом порядка.
-3. `worker_jobs.py` и связанные модули — фоновый обработчик очереди `grading.jobs`.
-
-
-## 56. Как читать код сервиса `integrations`
-
-1. Сердце импорта — `jobs/execute_pipeline.py`.
-2. Модули лежат на диске под `INTEGRATION_MODULES_ROOT`; в Docker смонтирован каталог modules репозитория.
-3. Расшифровывайте credentials только на время вызова адаптера.
-
-
-## 56. Как читать код сервиса `tutor`
-
-1. Смотрите `prompts/` и `prompt_compose` — не хардкодьте system prompt в route.
-2. `course_from_article` и chat — разные контуры, их нельзя смешивать.
-3. Каталоги `ollama/` и `llm/` задают границу провайдера.
-
-
-## 56. Как читать код сервиса `search`
-
-1. Модули indexing* строят документы; query читает Meilisearch.
-2. `worker_handle` на очереди `search.index` делает идемпотентный upsert/delete.
-
-
-## 56. Как читать код сервиса `analytics`
-
-1. HTTP ingest и фоновый обработчик должны сходиться в одну запись событий.
-2. ClickHouse schema boot — clickhouse_boot.py.
-
-
-## 56. Как читать код сервиса `media`
-
-1. storage.py — единственное место говорить с MinIO.
-2. asset_ids кодируют владельца; не принимайте чужой key от клиента как есть.
-
-
-## 56. Как читать код сервиса `lab-runner`
-
-1. Публичного API нет — только фоновый обработчик.
-2. compose_exec изоляция сетей lab; чистка после timeout обязательна.
-
-
-## 56. Как читать код сервиса `orchestrator`
-
-1. policies/policy_* — читаемые правила shed/keep.
-2. redis_flags — паузы import/search под давлением.
-3. Не используйте orchestrator как HTTP load balancer приложений.
-
-
-## 56. Как читать код сервиса `cursor-proxy`
-
-1. openai_api/stream.py — SSE/chunk совместимость.
-2. cursor_client/agents — Cloud Agents API.
-3. Таймауты CURSOR_PROXY_TIMEOUT_SECONDS на длинных агентах.
-
-
-## 56. Как читать код сервиса `studio-api`
-
-1. main.py include_router — карта поверхности.
-2. Не добавляйте SQLAlchemy models сюда.
-3. lsp_gateway держит WS; проверка auth на handshake.
-
-
-## 57. Словарь статусов и кодов (практика)
-
-Точные enum смотрите в contracts/моделях; ниже — смысл для отладки.
-
-- Session active — можно продолжать.
-- Session completed — курс/сессия завершена.
-- Session abandoned — снята (удаление пака / замена).
-- Attempt pending — lab или долгая проверка ещё идёт.
-- Attempt passed/failed — терминал для gate.
-- HTTP 403 на navigate — gate require_pass.
-- HTTP 409 — конфликт лимита попыток / состояния.
-- Import job running/succeeded/failed — UI опрашивает jobs/{id}.
-- Orchestrator mode power_saving — LSP/Ollama могут отсутствовать.
-
-
-## 58. Что обновить в этом файле при изменениях
-
-| Изменение | Секции |
-|-----------|--------|
-| Новый сервис | §8, §38, §6/7 если публичный | 
-| Новый BFF path | §34 |
-| Новая очередь | §12 |
-| Новый kind шага | §13–15, §40, contracts |
-| Новая интеграция | §18, §44 |
-| Новый env | §36, env.md, .env.example |
-| Новый just рецепт | §35 |
-| UI экран | §17 (снимки), §42 |
-
-
-## 59. Заключение
-
-Task Studio устроен как набор узких сервисов за общим BFF. Единый контракт курса — пакет (pack); источник правды по прогрессу обучающегося — сессия; проверка ответов — каскад стадий в grading. Читайте код по границам из этого документа и дополняйте сам документ проверяемыми фактами, а не общими лозунгами.
-
-Предпросмотр «лица» продукта для README лежит в [`assets/readme-preview.png`](assets/readme-preview.png) и собран из макета [`PREVIEW.md`](PREVIEW.md):
-
-```bash
-python scripts/docs-capture-preview.py
-```
-
-Снимки живого интерфейса Nuxt/Vue и способ их переснять описаны в §17 и в скрипте `scripts/docs-capture-ui.py`.
-
-
-## 60. Напоминание про иллюстрации
-
-Если нужна картинка реального приложения, смотрите §17: там лежат снимки входа, регистрации, библиотеки и поиска курсов, формы сборки из статей, карточки курса, сессии, аналитики, настроек (включая интеграции и ИИ) и Pack Studio. Макет README к работающему интерфейсу приложения не относится.
-
-
-## 61. Pack schema v1 — ключи верхнего уровня
-
-Схема пакета описана в `packages/contracts/pack-schema-v1.json`.
-
-Обязательные поля (**required**): `schema_version`, `id`, `version`, `title`, `topics`, `steps`.
-
-Имена свойств верхнего уровня (**properties**): `schema_version`, `id`, `version`, `title`, `locale`, `source`, `defaults`, `policies`, `topics`, `course_assess`, `steps`.
-
-Если схему меняете, держите согласованность по всей цепочке:
-
-1. Обновите JSON Schema и Python-валидаторы (`pack.py` и тесты).
-2. Подтяните импортёры платформ и Pack Studio под новые поля.
-3. Обновите отображение шага в sessions и клиентском приложении.
-4. Прогоните `just validate-schemas` и `just validate-pack`.
-
-
-## 62. Файлы domain sessions (полный список модулей)
-
-Каталог `services/sessions/app/domain/`:
-
-- `analytics_events.py`
-- `catalog_client.py`
-- `messaging.py`
-- `session_attempts.py`
-- `session_completion.py`
-- `session_create.py`
-- `session_errors.py`
-- `session_gate_leave.py`
-- `session_gating.py`
-- `session_grade_apply.py`
-- `session_grade_submit.py`
-- `session_grading_client.py`
-- `session_lab_policy.py`
-- `session_lab_route.py`
-- `session_lab_submit.py`
-- `session_lifecycle.py`
-- `session_navigation.py`
-- `session_pack_progress.py`
-- `session_passed.py`
-- `session_progress.py`
-- `session_queries.py`
-- `session_skip.py`
-- `session_submission.py`
-- `session_submit_analytics.py`
-- `sessions.py`
-
-Читайте их парами с `app/api/routes/*` и `packages/contracts/studio_contracts/session_schemas.py`.
-
-
-## 63. Дерево подсказок модели tutor (имена на диске)
-
-### shared/
-- `chat_context.md`
-- `core.md`
-
-### roles/
-- `article_from_url.md`
-- `contextual_hints.md`
-- `course_from_article.md`
-- `grade_check.md`
-- `pack_studio.md`
-- `practice_chat.md`
-- `study_chat.md`
-
-### provider/
-- `external.md`
-- `ollama-polish.md`
-- `ollama-quality.md`
-
-### skills/ (фрагмент списка)
-- `anti-hallucination-source.md`
-- `article-consistency.md`
-- `article-dechrome.md`
-- `attempt-review.md`
-- `atypical-cases.md`
-- `book-polish.md`
-- `code-task-ladder.md`
-- `course-stage-json.md`
-- `curriculum-synthesis.md`
-- `diagram-craft.md`
-- `domain-business.md`
-- `domain-data.md`
-- `domain-general.md`
-- `domain-humanities.md`
-- `domain-language-learning.md`
-- `domain-programming.md`
-- `domain-science.md`
-- `expand-dense-prose.md`
-- `few-shot-hints-compact.md`
-- `few-shot-hints.md`
-- `grade-code.md`
-- `grade-duty.md`
-- `grade-evidence.md`
-- `grade-json-contract.md`
-- `grade-lab.md`
-- `grade-quiz.md`
-- `grade-task.md`
-- `ground-on-page.md`
-- `instructional-design.md`
-- `kind-code.md`
-- `kind-lab.md`
-- `kind-quiz.md`
-- `kind-task.md`
-- `kind-theory.md`
-- `kind-video.md`
-- `light-cot.md`
-- `negative-constraints.md`
-- `open-task-ladder.md`
-- `pack-manifest-contract.md`
-- `quiz-assessment-design.md`
-
-Полный список смотрите в файловой системе; новые skill-файлы подключайте через composer, не копируя текст в route handlers.
-
-
-## 64. apps/web/utils — карта доменов
-
-
-### 64.analytics
-
-Файлы: `chartTheme.ts`, `index.ts`, `stats.spec.ts`, `stats.ts`
-
-
-### 64.api
-
-Файлы: `error.ts`, `index.ts`
-
-
-### 64.catalog
-
-Файлы: `courseRows.spec.ts`, `courseRows.ts`, `display.spec.ts`, `display.ts`, `download.spec.ts`, `download.ts`, `index.ts`, `learning.spec.ts`, `learning.ts`, `outline.ts`, `outlineTypes.ts`, `packStatus.spec.ts`
-
-
-### 64.media
-
-Файлы: `index.ts`, `player.spec.ts`, `player.ts`, `url.spec.ts`, `url.ts`
-
-
-### 64.search
-
-Файлы: `index.ts`, `types.ts`
-
-
-### 64.session
-
-Файлы: `feedback.spec.ts`, `feedback.ts`, `index.ts`, `learningProgress.ts`, `stepView.spec.ts`, `stepView.ts`, `types.ts`
-
-
-### 64.settings
-
-Файлы: `credentialAutofill.spec.ts`, `credentialAutofill.ts`, `dirty.spec.ts`, `dirty.ts`, `editorSettings.ts`, `index.ts`, `integrationCopy.ts`, `integrationFields.spec.ts`, `integrationFields.ts`, `llmModelCatalog.ts`, `tutorForm.spec.ts`, `tutorForm.ts`
-
-
-### 64.studio
-
-Файлы: `courseStream.mapStage.spec.ts`, `courseStream.spec.ts`, `courseStream.ts`, `index.ts`, `libraryCourseCreate.spec.ts`, `libraryCourseCreate.ts`, `localizeProgress.spec.ts`, `localizeProgress.ts`, `localizeProgressPatterns.ts`
-
-
-### 64.study
-
-Файлы: `highlightCode.spec.ts`, `highlightCode.ts`, `index.ts`, `mermaid.spec.ts`, `mermaid.ts`, `purifyStudyHtml.ts`, `sanitizeEncoding.ts`, `sanitizeHtml.spec.ts`, `sanitizeHtml.ts`
-
-
-### 64.tutor
-
-Файлы: `chatHtml.spec.ts`, `chatHtml.ts`, `index.ts`, `types.ts`
-
-
-## 65. Назначение ключевых web utils (по именам файлов)
-
-### catalog
-`courseRows.ts` — строки таблицы/карточек библиотеки; `display.ts` — подписи и бейджи;
-`learning.ts` — прогресс/обучение; `types.ts` — типы каталога.
-
-### session
-`stepView.ts` — проекция шага для UI; `types.ts` — типы сессии на клиенте.
-
-### study
-`sanitizeHtml.ts`, `purifyStudyHtml.ts`, `sanitizeEncoding.ts`, `mermaid.ts`, `highlightCode.ts` —
-безопасный рендер теории.
-
-### studio
-`courseStream.ts` — разбор SSE/прогресса сборки курса; `libraryCourseCreate.ts` —
-форма создания; `localizeProgress.ts` / `localizeProgressPatterns.ts` — i18n стадий.
-
-### tutor
-Формы и хелперы чата/настроек тьютора на клиенте.
-
-### api
-Общие fetch/error helpers для `useApi`.
-
-### media / analytics / search / settings
-Узкие хелперы соответствующих экранов.
-
-
-## 66. Пример integration.json (Stepik)
-
-Содержимое `integration_modules/stepik/integration.json` (фрагмент/факт наличия):
-
-```json
-{
-  "id": "stepik",
-  "version": "1.1.0",
-  "display_name": "Stepik",
-  "capabilities": {
-    "import_course": true,
-    "search_catalog": true,
-    "requires_auth": true,
-    "import_without_auth": true,
-    "content_types": ["quiz", "code", "theory", "video"]
-  },
-  "auth": {
-    "type": "password",
-    "settings_fields": ["username", "password"],
-    "optional_settings_fields": ["client_id", "client_secret"]
-  },
-  "entrypoints": {
-    "health": "importer:health",
-    "import": "importer:import_course",
-    "search": "importer:search_remote",
-    "list_catalog": "importer:list_catalog",
-    "enroll": "importer:enroll_course"
-  }
-}
-
-```
-
-Поля манифеста интеграции описывают id платформы, display name, capabilities
-(discover/import/enroll) — точный набор сверяйте с файлом и с `integration_schemas`.
-
-
-## 67. nginx proxy.conf
-
-Файл `deploy/nginx/proxy.conf` подключается в location’ах. Содержимое:
-
-```
-proxy_set_header Host $host;
-proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-proxy_set_header X-Forwarded-Proto $scheme;
-proxy_http_version 1.1;
-proxy_buffering off;
-# Course SSE + Ollama can sit quiet between stage events for many minutes.
-proxy_read_timeout 3600s;
-proxy_send_timeout 3600s;
-proxy_connect_timeout 30s;
-```
-
-Это общие proxy_set_header / buffering настройки; не дублируйте бизнес-логику здесь.
-
-
-## 68. deploy/profiles.json — структура
-
-- `version`: 1
-- Ключи верхнего уровня: `version`, `memory_mb`, `service_class`, `compose_env`, `profiles`
-- Профили логические: `minimal`, `study`, `full`
-- Классы memory_mb: `db`, `cache`, `broker`, `app`, `search`, `analytics_db`, `heavy_ml`, `code_runner`, `lsp`
-
-Сервис → class (фрагмент): 
-- `postgres` → `db`
-- `redis` → `cache`
-- `rabbitmq` → `broker`
-- `meilisearch` → `search`
-- `clickhouse` → `analytics_db`
-- `ollama` → `heavy_ml`
-- `piston` → `code_runner`
-- `lsp-pyright` → `lsp`
-- `lsp-typescript` → `lsp`
-- `lsp-gopls` → `lsp`
-- `lsp-sqls` → `lsp`
-
-Помните: bash-сценарий `studio.sh` всё равно поднимает compose profile `full` (+ editor/host-metrics по условиям).
-
-
-## 69. Выжимка VERSIONING.md
-
-Ниже — пересказ для разработчика; канон — [`VERSIONING.md`](VERSIONING.md).
-
-
-# Versioning
-
-
-Task Studio uses [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) for the **public version string** and a derived **integer build** for installers, menus, and manifests.
-
-
-## Public version (SemVer)
-
-
-```
-MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD_META]
-```
-
-
-| Piece | Meaning |
-| --- | --- |
-| `MAJOR` | Breaking product/API surface |
-| `MINOR` | Backward-compatible features |
-| `PATCH` | Backward-compatible fixes |
-| `PRERELEASE` | Stability channel (see below) |
-| `BUILD_META` | Optional SemVer build metadata (ignored for precedence) |
-
-
-### Channels (`PRERELEASE`)
-
-
-| Label | SemVer examples | When |
-| --- | --- | --- |
-| `alpha` | `1.0.0-alpha.1` | First public cut; expected rough edges |
-| `beta` | `1.1.0-beta.1` | Feature-complete for the minor; polish / bugfix |
-| `rc` | `1.1.0-rc.1` | Release candidate; ship blockers only |
-| _(none)_ | `1.1.0` | General availability (GA) |
-
-
-The trailing `.n` is the **iteration** within that channel for the same `MAJOR.MINOR.PATCH` (starts at `1`).
-
-
-Develop / nightlies stay on the consumer manifest as `0.0.0-develop` (see `studio-version.json`) and are not changelog releases.
-
-
-## Integer build number
-
-
-Installers and update checks need a single monotonically useful integer. Compute it as:
-
-
-```
-build = MAJOR * 100_000_000
-      + MINOR *   1_000_000
-      + PATCH *      10_000
-      + C     *       1_000
-      + n
-```
-
-
-| Symbol | Source |
-| --- | --- |
-| `MAJOR`, `MINOR`, `PATCH` | SemVer core |
-| `C` | Channel code: `alpha=1`, `beta=2`, `rc=3`, `ga=9` |
-| `n` | Iteration `1…999` for that `X.Y.Z` + channel |
-
-
-### Examples
-
-
-| Version | C | n | Build |
-| --- | --- | --- | --- |
-| `1.0.0-alpha.1` | 1 | 1 | `100001001` |
-| `1.0.0-alpha.2` | 1 | 2 | `100001002` |
-| `1.1.0-beta.1` | 2 | 1 | `101002001` |
-| `1.1.1-beta.1` | 2 | 1 | `101012001` |
-| `1.1.0-rc.1` | 3 | 1 | `101003001` |
-| `1.1.0` (GA) | 9 | 1 | `101009001` |
-| `1.1.1` (GA) | 9 | 1 | `101019001` |
-
-
-Within one product line this ordering grows with major → minor → patch → channel → iteration, so `1.0.0-alpha.2` < `1.1.0-beta.1` < `1.1.0` as integers as well as SemVer.
-
-
-### Web UI source
-
-
-The sidebar reads [`apps/web/app-version.json`](../apps/web/app-version.json) (overridable with `NUXT_PUBLIC_APP_VERSION` / `NUXT_PUBLIC_APP_BUILD` / `NUXT_PUBLIC_APP_CHANNEL`). Keep that file in sync when cutting a changelog release.
-
-
-### Launcher source
-
-
-The terminal launcher (bash / PowerShell) reads [`scripts/launcher-version.json`](../scripts/launcher-version.json). Chrome title shows SemVer (`Task Studio Launcher · 1.0.0-beta.1`); the footer appends `build …`. Launcher versioning is independent of the web app and of the consumer tip in `studio-version.json`.
-
-
-| Artifact | Role | Example |
-| --- | --- | --- |
-| `apps/web/app-version.json` | Web UI sidebar | `1.1.1-beta.1` / `101012001` |
-| `scripts/launcher-version.json` | Installer / TUI chrome | `1.0.0-beta.1` / `100002001` |
-| `studio-version.json` | Consumer update channel | `0.0.0-develop` on develop tip |
-
-
-### Compute helper
-
-
-```bash
-python3 scripts/compute-build-number.py 1.1.0-beta.1
-# → version=1.1.0-beta.1 build=101002001 channel=beta n=1
-```
-
-
-## Release checklist
-
-
-1. Bump SemVer + iteration in `CHANGELOG.md` (Keep a Changelog section).
-2. Run `scripts/compute-build-number.py` and paste **Build** into the changelog entry.
-3. Sync `apps/web/app-version.json` (and, when releasing the launcher chrome, `scripts/launcher-version.json`) with the same SemVer / build / channel.
-4. For a consumer release channel, update `studio-version.json` `version` / `channel` / `ref` / archive URLs (leave `0.0.0-develop` on the develop tip).
-5. Tag git as `v{version}` (example: `v1.1.0-beta.1`).
-6. Optionally set SemVer build metadata to the same integer: `1.1.0-beta.1+101002001`.
-
-
-## 70. Пошагово: регистрация и первая сессия
-
-1. Открыть http://localhost/register или /login?mode=register.
-2. POST /api/v1/auth/register через форму.
-3. Получить cookie; попасть в /catalog.
-4. Импортировать курс или создать из статьи.
-5. Дождаться job/build.
-6. Открыть /catalog/{id}, нажать старт.
-7. POST /api/v1/sessions; редирект /sessions/{id}.
-8. Пройти study → practice; сдать quiz/code.
-9. При gate сдать обязательный шаг.
-10. Завершить assess; проверить analytics.
-
-
-## 71. Пошагово: отладка 403 на Next
-
-1. Открыть DevTools Network: navigate или UI next.
-2. Найти 403 и body code/detail.
-3. Проверить require_pass_to_advance в step/session state.
-4. Проверить последний attempt — passed ли.
-5. Смотреть sessions логи session_gate_leave.
-6. Не «чините» только клиент, если сервер отвергает запрос.
-
-
-## 72. Пошагово: отладка lab pending
-
-1. GET attempt на UI — статус pending?
-2. Логи grading: lab enqueue.
-3. rabbitmq: очередь lab.jobs растет?
-4. Логи lab-runner: compose up / timeout.
-5. Был ли POST lab/complete?
-6. sessions attempts complete применён?
-7. DRY_RUN случайно включён?
-
-
-## 73. Пошагово: добавить skill тьютора
-
-1. Создать файл в prompts/skills/.
-2. Подключить в composer/role mapping.
-3. Не трогать shared/core без нужды.
-4. Прогнать llm-test / ручной chat на шаге.
-5. Документировать skill в ROLES.md при необходимости.
-
-
-## 74. Пошагово: новый маршрут API в BFF
-
-1. Схема в contracts.
-2. Internal route в доменном сервисе.
-3. Прокси в studio-api router.
-4. useApi/composable на web.
-5. Тесты service + при необходимости e2e.
-6. Строка в §34 этого файла.
-
-
-## 75. Компоненты занятия — ответственность
-
-### SessionStudyBody
-Рендерит sanitized HTML теории; не ходит в API сам.
-
-### SessionCodeEditor
-Держит текст программы, reset к starter, LSP beacon; submit делает родитель.
-
-### SessionQuiz
-UI выбора; отдаёт choice_index наверх.
-
-### SessionLabPanel
-Старт lab submit, индикатор pending, poll attempt, показ логов/результата.
-
-### SessionTutorPanel
-Чат/hints через useTutor / useTutorSessionChat; не оценивает за grading.
-
-### SessionVideoPlayer
-Воспроизведение media URL; compact theory рядом возможна.
-
-### CourseBuildProgress
-Отображение стадий AI build; не владеет сетью — получает события сверху.
-
-### LibraryCourseCreate
-Форма создания курса из статьи/URL на каталоге.
-
-
-## 76. packages/editor-core
-
-TypeScript-пакет политик редактора (autocomplete modes, language toggles).
-Используется web SessionCodeEditor/settings. Не путать с серверными LSP-контейнерами:
-editor-core — клиентские правила; lsp-* — процессы языковых серверов.
-
-
-## 77. system_auth и межсервисные вызовы
-
-`studio_common.system_auth` — проверка `X-System-Token` / `ORCHESTRATOR_SYSTEM_TOKEN`
-для callback’ов вроде lab complete и управляющих оркестратором операций.
-Не используйте пользовательский JWT там, где нужен system token, и наоборот.
-`resolve_jwt_secret` + insecure defaults — только для контролируемых dev-сценариев.
-
-
-## 78. RabbitMQ declare и DLQ
-
-`studio_common.rabbitmq` объявляет очередь и схему DLQ. При добавлении новой очереди:
-объявите её на producer и consumer, опишите payload только с идентификаторами, обновите §12,
-продумайте идемпотентность и классификацию ошибок на transient и permanent.
-
-
-## 79. MinIO ключи и префиксы
-
-Объекты пользователя лежат под `users/{user_id}/…`. Media API не должен отдавать
-объект другого user_id даже при угадывании asset id — проверяйте владельца в storage/deps.
-TTL presign ограничен диапазоном 60–900 секунд.
-
-
-## 80. ClickHouse и Postgres в analytics
-
-Сырые события пишутся в ClickHouse из-за объёма. Postgres держит метаданные, сводки и миграции сервиса.
-Не пишите поток событий высокого объёма только в Postgres.
-Схему ClickHouse поднимает boot при старте analytics (`clickhouse_boot`).
-
-
-## 81. launcher-matrix.json
-
-```json
-{
-  "description": "Launcher command matrix SoT for Win/Unix parity (P015/P018). Shells remain thin wrappers; CI may diff keys.",
-  "version": 1,
-  "commands": [
-    "install",
-    "status",
-    "up",
-    "down",
-    "logs",
-    "update",
-    "profiles",
-    "health"
-  ],
-  "shared_libs": {
-    "unix": ["scripts/lib/ops.sh", "scripts/lib/profiles.sh", "scripts/lib/health.sh"],
-    "windows": ["scripts/lib/Ops.ps1", "scripts/lib/Profiles.ps1", "scripts/lib/Health.ps1"]
-  },
-  "profiles_sot": "deploy/profiles.json"
-}
-```
-
-Поля указывают SoT для profiles и связанные артефакты сценариев запуска — не дублируйте
-расходящиеся списки сервисов в трёх местах без нужды.
-
-
-## 82. Текущие JSON версий (факт файлов)
-
-### apps/web/app-version.json
-```json
-{
-  "version": "1.1.0-beta.1",
-  "build": 101002001,
-  "channel": "beta"
-}
-```
-
-### scripts/launcher-version.json
-```json
-{
-  "version": "1.0.0-beta.1",
-  "build": 100002001,
-  "channel": "beta"
-}
-```
-
-
-## 83. Тесты grading (файлы)
-
-- `test_attempt_id.py`
-- `test_cascade_llm.py`
-- `test_code_harness.py`
-- `test_code_stepik.py`
-- `test_executable.py`
-- `test_lab_callback.py`
-- `test_llm_grade.py`
-- `test_pack_materialize.py`
-- `test_piston_errors.py`
-- `test_quiz.py`
-- `test_sql_local.py`
-
-Запуск: `PYTHONPATH=services/grading:… uv run pytest services/grading/tests -q` (как в just test).
-
-
-## 84. Vitest specs web (фрагмент)
-
-- `app.spec.ts`
-- `e2e/settings-ollama-models.spec.ts`
-- `e2e/smoke.spec.ts`
-- `editor-policy.spec.ts`
-- `lsp-client.spec.ts`
-- `node_modules/comment-parser/tests/unit/block-parser.spec.ts`
-- `node_modules/comment-parser/tests/unit/inspect.spec.ts`
-- `node_modules/comment-parser/tests/unit/parser.spec.ts`
-- `node_modules/comment-parser/tests/unit/source-parser.spec.ts`
-- `node_modules/comment-parser/tests/unit/spacer-description-joiner.spec.ts`
-- `node_modules/comment-parser/tests/unit/spec-description-tokenizer.spec.ts`
-- `node_modules/comment-parser/tests/unit/spec-name-tokenizer.spec.ts`
-- `node_modules/comment-parser/tests/unit/spec-parser.spec.ts`
-- `node_modules/comment-parser/tests/unit/spec-tag-tokenizer.spec.ts`
-- `node_modules/comment-parser/tests/unit/spec-type-tokenizer.spec.ts`
-- `node_modules/comment-parser/tests/unit/stringifier.spec.ts`
-- `node_modules/comment-parser/tests/unit/transforms-align.spec.ts`
-- `node_modules/comment-parser/tests/unit/transforms-crlf.spec.ts`
-- `node_modules/comment-parser/tests/unit/transforms-indent.spec.ts`
-- `node_modules/comment-parser/tests/unit/transforms.spec.ts`
-- `node_modules/comment-parser/tests/unit/util-rewire.spec.ts`
-- `node_modules/comment-parser/tests/unit/util.spec.ts`
-- `node_modules/parse5/node_modules/entities/src/decode.spec.ts`
-- `node_modules/parse5/node_modules/entities/src/encode.spec.ts`
-- `node_modules/parse5/node_modules/entities/src/escape.spec.ts`
-- `node_modules/parse5/node_modules/entities/src/index.spec.ts`
-- `node_modules/ts-dedent/src/__tests__/index.spec.ts`
-- `utils/analytics/stats.spec.ts`
-- `utils/catalog/courseRows.spec.ts`
-- `utils/catalog/display.spec.ts`
-- `utils/catalog/download.spec.ts`
-- `utils/catalog/learning.spec.ts`
-- `utils/catalog/packStatus.spec.ts`
-- `utils/media/player.spec.ts`
-- `utils/media/url.spec.ts`
-- `utils/session/feedback.spec.ts`
-- `utils/session/stepView.spec.ts`
-- `utils/settings/credentialAutofill.spec.ts`
-- `utils/settings/dirty.spec.ts`
-- `utils/settings/integrationFields.spec.ts`
-
-
-## 85. Тесты contracts
-
-- `test_course_build_summary.py`
-- `test_editor_schemas.py`
-- `test_manifest.py`
-- `test_pack_build.py`
-- `test_pack_content.py`
-- `test_pack_integrity.py`
-- `test_step_dependencies.py`
-- `test_tutor_schemas.py`
-- `test_validate_pack.py`
-
-
-## 86. PREVIEW.md vs реальный Nuxt
-
-`docs/PREVIEW.md` — статичный HTML-макет «лица» продукта для README.
-Он **не** является runtime UI. Реальный UI — Nuxt pages/components в `apps/web` и `apps/pack-studio`.
-
-| Артефакт | Источник |
-|----------|----------|
-| `assets/readme-preview.png` | макет PREVIEW |
-| `assets/ui/01-login.png`, `11-catalog.png`, … | живой Nuxt (Playwright) |
-
-Не правьте PREVIEW вместо бага в Vue — и наоборот.
-
-
-## 87. Соглашение по веткам и коммитам (кратко)
-
-Ветки: `feature/*`, `fix/*`, `chore/*`, … Conventional Commits, сообщения на английском.
-Коммит только по просьбе владельца репозитория в чате с агентом.
-Не коммитьте `.env`, `data/`, артефакты sourcery lock.
-
-
-## 88. Helm / Traefik / bake — где лежит
-
-- `deploy/helm/task-studio/` — chart (опциональный контур выкладки).
-- `deploy/traefik/` — статический конфиг Traefik в Compose.
-- `deploy/docker-bake.hcl` — матрица образов для CI publish.
-- `deploy/docker-compose.web-dev.yml` — HMR overlay.
-- `deploy/docker-compose.ollama-gpu.yml` — GPU overlay для Ollama.
-
-Основной локальный путь разработчика — Compose + just, не Helm.
-
-
-## 89. Что делает packages/integration-sdk (если есть в PYTHONPATH)
-
-just test добавляет `packages/integration-sdk` в PYTHONPATH. Это общий слой для
-адаптеров импорта (контракты/утилиты). Импортёры в `integration_modules/` должны
-оставаться тонкими: SDK — общее, модуль — специфика платформы.
-
-
-## 90. Dockerfile сервисов — CMD/ENTRYPOINT (факт)
-
-
-### analytics
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### auth
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### catalog
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('PORT','8002'), timeout=4)"`
-`ENTRYPOINT ["/bin/sh", "/app/services/catalog/docker-entrypoint.sh"]`
-
-
-### cursor-proxy
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### grading
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### integrations
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### lab-runner
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### media
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### orchestrator
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### search
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### sessions
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### studio-api
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-### tutor
-
-`CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'])"`
-`CMD ["sh", "-c", "exec uvicorn app.main:app --host \"${HOST}\" --port \"${PORT}\""]`
-
-
-## 91. Файлы alembic versions
-
-
-### auth
-
-- `001_initial_auth.py`
-
-
-### catalog
-
-- `001_initial_catalog.py`
-- `002_pack_version_object_key.py`
-
-
-### sessions
-
-- `001_initial_sessions.py`
-- `002_completed_step_ids.py`
-- `003_session_indexes.py`
-- `004_unique_active_and_attempts.py`
-- `005_analytics_outbox.py`
-
-
-### integrations
-
-- `001_initial_integrations.py`
-
-
-### grading
-
-- `001_initial_grading.py`
-
-
-### lab-runner
-
-- `001_initial_lab_runner.py`
-
-
-### analytics
-
-- `001_initial_analytics.py`
-- `002_drop_topic_assess_scores.py`
-
-
-## 92. Playwright e2e specs
-
-- `settings-ollama-models.spec.ts`
-- `smoke.spec.ts`
-
-## 93. Файлы scripts/ (верхний уровень)
-
-- `compute-build-number.py`
-- `docs-capture-ui.py`
-- `install.ps1`
-- `install.sh`
-- `install_piston_packages.py`
-- `launcher-matrix.json`
-- `launcher-version.json`
-- `setup-shell.sh`
-- `studio.cmd`
-- `studio.ps1`
-- `studio.sh`
-- `validate_integration_fixtures.py`
-- `validate_pack_schema.py`
-
-## 94. scripts/lib
-
-- `DesktopShortcuts.ps1`
-- `Health.ps1`
-- `I18n.ps1`
-- `OpenApp.ps1`
-- `Ops.ps1`
-- `Profiles.ps1`
-- `ProgressWorker.ps1`
-- `Ui.ps1`
-- `desktop.sh`
-- `health.sh`
-- `i18n.sh`
-- `ops.sh`
-- `profiles.sh`
-- `progress.sh`
-- `ui.sh`
-
-## 95. docs/ (без бинарных assets)
-
-- `DEVELOPERS.md`
-- `PREVIEW.md`
-- `VERSIONING.md`
-- `authoring.md`
-- `env.md`
-
-## 96. Назначение файлов scripts/lib
-
-### `DesktopShortcuts.ps1`
-
-Вспомогательный модуль сценария запуска; читайте заголовок файла.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `Health.ps1`
-
-Health для Windows.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `I18n.ps1`
-
-Строки консоли Windows.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `OpenApp.ps1`
-
-Открытие браузера/ярлыков на Windows.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `Ops.ps1`
-
-PowerShell-аналог ops.sh.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `Profiles.ps1`
-
-Profiles для Windows.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `ProgressWorker.ps1`
-
-Вспомогательный модуль сценария запуска; читайте заголовок файла.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `Ui.ps1`
-
-То же для PowerShell.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `desktop.sh`
-
-Вспомогательный модуль сценария запуска; читайте заголовок файла.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `health.sh`
-
-Проверки готовности UI/сервисов.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `i18n.sh`
-
-Строки консоли Unix.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `ops.sh`
-
-Unix-операции сценария запуска: docker, compose, install, update, uninstall.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `profiles.sh`
-
-Вычисление compose profiles и mode.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `progress.sh`
-
-Прогресс этапов установки.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-
-### `ui.sh`
-
-Отрисовка меню/цветов в терминале Unix.
-
-Используется из `studio.sh` / `studio.ps1` через source/dot-sourcing. Не вызывайте как отдельный публичный CLI, если файл не рассчитан на это.
-

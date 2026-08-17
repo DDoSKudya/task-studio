@@ -5,10 +5,10 @@ import uuid
 import structlog
 from app.api.deps import DbSession, Settings, UpstreamClient
 from app.api.mappers import attempt_info
-from app.domain import messaging as session_messaging
-from app.domain.analytics_events import step_completed_event
-from app.domain.session_submit_analytics import publish_submit_analytics
-from app.domain.sessions import (
+from app.domain.analytics.analytics_events import step_completed_event
+from app.domain.analytics.session_submit_analytics import publish_submit_analytics
+from app.domain.integrations import messaging as session_messaging
+from app.domain.queries.sessions import (
     complete_attempt,
     get_attempt,
     get_owned_session,
@@ -16,9 +16,9 @@ from app.domain.sessions import (
     submit_step,
 )
 from fastapi import APIRouter, status
-from studio_common.internal import InternalUserId
-from studio_common.system_auth import SystemAuth
-from studio_contracts.session_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_common.security.system_auth import SystemAuth
+from studio_contracts.api.session_schemas import (
     AttemptCompleteRequest,
     AttemptInfo,
     SubmitRequest,

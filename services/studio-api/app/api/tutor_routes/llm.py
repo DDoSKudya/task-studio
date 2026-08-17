@@ -6,7 +6,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import parse_upstream
 from fastapi import APIRouter, Depends
-from studio_contracts.tutor_schemas import (
+from studio_contracts.api.tutor_schemas import (
     TutorLlmStatus,
     TutorLlmTestRequest,
     TutorWarmupRequest,
@@ -23,10 +23,13 @@ async def tutor_llm_status(
     user_id: UserId,
     settings: Settings,
     client: UpstreamClient,
+    ensure: bool = False,
 ) -> TutorLlmStatus:
+    params = {"ensure": "true"} if ensure else None
     response = await client.get(
         f"{settings.tutor_service_url}/internal/v1/tutor/llm-status",
         headers={"X-User-Id": str(user_id)},
+        params=params,
     )
     return parse_upstream(response, TutorLlmStatus)
 

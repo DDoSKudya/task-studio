@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from app.config import IntegrationsSettings
 from app.domain.jobs.errors import JobError
-from studio_contracts.catalog_schemas import PackUploadResponse
+from studio_contracts.api.catalog_schemas import PackUploadResponse
 
 
 async def register_with_catalog(

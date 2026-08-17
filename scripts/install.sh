@@ -63,7 +63,7 @@ resolve_install_root() {
     cd "$INSTALL_DIR" && pwd -P
     return 0
   fi
-  # Explicit bootstrap target/archive: do not adopt a random cwd checkout.
+
   if [[ -n "${TASK_STUDIO_DIR:-}" || -n "${TASK_STUDIO_ARCHIVE_URL:-}" ]]; then
     return 1
   fi
@@ -128,14 +128,14 @@ fi
 [[ -f "$root/scripts/studio.sh" ]] || die "$(_t studio_missing "$root")"
 
 cd "$root"
-# shellcheck source=lib/i18n.sh
-if [[ -f "$root/scripts/lib/i18n.sh" ]]; then
+# shellcheck source=lib/localization/i18n.sh
+if [[ -f "$root/scripts/lib/localization/i18n.sh" ]]; then
   # shellcheck disable=SC1091
-  source "$root/scripts/lib/i18n.sh"
+  source "$root/scripts/lib/localization/i18n.sh"
   ts_detect_lang
 fi
-# shellcheck source=lib/desktop.sh
-source "$root/scripts/lib/desktop.sh"
+# shellcheck source=lib/desktop/desktop.sh
+source "$root/scripts/lib/desktop/desktop.sh"
 
 info "$(ts_t boot_shortcuts 2>/dev/null || _t shortcuts)"
 ensure_script_permissions "$root"

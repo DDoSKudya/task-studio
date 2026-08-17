@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import httpx
 from app.config import StudioApiSettings
-from studio_common.auth_schemas import SettingsPatch
-from studio_common.secrets_settings import merge_integrations_settings, merge_tutor_settings
+from studio_common.secrets.secrets_settings import merge_integrations_settings, merge_tutor_settings
+from studio_common.security.auth_schemas import SettingsPatch
 
 
 async def prepare_settings_patch(

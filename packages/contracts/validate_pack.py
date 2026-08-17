@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import jsonschema
-from studio_contracts.pack import validate_pack_file
+from studio_contracts.packs.pack import validate_pack_file
 
 __all__ = ["validate_pack_file"]
 

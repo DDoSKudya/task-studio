@@ -7,8 +7,8 @@ import httpx
 from app.config import StudioApiSettings
 from app.upstream import parse_upstream
 from fastapi import Response
-from studio_common.auth_schemas import AuthSuccess, LoginRequest, RegisterRequest
-from studio_common.jwt_tokens import create_access_token
+from studio_common.security.auth_schemas import AuthSuccess, LoginRequest, RegisterRequest
+from studio_common.security.jwt_tokens import create_access_token
 
 type AuthAction = Literal["register", "login"]
 type AuthHttpMethod = Literal["get", "post", "patch"]

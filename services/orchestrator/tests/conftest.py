@@ -26,10 +26,10 @@ def orchestrator_service_root() -> Path:
 @pytest.fixture(scope="session")
 def orchestrator_packages(orchestrator_service_root):
     config = _import_service_module(orchestrator_service_root, "app.config")
-    policies = _import_service_module(orchestrator_service_root, "app.domain.policies")
-    controller = _import_service_module(orchestrator_service_root, "app.domain.controller")
-    state = _import_service_module(orchestrator_service_root, "app.domain.state")
-    metrics = _import_service_module(orchestrator_service_root, "app.domain.metrics")
+    policies = _import_service_module(orchestrator_service_root, "app.domain.policy.policies")
+    controller = _import_service_module(orchestrator_service_root, "app.domain.control.controller")
+    state = _import_service_module(orchestrator_service_root, "app.domain.control.state")
+    metrics = _import_service_module(orchestrator_service_root, "app.domain.telemetry.metrics")
     return config, policies, controller, state, metrics
 
 

@@ -4,7 +4,7 @@ import json
 
 from app.datetime_utils import ensure_utc
 from clickhouse_connect.driver.client import Client
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 
 def insert_event(client: Client, database: str, event: AnalyticsEventMessage) -> None:

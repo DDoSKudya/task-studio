@@ -4,14 +4,14 @@ from datetime import datetime
 
 from app.domain.packs import UploadedPack
 from app.infra.models import Pack, PackVersion
-from studio_contracts.catalog_schemas import (
+from studio_contracts.api.catalog_schemas import (
     PackDetail,
     PackSummary,
     PackUploadResponse,
     PackVersionInfo,
 )
-from studio_contracts.pack_content import content_modules_from_manifest
-from studio_contracts.pack_integrity import check_pack_integrity
+from studio_contracts.packs.pack_content import content_modules_from_manifest
+from studio_contracts.packs.pack_integrity import check_pack_integrity
 
 
 def pack_summary(

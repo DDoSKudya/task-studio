@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from studio_contracts.fixtures import build_sample_pack_bytes
-from studio_contracts.manifest import (
+from studio_contracts.packs.manifest import (
     adjacent_positions,
     first_position,
     get_step,
@@ -16,7 +16,7 @@ from studio_contracts.manifest import (
     repair_step,
     resolve_position,
 )
-from studio_contracts.pack import read_manifest_from_archive
+from studio_contracts.packs.pack import read_manifest_from_archive
 
 
 @pytest.fixture

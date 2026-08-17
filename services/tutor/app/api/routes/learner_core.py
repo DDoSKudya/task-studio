@@ -5,9 +5,9 @@ import uuid
 from app.api.deps import ClientDep, ConfigDep, RedisDep, UserId
 from app.domain.chat import build_hints
 from app.domain.grade import grade_submission
-from app.domain.warmup import warmup_cursor_for_session
+from app.domain.model_runtime.warmup import warmup_cursor_for_session
 from fastapi import APIRouter
-from studio_contracts.tutor_schemas import (
+from studio_contracts.api.tutor_schemas import (
     TutorGradeRequest,
     TutorGradeResponse,
     TutorHintResponse,

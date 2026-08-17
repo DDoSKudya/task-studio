@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 
 def attempt_payload(event: AnalyticsEventMessage) -> tuple[uuid.UUID, float] | None:

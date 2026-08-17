@@ -9,7 +9,7 @@
   <img src="assets/logo.png" alt="" width="40" height="40" style="display:block;border-radius:0">
   <span style="display:flex;flex-direction:column;gap:2px;min-width:0">
     <span style="font-weight:700;font-size:17px;letter-spacing:-0.03em;color:#ffffff">Task Studio</span>
-    <span style="font-size:10px;color:#737373;font-variant-numeric:tabular-nums;letter-spacing:0.02em" title="build 101012001">v1.1.1-beta.1</span>
+    <span style="font-size:10px;color:#737373;font-variant-numeric:tabular-nums;letter-spacing:0.02em" title="build 102002001">v1.2.0-beta.1</span>
   </span>
 </p>
 
@@ -159,15 +159,13 @@
       <td style="padding:3px 0;color:#737373;text-align:right;vertical-align:middle">1.12</td>
     </tr>
   </table>
-  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185;text-align:center">v1.1.1-beta.1 · AGPL-3.0</div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#fb7185;text-align:center">v1.2.0-beta.1 · AGPL-3.0</div>
 </div>
 
 </td>
 
-<!-- ===== WORKSPACE ===== -->
 <td valign="top" style="padding:0;background:#05050a;border-radius:0">
 
-<!-- ABOUT -->
 <div id="o-proekte" style="padding:22px 24px 8px;border-bottom:1px solid rgba(255,255,255,0.06)">
   <h1 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">О проекте</h1>
   <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Учёба у себя на машине</p>
@@ -183,7 +181,6 @@
   </p>
 </div>
 
-<!-- FEATURES -->
 <div id="vozmozhnosti" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Возможности</h2>
   <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Коротко о том, что внутри</p>
@@ -265,7 +262,6 @@
 
 </div>
 
-<!-- QUICK START -->
 <div id="bystriy-start" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Быстрый старт</h2>
   <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Docker · ваш компьютер</p>
@@ -333,7 +329,6 @@
 
 </div>
 
-<!-- SPECS -->
 <div id="harakteristiki" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Характеристики</h2>
   <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Системы · требования · ресурсы</p>
@@ -385,7 +380,6 @@
 
 </div>
 
-<!-- ENV -->
 <div id="okruzhenie" style="padding:22px 24px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.06)">
   <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff;border-radius:0">Окружение</h2>
   <p style="margin:6px 0 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#737373">Переменные · ссылки</p>
@@ -426,7 +420,7 @@
 </div>
 
 <div style="padding:16px 24px 22px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;color:#737373;font-size:11px;letter-spacing:0.06em;text-transform:uppercase">
-  Task Studio · v1.1.1-beta.1 · Docker · Nuxt · FastAPI · AGPL-3.0
+  Task Studio · v1.2.0-beta.1 · Docker · Nuxt · FastAPI · AGPL-3.0
 </div>
 
 </td>

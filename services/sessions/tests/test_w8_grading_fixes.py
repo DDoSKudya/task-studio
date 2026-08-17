@@ -5,15 +5,15 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from studio_contracts.grading_schemas import GradingCheckResponse
-from studio_contracts.manifest import SessionPosition
+from studio_contracts.api.grading_schemas import GradingCheckResponse
+from studio_contracts.packs.manifest import SessionPosition
 
 
 @pytest.mark.asyncio
 async def test_apply_grading_result_clears_flags_after_failed_regrade(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.domain import session_grade_apply as apply_mod
+    from app.domain.grading import session_grade_apply as apply_mod
 
     progress = SimpleNamespace(
         practice_completed=True, assess_completed=False, assess_best_score=None
@@ -57,7 +57,7 @@ async def test_apply_grading_result_clears_flags_after_failed_regrade(
 async def test_complete_attempt_ignores_abandoned_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.domain import session_attempts as attempts_mod
+    from app.domain.grading import session_attempts as attempts_mod
 
     attempt = MagicMock()
     attempt.id = uuid.uuid4()
@@ -97,8 +97,8 @@ async def test_complete_attempt_ignores_abandoned_session(
 async def test_gate_leave_rejects_ungradable_without_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.domain import session_gate_leave as gate_mod
-    from app.domain.session_errors import SessionError
+    from app.domain.common.session_errors import SessionError
+    from app.domain.progress import session_gate_leave as gate_mod
 
     learning = MagicMock()
     learning.id = uuid.uuid4()
@@ -146,7 +146,7 @@ async def test_gate_leave_rejects_ungradable_without_pass(
 
 
 def test_submit_event_pending_lab_is_queued() -> None:
-    from app.domain.analytics_events import submit_event
+    from app.domain.analytics.analytics_events import submit_event
 
     learning = MagicMock()
     learning.id = uuid.uuid4()

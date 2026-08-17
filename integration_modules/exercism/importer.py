@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import TypedDict
+from typing import NamedTuple, TypedDict
 
 import httpx
 
@@ -97,9 +97,7 @@ def search_remote(*, query: str, **_ctx: object) -> list[dict[str, object]]:
         description = str(item.get("description") or "").casefold()
         tags_raw = item.get("tags")
         tags: list[object] = list(tags_raw) if isinstance(tags_raw, list) else []
-        tag_hit = any(
-            isinstance(tag, str) and needle in tag.casefold() for tag in tags
-        )
+        tag_hit = any(isinstance(tag, str) and needle in tag.casefold() for tag in tags)
         if needle in title or needle in description or tag_hit:
             matched.append(item)
     return matched
@@ -120,159 +118,26 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
 
 
 def _import_live_track(track_slug: str) -> tuple[dict[str, object], dict[str, object]]:
-    with httpx.Client(timeout=_HTTP_TIMEOUT, headers=_headers()) as client:
-        track_response = client.get(f"{_API}/tracks")
-        track_response.raise_for_status()
-        tracks_payload = track_response.json()
-        tracks = tracks_payload.get("tracks")
-        if not isinstance(tracks, list):
-            raise ValueError("invalid tracks payload")
-
-        track_meta = next(
-            (item for item in tracks if isinstance(item, dict) and item.get("slug") == track_slug),
-            None,
-        )
-        if not track_meta:
-            raise ValueError(f"exercism track {track_slug} not found")
-
-        exercises_response = client.get(f"{_API}/tracks/{track_slug}/exercises")
-        exercises_response.raise_for_status()
-        exercises_payload = exercises_response.json()
-
-    exercises = exercises_payload.get("exercises")
-    if not isinstance(exercises, list) or not exercises:
-        raise ValueError(f"exercism track {track_slug} has no exercises")
-
+    track_meta, exercises = _fetch_track_exercises(track_slug)
     title = str(track_meta.get("title") or track_slug)
-    runtime = _RUNTIME_BY_TRACK.get(track_slug, "python")
     selected = [
         exercise
         for raw in exercises[:_MAX_IMPORT_EXERCISES]
         if (exercise := _coerce_exercism_exercise(raw)) is not None
     ]
     enriched = _enrich_exercises_parallel(track_slug, selected)
-
-    steps: dict[str, dict[str, object]] = {}
-    practice_ids: list[str] = []
-    study_ids: list[str] = []
-    warnings: list[dict[str, str]] = []
-    full_count = 0
-    partial_count = 0
-
-    for exercise in selected:
-        slug = str(exercise.get("slug") or "").strip()
-        if not slug:
-            continue
-        step_title = str(exercise.get("title") or slug)
-        blurb = str(exercise.get("blurb") or "").strip()
-        exercise_type = str(exercise.get("type") or "practice").strip() or "practice"
-        remote = enriched.get(slug) or {}
-
-        instructions = str(remote.get("instructions") or "").strip()
-        introduction = str(remote.get("introduction") or "").strip()
-        template = str(remote.get("template") or "").strip()
-        test_source = str(remote.get("test_source") or "").strip()
-        solution_file = str(remote.get("solution_file") or "").strip()
-        test_file = str(remote.get("test_file") or "").strip()
-        source_url = str(remote.get("source_url") or "").strip()
-
-        if introduction:
-            intro_id = f"{slug}-intro"
-            steps[intro_id] = {
-                "id": intro_id,
-                "kind": "theory",
-                "title": f"{step_title} — Introduction",
-                "phase": "study",
-                "fidelity": "full",
-                "payload": {
-                    "instructions": introduction,
-                    "body_md": introduction,
-                    "source_url": source_url,
-                },
-            }
-            study_ids.append(intro_id)
-            full_count += 1
-
-
-        practice_docs = instructions or blurb or f"Exercism exercise: {step_title}"
-        if not instructions and introduction and not blurb:
-            practice_docs = (
-                f"Implement the solution for **{step_title}**.\n\n"
-                "See the Introduction step for the full problem statement."
-            )
-        if test_source:
-            practice_docs = (
-                f"{practice_docs.rstrip()}\n\n## Official tests\n\n"
-                f"```\n{test_source.strip()}\n```"
-            )
-
-        has_docs = bool(instructions or introduction or blurb)
-        has_template = bool(template)
-        fidelity = "full" if has_docs and has_template else "partial"
-        if not has_template:
-            template = _default_template(runtime, step_title)
-
-        payload: dict[str, object] = {
-            "runtime": runtime,
-            "runtime_version": "3.12" if runtime == "python" else "latest",
-            "template": template,
-            "instructions": practice_docs,
-            "body_md": practice_docs,
-            "tests": [],
-            "external_step_id": slug,
-            "exercism_type": exercise_type,
-        }
-        if source_url:
-            payload["source_url"] = source_url
-        if test_source:
-            payload["test_source"] = test_source
-        if solution_file:
-            payload["solution_file"] = solution_file
-        if test_file:
-            payload["test_file"] = test_file
-
-        steps[slug] = {
-            "id": slug,
-            "kind": "code",
-            "title": step_title,
-            "phase": "practice",
-            "fidelity": fidelity,
-            "payload": payload,
-        }
-        practice_ids.append(slug)
-        if fidelity == "full":
-            full_count += 1
-        else:
-            partial_count += 1
-            warnings.append(
-                {
-                    "step": slug,
-                    "reason": "github exercise files incomplete; scaffold used",
-                }
-            )
-
+    steps, study_ids, practice_ids, full_count, partial_count, warnings = _build_track_steps(
+        track_slug, selected, enriched
+    )
     if not practice_ids:
         raise ValueError(f"exercism track {track_slug} has no importable exercises")
-
-    pack = {
-        "platform": _PLATFORM,
-        "external_id": track_slug,
-        "title": f"Exercism — {title}",
-        "slug": f"exercism-{track_slug}",
-        "version": "1.0.0",
-        "locale": "en",
-        "topics": [
-            {
-                "id": "track",
-                "title": title,
-                "study": study_ids,
-                "practice": practice_ids,
-                "assess": [],
-            }
-        ],
-        "steps": steps,
-        "course_assess": [],
-    }
+    pack = _track_pack(
+        track_slug,
+        title=title,
+        steps=steps,
+        study_ids=study_ids,
+        practice_ids=practice_ids,
+    )
     if not any(item.get("reason", "").startswith("github") for item in warnings):
         warnings.append(
             {
@@ -291,6 +156,204 @@ def _import_live_track(track_slug: str) -> tuple[dict[str, object], dict[str, ob
         "warnings": warnings[:40],
     }
     return pack, report
+
+
+def _fetch_track_exercises(
+    track_slug: str,
+) -> tuple[dict[str, object], list[object]]:
+    with httpx.Client(timeout=_HTTP_TIMEOUT, headers=_headers()) as client:
+        track_response = client.get(f"{_API}/tracks")
+        track_response.raise_for_status()
+        tracks_payload = track_response.json()
+        tracks = tracks_payload.get("tracks")
+        if not isinstance(tracks, list):
+            raise ValueError("invalid tracks payload")
+
+        track_meta = next(
+            (item for item in tracks if isinstance(item, dict) and item.get("slug") == track_slug),
+            None,
+        )
+        if not track_meta:
+            raise ValueError(f"exercism track {track_slug} not found")
+
+        exercises_response = client.get(f"{_API}/tracks/{track_slug}/exercises")
+        exercises_response.raise_for_status()
+        exercises_payload = exercises_response.json()
+    exercises = exercises_payload.get("exercises")
+    if not isinstance(exercises, list) or not exercises:
+        raise ValueError(f"exercism track {track_slug} has no exercises")
+    return track_meta, exercises
+
+
+class _BuiltExercise(NamedTuple):
+    introduction: dict[str, object] | None
+    practice: dict[str, object]
+    fidelity: str
+    warning: dict[str, str] | None
+
+
+def _build_track_steps(
+    track_slug: str,
+    exercises: list[ExercismExercise],
+    enriched: dict[str, dict[str, str]],
+) -> tuple[
+    dict[str, dict[str, object]],
+    list[str],
+    list[str],
+    int,
+    int,
+    list[dict[str, str]],
+]:
+    runtime = _RUNTIME_BY_TRACK.get(track_slug, "python")
+    steps: dict[str, dict[str, object]] = {}
+    practice_ids: list[str] = []
+    study_ids: list[str] = []
+    warnings: list[dict[str, str]] = []
+    full_count = 0
+    partial_count = 0
+    for exercise in exercises:
+        slug = str(exercise.get("slug") or "").strip()
+        if not slug:
+            continue
+        built = _build_exercise(exercise, enriched.get(slug) or {}, runtime=runtime)
+        if built.introduction is not None:
+            intro_id = f"{slug}-intro"
+            steps[intro_id] = built.introduction
+            study_ids.append(intro_id)
+            full_count += 1
+        steps[slug] = built.practice
+        practice_ids.append(slug)
+        if built.fidelity == "full":
+            full_count += 1
+        else:
+            partial_count += 1
+        if built.warning is not None:
+            warnings.append(built.warning)
+    return steps, study_ids, practice_ids, full_count, partial_count, warnings
+
+
+def _build_exercise(
+    exercise: ExercismExercise,
+    remote: dict[str, str],
+    *,
+    runtime: str,
+) -> _BuiltExercise:
+    slug = str(exercise.get("slug") or "").strip()
+    title = str(exercise.get("title") or slug)
+    blurb = str(exercise.get("blurb") or "").strip()
+    exercise_type = str(exercise.get("type") or "practice").strip() or "practice"
+    instructions = str(remote.get("instructions") or "").strip()
+    introduction = str(remote.get("introduction") or "").strip()
+    template = str(remote.get("template") or "").strip()
+    test_source = str(remote.get("test_source") or "").strip()
+    source_url = str(remote.get("source_url") or "").strip()
+    introduction_step = (
+        _introduction_step(slug, title, introduction, source_url) if introduction else None
+    )
+    practice_docs = _exercise_docs(
+        title,
+        instructions=instructions,
+        introduction=introduction,
+        blurb=blurb,
+        test_source=test_source,
+    )
+    fidelity = "full" if (instructions or introduction or blurb) and template else "partial"
+    payload: dict[str, object] = {
+        "runtime": runtime,
+        "runtime_version": "3.12" if runtime == "python" else "latest",
+        "template": template or _default_template(runtime, title),
+        "instructions": practice_docs,
+        "body_md": practice_docs,
+        "tests": [],
+        "external_step_id": slug,
+        "exercism_type": exercise_type,
+    }
+    for key in ("source_url", "test_source", "solution_file", "test_file"):
+        value = str(remote.get(key) or "").strip()
+        if value:
+            payload[key] = value
+    practice = {
+        "id": slug,
+        "kind": "code",
+        "title": title,
+        "phase": "practice",
+        "fidelity": fidelity,
+        "payload": payload,
+    }
+    warning = (
+        None
+        if fidelity == "full"
+        else {"step": slug, "reason": "github exercise files incomplete; scaffold used"}
+    )
+    return _BuiltExercise(introduction_step, practice, fidelity, warning)
+
+
+def _introduction_step(
+    slug: str,
+    title: str,
+    introduction: str,
+    source_url: str,
+) -> dict[str, object]:
+    return {
+        "id": f"{slug}-intro",
+        "kind": "theory",
+        "title": f"{title} — Introduction",
+        "phase": "study",
+        "fidelity": "full",
+        "payload": {
+            "instructions": introduction,
+            "body_md": introduction,
+            "source_url": source_url,
+        },
+    }
+
+
+def _exercise_docs(
+    title: str,
+    *,
+    instructions: str,
+    introduction: str,
+    blurb: str,
+    test_source: str,
+) -> str:
+    docs = instructions or blurb or f"Exercism exercise: {title}"
+    if not instructions and introduction and not blurb:
+        docs = (
+            f"Implement the solution for **{title}**.\n\n"
+            "See the Introduction step for the full problem statement."
+        )
+    if test_source:
+        docs = f"{docs.rstrip()}\n\n## Official tests\n\n```\n{test_source.strip()}\n```"
+    return docs
+
+
+def _track_pack(
+    track_slug: str,
+    *,
+    title: str,
+    steps: dict[str, dict[str, object]],
+    study_ids: list[str],
+    practice_ids: list[str],
+) -> dict[str, object]:
+    return {
+        "platform": _PLATFORM,
+        "external_id": track_slug,
+        "title": f"Exercism — {title}",
+        "slug": f"exercism-{track_slug}",
+        "version": "1.0.0",
+        "locale": "en",
+        "topics": [
+            {
+                "id": "track",
+                "title": title,
+                "study": study_ids,
+                "practice": practice_ids,
+                "assess": [],
+            }
+        ],
+        "steps": steps,
+        "course_assess": [],
+    }
 
 
 def _coerce_exercism_exercise(raw: object) -> ExercismExercise | None:
@@ -340,74 +403,37 @@ def _enrich_exercises_parallel(
 def _fetch_github_exercise(track: str, kind: str, slug: str) -> dict[str, str]:
     for ref in _GITHUB_REFS:
         base = _RAW_GITHUB.format(track=track, ref=ref, kind=kind, slug=slug)
-        config = _http_text(f"{base}/.meta/config.json")
-        if config is None:
+        meta = _exercise_meta(base)
+        if meta is None:
             continue
-        try:
-            meta = json.loads(config)
-        except json.JSONDecodeError:
-            meta = {}
-        if not isinstance(meta, dict):
-            meta = {}
-
         instructions = _http_text(f"{base}/.docs/instructions.md") or ""
         introduction = _http_text(f"{base}/.docs/introduction.md") or ""
         append = _http_text(f"{base}/.docs/instructions.append.md") or ""
         if append:
-            if instructions:
-                instructions = f"{instructions.rstrip()}\n\n{append.lstrip()}"
-            else:
-                instructions = append
-
-        files_raw = meta.get("files")
-        files: dict[str, object] = files_raw if isinstance(files_raw, dict) else {}
-        solution_raw = files.get("solution")
-        test_raw = files.get("test")
-        solution_files: list[object] = (
-            list(solution_raw) if isinstance(solution_raw, list) else []
+            instructions = (
+                f"{instructions.rstrip()}\n\n{append.lstrip()}" if instructions else append
+            )
+        solution_files, test_files = _exercise_files(meta)
+        template, solution_file = _first_exercise_file(base, solution_files)
+        test_source, test_file = _first_exercise_file(
+            base,
+            test_files,
+            skip_meta=False,
         )
-        test_files: list[object] = list(test_raw) if isinstance(test_raw, list) else []
-
-        template = ""
-        solution_file = ""
-        for relative in solution_files:
-            if not isinstance(relative, str) or not relative.strip():
-                continue
-            if relative.startswith(".meta/"):
-                continue
-            content = _http_text(f"{base}/{relative.lstrip('/')}")
-            if content is not None:
-                template = content
-                solution_file = relative.strip()
-                break
-
-        test_source = ""
-        test_file = ""
-        for relative in test_files:
-            if not isinstance(relative, str) or not relative.strip():
-                continue
-            content = _http_text(f"{base}/{relative.lstrip('/')}")
-            if content is not None:
-                test_source = content
-                test_file = relative.strip()
-                break
-
         blurb = str(meta.get("blurb") or "").strip()
         if not instructions and blurb:
             instructions = blurb
-
-        return {
-            "instructions": instructions,
-            "introduction": introduction,
-            "template": template,
-            "test_source": test_source,
-            "solution_file": solution_file,
-            "test_file": test_file,
-            "source_url": f"https://exercism.org/tracks/{track}/exercises/{slug}",
-            "ref": ref,
-        }
-
-
+        return _github_exercise_payload(
+            track,
+            slug,
+            ref=ref,
+            instructions=instructions,
+            introduction=introduction,
+            template=template,
+            test_source=test_source,
+            solution_file=solution_file,
+            test_file=test_file,
+        )
     other = "concept" if kind == "practice" else "practice"
     if other != kind:
         return _fetch_github_exercise_once(track, other, slug)
@@ -415,46 +441,89 @@ def _fetch_github_exercise(track: str, kind: str, slug: str) -> dict[str, str]:
 
 
 def _fetch_github_exercise_once(track: str, kind: str, slug: str) -> dict[str, str]:
-
     for ref in _GITHUB_REFS:
         base = _RAW_GITHUB.format(track=track, ref=ref, kind=kind, slug=slug)
-        config = _http_text(f"{base}/.meta/config.json")
-        if config is None:
+        meta = _exercise_meta(base)
+        if meta is None:
             continue
-        try:
-            meta = json.loads(config)
-        except json.JSONDecodeError:
-            meta = {}
-        if not isinstance(meta, dict):
-            meta = {}
-        files_raw = meta.get("files")
-        files: dict[str, object] = files_raw if isinstance(files_raw, dict) else {}
-        solution_raw = files.get("solution")
-        solution_files: list[object] = (
-            list(solution_raw) if isinstance(solution_raw, list) else []
-        )
         instructions = _http_text(f"{base}/.docs/instructions.md") or ""
         introduction = _http_text(f"{base}/.docs/introduction.md") or ""
-        template = ""
-        solution_file = ""
-        for relative in solution_files:
-            if isinstance(relative, str) and not relative.startswith(".meta/"):
-                content = _http_text(f"{base}/{relative.lstrip('/')}")
-                if content is not None:
-                    template = content
-                    solution_file = relative.strip()
-                    break
-        return {
-            "instructions": instructions,
-            "introduction": introduction,
-            "template": template,
-            "test_source": "",
-            "solution_file": solution_file,
-            "test_file": "",
-            "source_url": f"https://exercism.org/tracks/{track}/exercises/{slug}",
-            "ref": ref,
-        }
+        solution_files, _test_files = _exercise_files(meta)
+        template, solution_file = _first_exercise_file(base, solution_files)
+        return _github_exercise_payload(
+            track,
+            slug,
+            ref=ref,
+            instructions=instructions,
+            introduction=introduction,
+            template=template,
+            test_source="",
+            solution_file=solution_file,
+            test_file="",
+        )
     return {}
+
+
+def _exercise_meta(base: str) -> dict[str, object] | None:
+    config = _http_text(f"{base}/.meta/config.json")
+    if config is None:
+        return None
+    try:
+        meta = json.loads(config)
+    except json.JSONDecodeError:
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _exercise_files(meta: dict[str, object]) -> tuple[list[object], list[object]]:
+    files_raw = meta.get("files")
+    files: dict[str, object] = files_raw if isinstance(files_raw, dict) else {}
+    solution_raw = files.get("solution")
+    test_raw = files.get("test")
+    solution_files = list(solution_raw) if isinstance(solution_raw, list) else []
+    test_files = list(test_raw) if isinstance(test_raw, list) else []
+    return solution_files, test_files
+
+
+def _first_exercise_file(
+    base: str,
+    files: list[object],
+    *,
+    skip_meta: bool = True,
+) -> tuple[str, str]:
+    for relative in files:
+        if not isinstance(relative, str) or not relative.strip():
+            continue
+        if skip_meta and relative.startswith(".meta/"):
+            continue
+        content = _http_text(f"{base}/{relative.lstrip('/')}")
+        if content is not None:
+            return content, relative.strip()
+    return "", ""
+
+
+def _github_exercise_payload(
+    track: str,
+    slug: str,
+    *,
+    ref: str,
+    instructions: str,
+    introduction: str,
+    template: str,
+    test_source: str,
+    solution_file: str,
+    test_file: str,
+) -> dict[str, str]:
+    return {
+        "instructions": instructions,
+        "introduction": introduction,
+        "template": template,
+        "test_source": test_source,
+        "solution_file": solution_file,
+        "test_file": test_file,
+        "source_url": f"https://exercism.org/tracks/{track}/exercises/{slug}",
+        "ref": ref,
+    }
 
 
 def _http_text(url: str) -> str | None:
@@ -477,13 +546,10 @@ def _default_template(runtime: str, title: str) -> str:
         return f"# {title}\ndef solve():\n    raise NotImplementedError\n"
     if runtime == "javascript":
         return (
-            f"// {title}\n"
-            "export function solve() {\n"
-            "  throw new Error('Not implemented');\n"
-            "}\n"
+            f"// {title}\nexport function solve() {{\n  throw new Error('Not implemented');\n}}\n"
         )
     if runtime == "go":
-        return f"// {title}\npackage main\n\nfunc Solve() string {{\n\treturn \"\"\n}}\n"
+        return f'// {title}\npackage main\n\nfunc Solve() string {{\n\treturn ""\n}}\n'
     if runtime == "sql":
         return f"-- {title}\nSELECT 1;\n"
     return f"// {title}\n"

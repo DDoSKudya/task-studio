@@ -7,8 +7,8 @@ from app.api.deps import DbSession, GradingHttpClient, Settings
 from app.domain.check import parse_attempt_id
 from app.domain.lab import complete_lab_job, enqueue_lab_job
 from fastapi import APIRouter
-from studio_common.system_auth import SystemAuth
-from studio_contracts.grading_schemas import (
+from studio_common.security.system_auth import SystemAuth
+from studio_contracts.api.grading_schemas import (
     GradingCheckRequest,
     GradingCheckResponse,
     GradingLabCompleteRequest,

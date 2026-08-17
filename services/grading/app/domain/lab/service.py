@@ -9,7 +9,7 @@ from app.config import GradingSettings
 from app.domain.lab_jobs.enqueue import enqueue_lab_job
 from app.domain.lab_jobs.persist import get_lab_result, persist_lab_result, result_details
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_common.system_auth import system_token_headers
+from studio_common.security.system_auth import system_token_headers
 
 log = structlog.get_logger("grading.lab")
 

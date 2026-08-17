@@ -1,6 +1,8 @@
 api:
   dashboard: true
-  insecure: false
+  insecure: true
+
+ping: {}
 
 entryPoints:
   web:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 
 from app.api.deps import DbSession
-from app.api.mappers import pack_detail, pack_summary, pack_version_info
 from app.domain.packs import (
     activate_pack_version,
     get_user_pack,
@@ -11,14 +10,16 @@ from app.domain.packs import (
     list_user_packs,
 )
 from fastapi import APIRouter
-from studio_common.internal import InternalUserId
-from studio_contracts.catalog_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.catalog_schemas import (
     ActivatePackRequest,
     PackDetail,
     PackSummary,
     PackVersionContext,
     PackVersionInfo,
 )
+
+from ..mappers import pack_detail, pack_summary, pack_version_info
 
 router = APIRouter()
 

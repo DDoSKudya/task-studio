@@ -13,7 +13,7 @@ from app.storage import (
 )
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
-from studio_common.internal import InternalUserId
+from studio_common.security.internal import InternalUserId
 
 router = APIRouter(prefix="/internal/v1/media", tags=["media"])
 

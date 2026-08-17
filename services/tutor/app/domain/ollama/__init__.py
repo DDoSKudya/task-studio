@@ -9,6 +9,7 @@ from app.domain.ollama.quality import (
     polish_system_prompt,
     polish_user_message,
     prose_without_code,
+    repair_script_mixing,
 )
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "prose_without_code",
     "has_unexpected_scripts",
     "has_script_mixing",
+    "repair_script_mixing",
     "language_mismatch",
     "needs_quality_retry",
     "pick_better_reply",

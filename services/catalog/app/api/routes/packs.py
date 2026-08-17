@@ -6,7 +6,7 @@ from app.api.deps import DbSession, Settings
 from app.api.routes.packs_read import router as packs_read_router
 from app.domain.packs import delete_user_pack
 from fastapi import APIRouter, status
-from studio_common.internal import InternalUserId
+from studio_common.security.internal import InternalUserId
 
 router = APIRouter()
 router.include_router(packs_read_router)

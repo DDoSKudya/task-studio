@@ -28,11 +28,11 @@ function Convert-TsPsTreeToUtf8Bom([string]$Root) {
 }
 
 Convert-TsPsTreeToUtf8Bom $RootCandidate
-. (Join-Path $TsStudioScriptsDir "lib\I18n.ps1")
-. (Join-Path $TsStudioScriptsDir "lib\Ui.ps1")
-. (Join-Path $TsStudioScriptsDir "lib\OpenApp.ps1")
-. (Join-Path $TsStudioScriptsDir "lib\DesktopShortcuts.ps1")
-. (Join-Path $TsStudioScriptsDir "lib\Ops.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\localization\I18n.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\ui\Ui.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\desktop\OpenApp.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\desktop\DesktopShortcuts.ps1")
+. (Join-Path $TsStudioScriptsDir "lib\operations\Ops.ps1")
 
 if (Get-Command Reset-TsConsoleColors -ErrorAction SilentlyContinue) {
   Reset-TsConsoleColors

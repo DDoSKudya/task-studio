@@ -10,16 +10,16 @@ import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
-from studio_common.app import register_ops_routes
-from studio_common.logging import configure_logging
-from studio_common.middleware import register_request_id_middleware
-from studio_common.otel import configure_otel
+from studio_common.observability.logging import configure_logging
+from studio_common.observability.otel import configure_otel
+from studio_common.web.app import register_ops_routes
+from studio_common.web.middleware import register_request_id_middleware
 
 from app.api.router import router as orchestrator_router
 from app.config import load_settings
-from app.domain.docker import DockerControl, docker_client
-from app.domain.policies import load_policies
-from app.domain.state import ControllerState
+from app.domain.control.state import ControllerState
+from app.domain.infrastructure.docker import DockerControl, docker_client
+from app.domain.policy.policies import load_policies
 from app.worker import start_control_loop
 
 

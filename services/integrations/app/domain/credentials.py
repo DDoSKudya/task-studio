@@ -4,7 +4,7 @@ import os
 import uuid
 
 import httpx
-from studio_common.secrets_settings import decrypt_platform_credentials
+from studio_common.secrets.secrets_settings import decrypt_platform_credentials
 
 
 async def fetch_platform_credentials(

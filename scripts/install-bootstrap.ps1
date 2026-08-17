@@ -1,4 +1,6 @@
-﻿$ErrorActionPreference = "Stop"
+
+
+$ErrorActionPreference = "Stop"
 
 $branch = if ($env:TASK_STUDIO_BRANCH) { $env:TASK_STUDIO_BRANCH } else { "develop" }
 $base = "https://raw.githubusercontent.com/DDoSKudya/task-studio/$branch/scripts"

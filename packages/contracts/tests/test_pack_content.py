@@ -1,6 +1,6 @@
 from typing import cast
 
-from studio_contracts.pack_content import content_modules_from_manifest
+from studio_contracts.packs.pack_content import content_modules_from_manifest
 
 
 def test_content_modules_from_empty_manifest() -> None:

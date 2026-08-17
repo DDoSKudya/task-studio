@@ -8,7 +8,7 @@ from app.domain.aggregates.writers import (
     record_study_skip,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 SUBMIT_EVENT_TYPES = frozenset(
     {
