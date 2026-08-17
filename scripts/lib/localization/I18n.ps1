@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 $script:TsUiLang = "en"
 
 function Initialize-TsI18n {

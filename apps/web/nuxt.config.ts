@@ -56,6 +56,10 @@ export default defineNuxtConfig({
     tsConfig: {
       compilerOptions: {
         types: ['node'],
+        paths: {
+          'monaco-editor': ['../node_modules/monaco-editor'],
+          'monaco-editor/*': ['../node_modules/monaco-editor/*'],
+        },
       },
       exclude: ['**/*.spec.ts', 'e2e/**', 'playwright.config.ts'],
     },

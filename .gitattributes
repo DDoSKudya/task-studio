@@ -1,4 +1,7 @@
 *.sh text eol=lf
 **/docker-entrypoint.sh text eol=lf
 
+# Windows PowerShell 5.1 reads UTF-8 scripts only when a BOM is present.
+# Store the BOM in the blob. Do not set working-tree-encoding=UTF-8:
+# Linux iconv has no UTF-8-BOM, and a UTF-8 round-trip can strip the BOM.
 *.ps1 text eol=lf

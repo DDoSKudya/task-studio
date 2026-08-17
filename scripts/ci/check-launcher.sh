@@ -12,8 +12,9 @@ fail() {
 echo "==> bash -n (studio + install + lib)"
 bash_files=()
 while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
   bash_files+=("$f")
-done < <(rg --files scripts -g '*.sh')
+done < <(find scripts -type f -name '*.sh' | LC_ALL=C sort)
 [[ ${#bash_files[@]} -gt 0 ]] || fail "no bash scripts found under scripts/"
 for f in "${bash_files[@]}"; do
   bash -n "$f" || fail "syntax error: $f"
@@ -273,7 +274,7 @@ import re
 import sys
 
 paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1"), Path("scripts/install-bootstrap.ps1")]
-paths += sorted(Path("scripts/lib").glob("*.ps1"))
+paths += sorted(Path("scripts/lib").rglob("*.ps1"))
 bad = []
 for path in paths:
     if not path.is_file():
@@ -318,7 +319,7 @@ if command -v pwsh >/dev/null 2>&1; then
       "scripts/studio.ps1",
       "scripts/install.ps1",
       "scripts/install-bootstrap.ps1"
-    ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
+    ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName })
     $failed = $false
     foreach ($path in $files) {
       $errors = Test-TsPsParseUtf8 -Path (Resolve-Path $path)
@@ -347,7 +348,7 @@ if bootstrap.is_file() and bootstrap.read_bytes().startswith(bom):
     print("install-bootstrap.ps1 must NOT have UTF-8 BOM (iex-safe)", file=sys.stderr)
     raise SystemExit(1)
 paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
-paths += sorted(Path("scripts/lib").glob("*.ps1"))
+paths += sorted(Path("scripts/lib").rglob("*.ps1"))
 missing = [str(p) for p in paths if p.is_file() and not p.read_bytes().startswith(bom)]
 if missing:
     print("missing UTF-8 BOM:", ", ".join(missing), file=sys.stderr)
