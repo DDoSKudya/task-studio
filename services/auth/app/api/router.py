@@ -11,14 +11,14 @@ from app.domain.users import (
     upsert_user_settings,
 )
 from fastapi import APIRouter, HTTPException, status
-from studio_common.auth_schemas import (
+from studio_common.security.auth_schemas import (
     AuthSuccess,
     LoginRequest,
     MeResponse,
     RegisterRequest,
     SettingsPatch,
 )
-from studio_contracts.orchestrator_schemas import TutorLlmSummaryResponse
+from studio_contracts.api.orchestrator_schemas import TutorLlmSummaryResponse
 
 router = APIRouter(prefix="/internal/v1/auth", tags=["auth"])
 

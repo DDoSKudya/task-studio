@@ -4,7 +4,7 @@ from app.datetime_utils import ensure_utc
 from app.domain.aggregates.payload import attempt_payload
 from app.infra.models import AttemptTimelineRow, StudySkipCount
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 
 async def record_study_skip(session: AsyncSession, event: AnalyticsEventMessage) -> None:

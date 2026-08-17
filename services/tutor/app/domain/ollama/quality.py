@@ -9,6 +9,7 @@ from app.domain.ollama.quality_lang import (
     language_mismatch,
     needs_quality_retry,
     prose_without_code,
+    repair_script_mixing,
 )
 from app.domain.prompt_compose import load_prompt, render_prompt
 
@@ -18,6 +19,7 @@ __all__ = [
     "prose_without_code",
     "has_unexpected_scripts",
     "has_script_mixing",
+    "repair_script_mixing",
     "language_mismatch",
     "needs_quality_retry",
     "pick_better_reply",

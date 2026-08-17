@@ -9,7 +9,7 @@ from app.deps import UpstreamClient, UserId
 from app.upstream import parse_upstream, parse_upstream_list, upstream_detail
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
-from studio_contracts.studio_schemas import (
+from studio_contracts.api.studio_schemas import (
     CourseBuildDetail,
     CourseBuildSummary,
     CourseFromArticleRequest,

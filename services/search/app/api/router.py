@@ -9,8 +9,8 @@ from app.domain.indexing import unindex_pack
 from app.domain.query import search_documents
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict, Field
-from studio_common.internal import InternalUserId
-from studio_contracts.search_schemas import SearchResponse, SearchType
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.search_schemas import SearchResponse, SearchType
 
 router = APIRouter(prefix="/internal/v1/search", tags=["search"])
 

@@ -4,7 +4,7 @@ export type PackSummary = {
   id: string
   slug: string
   title: string
-  source: string
+  source: string | null
   external_id: string | null
   version: string
   version_id: string

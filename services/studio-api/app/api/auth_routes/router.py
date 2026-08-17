@@ -13,7 +13,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import parse_upstream
 from fastapi import APIRouter, Depends, Response, status
-from studio_common.auth_schemas import (
+from studio_common.security.auth_schemas import (
     AuthSuccess,
     LoginRequest,
     MeResponse,

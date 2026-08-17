@@ -4,8 +4,8 @@ from app.api.deps import ClickHouseClient, DbSession, Settings
 from app.domain.events import process_event
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from studio_common.system_auth import SystemAuth
-from studio_contracts.analytics_schemas import AnalyticsEventMessage
+from studio_common.security.system_auth import SystemAuth
+from studio_contracts.api.analytics_schemas import AnalyticsEventMessage
 
 router = APIRouter(prefix="/internal/v1/analytics", tags=["analytics-ingest"])
 

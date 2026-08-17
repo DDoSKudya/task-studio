@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.domain.session_lab_policy import lab_should_sync_llm
+from app.domain.lab.session_lab_policy import lab_should_sync_llm
 
 
 def test_compose_file_uses_async_lab() -> None:

@@ -6,7 +6,7 @@ from typing import Literal
 import httpx
 import structlog
 from fastapi import HTTPException, status
-from studio_contracts.editor_schemas import lsp_enabled, parse_editor_settings
+from studio_contracts.api.editor_schemas import lsp_enabled, parse_editor_settings
 
 from app.config import StudioApiSettings
 from app.lsp_gateway.access_fetch import fetch_session, fetch_user_settings

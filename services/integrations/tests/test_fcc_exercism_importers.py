@@ -6,8 +6,8 @@ from pathlib import Path
 import httpx
 import pytest
 from integrations_helpers.loaders import load_integrations_module
-from studio_contracts.integration_schemas import ImportReport
-from studio_contracts.pack import validate_manifest
+from studio_contracts.api.integration_schemas import ImportReport
+from studio_contracts.packs.pack import validate_manifest
 from studio_integration_sdk.registry import discover_adapters
 
 
@@ -49,7 +49,7 @@ def test_pack_builder_maps_theory_md_inside_payload() -> None:
 def test_freecodecamp_fixture_import_builds_valid_manifest(
     modules_root: Path, tmp_path: Path
 ) -> None:
-    pack_builder = load_integrations_module("app.domain.pack_builder")
+    pack_builder = load_integrations_module("app.domain.pack.builder")
     adapter = discover_adapters(modules_root)["freecodecamp"]
     pack_raw, report_raw = adapter.import_course(course_id="1")
     normalized = pack_builder.normalized_from_adapter(pack_raw)
@@ -61,7 +61,7 @@ def test_freecodecamp_fixture_import_builds_valid_manifest(
 
 
 def test_exercism_fixture_import_builds_valid_manifest(modules_root: Path) -> None:
-    pack_builder = load_integrations_module("app.domain.pack_builder")
+    pack_builder = load_integrations_module("app.domain.pack.builder")
     adapter = discover_adapters(modules_root)["exercism"]
     pack_raw, report_raw = adapter.import_course(course_id="1")
     normalized = pack_builder.normalized_from_adapter(pack_raw)
@@ -241,7 +241,7 @@ def test_exercism_builds_step_from_github_payload(
     assert "Python basics" in str(lasagna_intro["payload"]["instructions"])
     assert report["imported_full"] >= 2
 
-    pack_builder = load_integrations_module("app.domain.pack_builder")
+    pack_builder = load_integrations_module("app.domain.pack.builder")
     normalized = pack_builder.normalized_from_adapter(pack)
     assert "instructions" in normalized.steps["hello-world"].payload
     validate_manifest(pack_builder.build_manifest(normalized))

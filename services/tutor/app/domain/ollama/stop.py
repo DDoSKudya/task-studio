@@ -13,11 +13,7 @@ async def stop_ollama_model(
     ollama_url: str,
     model: str,
 ) -> None:
-    """Ask Ollama to stop/unload a model so cancelled course builds do not burn CPU.
 
-    Closing the OpenAI-compat socket should already abort generation; this is a
-    second signal (keep_alive=0) used when the client disconnects mid-request.
-    """
     base = ollama_url.rstrip("/")
     name = model.strip()
     if not base or not name:

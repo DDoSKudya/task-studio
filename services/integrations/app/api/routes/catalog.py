@@ -5,13 +5,13 @@ from typing import Annotated
 
 import httpx
 from app.api.deps import Adapters, DbSession, Settings
-from app.api.routes.helpers import http_client, require_adapter, summaries_from_cache
+from app.api.routes.common.helpers import http_client, require_adapter, summaries_from_cache
 from app.domain.cache import list_cached_courses, replace_external_courses
 from app.domain.credentials import fetch_platform_credentials
 from app.domain.messaging import publish_external_courses_for_index
 from fastapi import APIRouter, Depends
-from studio_common.internal import InternalUserId
-from studio_contracts.integration_schemas import ExternalCourseSummary
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.integration_schemas import ExternalCourseSummary
 
 router = APIRouter()
 

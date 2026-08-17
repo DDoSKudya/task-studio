@@ -9,8 +9,8 @@ import {
   PlayIcon,
 } from '@heroicons/vue/24/outline'
 
-import type { OutlineTopic, StepNavTarget } from '~/composables/useSessions'
-import { useSessionGradeSubmit } from '~/composables/useSessionGradeSubmit'
+import type { OutlineTopic, StepNavTarget } from '~/composables/session/useSessions'
+import { useSessionGradeSubmit } from '~/composables/session/useSessionGradeSubmit'
 import {
   canAdvanceToNext,
   expectedChoiceIndex,
@@ -51,7 +51,7 @@ const quizChoice = ref<number | null>(null)
 const quizReveal = ref<{ passed: boolean; expectedIndex: number | null } | null>(null)
 
 watch(quizChoice, () => {
-  // Allow retry after a wrong answer without revealing the key.
+
   if (quizReveal.value && !quizReveal.value.passed) {
     quizReveal.value = null
   }

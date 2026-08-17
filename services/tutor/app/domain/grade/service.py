@@ -9,8 +9,8 @@ from app.domain.context import fetch_user_settings
 from app.domain.errors import TutorError
 from app.domain.grade.llm import grade_via_llm
 from app.domain.grade.payload import normalize_grade_payload, parse_grade_json
-from app.domain.llm import resolve_llm_target
-from studio_contracts.tutor_schemas import TutorGradeRequest, TutorGradeResponse, TutorSettings
+from app.domain.llm import course_provider_url, resolve_llm_target
+from studio_contracts.api.tutor_schemas import TutorGradeRequest, TutorGradeResponse, TutorSettings
 
 _normalize_grade_payload = normalize_grade_payload
 _parse_grade_json = parse_grade_json
@@ -30,7 +30,11 @@ async def grade_submission(
 
     target = resolve_llm_target(
         config,
-        provider_url=settings.provider_url,
+        provider_url=course_provider_url(
+            config,
+            provider_url=settings.provider_url,
+            active_provider=getattr(settings, "active_provider", None),
+        ),
         api_key_encrypted=settings.api_key_encrypted,
         model=settings.model,
         task="grade",

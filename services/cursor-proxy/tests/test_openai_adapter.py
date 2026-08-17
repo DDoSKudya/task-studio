@@ -21,6 +21,26 @@ def test_messages_to_prompt_includes_system_and_turns() -> None:
     assert "JSON object only" not in prompt
 
 
+def test_messages_to_prompt_keeps_course_ensemble_system() -> None:
+    prompt = messages_to_prompt(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You are Task Studio's curriculum architect.\n"
+                    "Skill: instructional design\n"
+                    "Domain overlay: programming\n"
+                ),
+            },
+            {"role": "user", "content": "Write chapter theory."},
+        ]
+    )
+    assert "curriculum architect" in prompt
+    assert "instructional design" in prompt
+    assert "Domain overlay: programming" in prompt
+    assert "SYSTEM:" in prompt
+
+
 def test_messages_to_prompt_honors_json_object_response_format() -> None:
     prompt = messages_to_prompt(
         [

@@ -5,7 +5,12 @@ import uuid
 from app.config import SearchSettings
 from meilisearch.client import Client
 from meilisearch.errors import MeilisearchApiError
-from studio_contracts.search_schemas import SearchHit, SearchResponse, SearchResultKind, SearchType
+from studio_contracts.api.search_schemas import (
+    SearchHit,
+    SearchResponse,
+    SearchResultKind,
+    SearchType,
+)
 
 
 def search_documents(

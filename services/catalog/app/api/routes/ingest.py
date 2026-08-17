@@ -4,8 +4,8 @@ from pathlib import Path
 
 from app.domain.packs import register_imported_pack, upload_pack
 from fastapi import APIRouter, HTTPException, UploadFile, status
-from studio_common.internal import InternalUserId
-from studio_contracts.catalog_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.catalog_schemas import (
     PackUploadResponse,
     RegisterImportedPackRequest,
 )

@@ -5,6 +5,7 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import quote
 
 import httpx
@@ -12,7 +13,9 @@ import httpx
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 _PLATFORM = "freecodecamp"
 _GRAPHQL = "https://curriculum-db.freecodecamp.org/graphql"
-_PAGE_DATA = "https://www.freecodecamp.org/page-data/learn/{superblock}/{block}/{challenge}/page-data.json"
+_PAGE_DATA = (
+    "https://www.freecodecamp.org/page-data/learn/{superblock}/{block}/{challenge}/page-data.json"
+)
 _HTTP_TIMEOUT = httpx.Timeout(45.0, connect=15.0)
 _MAX_BLOCKS = 24
 _MAX_CHALLENGES = 80
@@ -38,7 +41,6 @@ _TITLE_OVERRIDES: dict[str, str] = {
     ),
     "responsive-web-design-22": "Responsive Web Design (New)",
 }
-
 
 _CODE_TYPES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 20, 25, 26, 27, 28, 29}
 
@@ -102,7 +104,6 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
     slug = course_id.strip()
     if not slug:
         raise ValueError("freecodecamp superblock id required")
-
     if slug in {"1", "course_1"} and (_FIXTURES / "course_1.json").is_file():
         payload = json.loads((_FIXTURES / "course_1.json").read_text(encoding="utf-8"))
         pack = {
@@ -113,146 +114,14 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
             "title": str(payload.get("title") or _title_for(slug)),
         }
         return pack, _report(pack)
-
-    try:
-        payload = _graphql(
-            """
-            query ($slug: String!) {
-              superblock(dashedName: $slug) {
-                name
-                dashedName
-                blocks
-                blockObjects {
-                  name
-                  dashedName
-                  challengeOrder { id title }
-                }
-              }
-            }
-            """,
-            variables={"slug": slug},
-        )
-    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-        raise ValueError(f"freecodecamp fetch failed: {exc}") from exc
-
-    superblock = payload.get("superblock")
-    if not isinstance(superblock, dict):
-        raise ValueError(f"freecodecamp superblock {slug!r} not found")
-
+    superblock = _fetch_superblock(slug)
     title = str(superblock.get("name") or _title_for(slug))
-    block_objects = superblock.get("blockObjects")
-    blocks = block_objects if isinstance(block_objects, list) else []
-    if not blocks:
-        block_names = superblock.get("blocks")
-        if isinstance(block_names, list):
-            blocks = [
-                {"dashedName": name, "name": _title_for(str(name)), "challengeOrder": []}
-                for name in block_names
-            ]
-
-    topics: list[dict[str, object]] = []
-    steps: dict[str, dict[str, object]] = {}
-    imported = 0
-    warnings: list[dict[str, str]] = []
-    limited_blocks = blocks[:_MAX_BLOCKS]
-    fetch_jobs: list[tuple[str, str, str, str, str]] = []
-
-    for block in limited_blocks:
-        if not isinstance(block, dict):
-            continue
-        block_slug = str(block.get("dashedName") or "").strip()
-        if not block_slug:
-            continue
-        block_title = str(block.get("name") or _title_for(block_slug))
-        challenges = block.get("challengeOrder")
-        challenge_rows = challenges if isinstance(challenges, list) else []
-
-        overview_id = f"block-{block_slug}"
-        steps[overview_id] = {
-            "id": overview_id,
-            "kind": "theory",
-            "title": block_title,
-            "phase": "study",
-            "fidelity": "partial",
-            "payload": {
-                "body_html": (
-                    f"<h1>{html.escape(block_title)}</h1>"
-                    f"<p>Section from freeCodeCamp "
-                    f"<code>{html.escape(slug)}</code> / "
-                    f"<code>{html.escape(block_slug)}</code>.</p>"
-                ),
-                "instructions": (
-                    f"# {block_title}\n\n"
-                    f"Section from freeCodeCamp `{slug}` / `{block_slug}`."
-                ),
-            },
-        }
-        study_ids = [overview_id]
-        practice_ids: list[str] = []
-        imported += 1
-
-        for challenge in challenge_rows:
-            if imported >= _MAX_CHALLENGES:
-                break
-            if not isinstance(challenge, dict):
-                continue
-            challenge_id = str(challenge.get("id") or "").strip()
-            challenge_title = str(challenge.get("title") or challenge_id).strip()
-            if not challenge_id or not challenge_title:
-                continue
-            step_id = f"ch-{challenge_id}"
-            dashed = _dashed_name(challenge_title)
-            fetch_jobs.append((step_id, challenge_id, challenge_title, block_slug, dashed))
-            steps[step_id] = _scaffold_challenge(
-                step_id=step_id,
-                title=challenge_title,
-                block_slug=block_slug,
-                superblock=slug,
-            )
-            practice_ids.append(step_id)
-            imported += 1
-
-        topics.append(
-            {
-                "id": f"topic-{block_slug}",
-                "title": block_title,
-                "study": study_ids,
-                "practice": practice_ids,
-                "assess": [],
-            }
-        )
-        if imported >= _MAX_CHALLENGES:
-            break
-
-    if not topics or not steps:
+    blocks = _superblock_blocks(superblock)
+    skeleton = _build_course_skeleton(slug, blocks[:_MAX_BLOCKS])
+    if not skeleton.topics or not skeleton.steps:
         raise ValueError(f"freecodecamp superblock {slug!r} has no importable content")
-
-    challenge_payloads = _fetch_challenges_parallel(slug, fetch_jobs)
-    for step_id, challenge_id, challenge_title, block_slug, dashed in fetch_jobs:
-        remote = challenge_payloads.get(step_id)
-        if not remote:
-            warnings.append(
-                {
-                    "step": step_id,
-                    "reason": f"page-data missing for {block_slug}/{dashed}",
-                }
-            )
-            continue
-        mapped, _fidelity, warning = _map_challenge(
-            step_id=step_id,
-            challenge_id=challenge_id,
-            title=challenge_title,
-            block_slug=block_slug,
-            superblock=slug,
-            remote=remote,
-        )
-        steps[step_id] = mapped
-        if warning:
-            warnings.append({"step": step_id, "reason": warning})
-
-    full_count = sum(1 for step in steps.values() if step.get("fidelity") == "full")
-    partial_count = len(steps) - full_count
-
+    warnings = _apply_challenge_payloads(slug, skeleton)
+    full_count = sum(1 for step in skeleton.steps.values() if step.get("fidelity") == "full")
     pack = {
         "platform": _PLATFORM,
         "external_id": slug,
@@ -260,8 +129,8 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
         "slug": f"fcc-{slug}",
         "version": "1.0.0",
         "locale": "en",
-        "topics": topics,
-        "steps": steps,
+        "topics": skeleton.topics,
+        "steps": skeleton.steps,
         "course_assess": [],
     }
     if not warnings:
@@ -275,13 +144,196 @@ def import_course(*, course_id: str, **_ctx: object) -> tuple[dict[str, object],
             }
         )
     report = {
-        "total_items": len(steps),
+        "total_items": len(skeleton.steps),
         "imported_full": full_count,
-        "imported_partial": partial_count,
-        "skipped": max(0, len(blocks) - len(limited_blocks)),
+        "imported_partial": len(skeleton.steps) - full_count,
+        "skipped": max(0, len(blocks) - min(len(blocks), _MAX_BLOCKS)),
         "warnings": warnings[:40],
     }
     return pack, report
+
+
+_SUPERBLOCK_QUERY = """
+query ($slug: String!) {
+  superblock(dashedName: $slug) {
+    name
+    dashedName
+    blocks
+    blockObjects {
+      name
+      dashedName
+      challengeOrder { id title }
+    }
+  }
+}
+"""
+
+
+class _CourseSkeleton(NamedTuple):
+    topics: list[dict[str, object]]
+    steps: dict[str, dict[str, object]]
+    fetch_jobs: list[tuple[str, str, str, str, str]]
+
+
+def _fetch_superblock(slug: str) -> dict[str, object]:
+    try:
+        payload = _graphql(_SUPERBLOCK_QUERY, variables={"slug": slug})
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"freecodecamp fetch failed: {exc}") from exc
+    superblock = payload.get("superblock")
+    if not isinstance(superblock, dict):
+        raise ValueError(f"freecodecamp superblock {slug!r} not found")
+    return superblock
+
+
+def _superblock_blocks(superblock: dict[str, object]) -> list[object]:
+    block_objects = superblock.get("blockObjects")
+    blocks = list(block_objects) if isinstance(block_objects, list) else []
+    if blocks:
+        return blocks
+    block_names = superblock.get("blocks")
+    if not isinstance(block_names, list):
+        return []
+    return [
+        {"dashedName": name, "name": _title_for(str(name)), "challengeOrder": []}
+        for name in block_names
+    ]
+
+
+def _build_course_skeleton(
+    superblock: str,
+    blocks: list[object],
+) -> _CourseSkeleton:
+    topics: list[dict[str, object]] = []
+    steps: dict[str, dict[str, object]] = {}
+    fetch_jobs: list[tuple[str, str, str, str, str]] = []
+    imported = 0
+    for raw_block in blocks:
+        if not isinstance(raw_block, dict):
+            continue
+        block_slug = str(raw_block.get("dashedName") or "").strip()
+        if not block_slug:
+            continue
+        block_title = str(raw_block.get("name") or _title_for(block_slug))
+        overview_id = f"block-{block_slug}"
+        steps[overview_id] = _block_overview(
+            overview_id,
+            block_title,
+            superblock,
+            block_slug,
+        )
+        imported += 1
+        practice_ids, imported = _add_challenge_scaffolds(
+            raw_block,
+            superblock=superblock,
+            block_slug=block_slug,
+            steps=steps,
+            fetch_jobs=fetch_jobs,
+            imported=imported,
+        )
+        topics.append(
+            {
+                "id": f"topic-{block_slug}",
+                "title": block_title,
+                "study": [overview_id],
+                "practice": practice_ids,
+                "assess": [],
+            }
+        )
+        if imported >= _MAX_CHALLENGES:
+            break
+    return _CourseSkeleton(topics, steps, fetch_jobs)
+
+
+def _block_overview(
+    step_id: str,
+    title: str,
+    superblock: str,
+    block_slug: str,
+) -> dict[str, object]:
+    return {
+        "id": step_id,
+        "kind": "theory",
+        "title": title,
+        "phase": "study",
+        "fidelity": "partial",
+        "payload": {
+            "body_html": (
+                f"<h1>{html.escape(title)}</h1>"
+                f"<p>Section from freeCodeCamp "
+                f"<code>{html.escape(superblock)}</code> / "
+                f"<code>{html.escape(block_slug)}</code>.</p>"
+            ),
+            "instructions": (
+                f"# {title}\n\nSection from freeCodeCamp `{superblock}` / `{block_slug}`."
+            ),
+        },
+    }
+
+
+def _add_challenge_scaffolds(
+    block: dict[str, object],
+    *,
+    superblock: str,
+    block_slug: str,
+    steps: dict[str, dict[str, object]],
+    fetch_jobs: list[tuple[str, str, str, str, str]],
+    imported: int,
+) -> tuple[list[str], int]:
+    challenges = block.get("challengeOrder")
+    challenge_rows = challenges if isinstance(challenges, list) else []
+    practice_ids: list[str] = []
+    for challenge in challenge_rows:
+        if imported >= _MAX_CHALLENGES:
+            break
+        if not isinstance(challenge, dict):
+            continue
+        challenge_id = str(challenge.get("id") or "").strip()
+        title = str(challenge.get("title") or challenge_id).strip()
+        if not challenge_id or not title:
+            continue
+        step_id = f"ch-{challenge_id}"
+        dashed = _dashed_name(title)
+        fetch_jobs.append((step_id, challenge_id, title, block_slug, dashed))
+        steps[step_id] = _scaffold_challenge(
+            step_id=step_id,
+            title=title,
+            block_slug=block_slug,
+            superblock=superblock,
+        )
+        practice_ids.append(step_id)
+        imported += 1
+    return practice_ids, imported
+
+
+def _apply_challenge_payloads(
+    superblock: str,
+    skeleton: _CourseSkeleton,
+) -> list[dict[str, str]]:
+    warnings: list[dict[str, str]] = []
+    payloads = _fetch_challenges_parallel(superblock, skeleton.fetch_jobs)
+    for step_id, challenge_id, title, block_slug, dashed in skeleton.fetch_jobs:
+        remote = payloads.get(step_id)
+        if remote is None:
+            warnings.append(
+                {
+                    "step": step_id,
+                    "reason": f"page-data missing for {block_slug}/{dashed}",
+                }
+            )
+            continue
+        mapped, _fidelity, warning = _map_challenge(
+            step_id=step_id,
+            challenge_id=challenge_id,
+            title=title,
+            block_slug=block_slug,
+            superblock=superblock,
+            remote=remote,
+        )
+        skeleton.steps[step_id] = mapped
+        if warning:
+            warnings.append({"step": step_id, "reason": warning})
+    return warnings
 
 
 def _fetch_challenges_parallel(
@@ -317,11 +369,7 @@ def _fetch_challenges_parallel(
             result = payload.get("result")
             data = result.get("data") if isinstance(result, dict) else None
             challenge_node = data.get("challengeNode") if isinstance(data, dict) else None
-            node = (
-                challenge_node.get("challenge")
-                if isinstance(challenge_node, dict)
-                else None
-            )
+            node = challenge_node.get("challenge") if isinstance(challenge_node, dict) else None
         if not isinstance(node, dict):
             return step_id, None
         return step_id, node
@@ -347,143 +395,221 @@ def _map_challenge(
 ) -> tuple[dict[str, object], str, str | None]:
     description = _as_html(remote.get("description"))
     instructions = _as_html(remote.get("instructions"))
-    tests_raw_obj = remote.get("tests")
-    tests_raw: list[object] = list(tests_raw_obj) if isinstance(tests_raw_obj, list) else []
-    files_raw_obj = remote.get("challengeFiles")
-    files_raw: list[object] = list(files_raw_obj) if isinstance(files_raw_obj, list) else []
-    files: list[dict[str, object]] = [
-        item for item in files_raw if isinstance(item, dict)
-    ]
-    questions_obj = remote.get("questions")
-    questions: list[object] = list(questions_obj) if isinstance(questions_obj, list) else []
+    tests = _object_list(remote.get("tests"))
+    files = [item for item in _object_list(remote.get("challengeFiles")) if isinstance(item, dict)]
+    questions = _object_list(remote.get("questions"))
     video_id = str(remote.get("videoId") or "").strip()
     video_url = str(remote.get("videoUrl") or "").strip()
     if video_id and not video_url:
         video_url = f"https://www.youtube.com/watch?v={video_id}"
-    help_category = str(remote.get("helpCategory") or "")
-    challenge_type = _as_int(remote.get("challengeType"))
-
     body_html = _compose_body_html(
         description=description,
         instructions=instructions,
-        tests=tests_raw,
+        tests=tests,
         video_url=video_url if questions else "",
     )
-    source_url = (
-        f"https://www.freecodecamp.org/learn/{superblock}/{block_slug}/"
-        f"{_dashed_name(title)}"
+    context = _ChallengeContext(
+        step_id=step_id,
+        challenge_id=challenge_id,
+        title=title,
+        block_slug=block_slug,
+        superblock=superblock,
+        description=description,
+        instructions=instructions,
+        tests=tests,
+        files=files,
+        questions=questions,
+        video_url=video_url,
+        body_html=body_html,
+        help_category=str(remote.get("helpCategory") or ""),
+        challenge_type=_as_int(remote.get("challengeType")),
     )
-
     quiz = _quiz_from_questions(questions)
     if quiz is not None:
-        payload: dict[str, object] = {
-            **quiz,
-            "body_html": body_html or description or instructions,
-            "instructions": _html_to_text(body_html or description or instructions or title),
-            "source_url": source_url,
-            "external_step_id": challenge_id,
-            "fcc_challenge_type": challenge_type,
-        }
-        if video_url:
-            payload["video_url"] = video_url
-        fidelity = "full" if quiz.get("choices") and "answer" in quiz else "partial"
-        warning = None if fidelity == "full" else "quiz answer key incomplete"
-        return (
-            {
-                "id": step_id,
-                "kind": "quiz",
-                "title": title,
-                "phase": "practice",
-                "fidelity": fidelity,
-                "payload": payload,
-            },
-            fidelity,
-            warning,
-        )
-
+        return _map_quiz_challenge(context, quiz)
     if video_url and not files:
-        fidelity = "full" if description or instructions else "partial"
-        return (
-            {
-                "id": step_id,
-                "kind": "video",
-                "title": title,
-                "phase": "study",
-                "fidelity": fidelity,
-                "payload": {
-                    "video_url": video_url,
-                    "body_html": body_html or description,
-                    "instructions": _html_to_text(body_html or description or title),
-                    "source_url": source_url,
-                    "external_step_id": challenge_id,
-                    "fcc_challenge_type": challenge_type,
-                },
-            },
-            fidelity,
-            None,
-        )
+        return _map_video_challenge(context)
+    return _map_content_challenge(context)
 
-    runtime, runtime_version = _runtime_for(superblock, help_category, files)
-    template = _template_from_files(files, runtime=runtime)
-    has_body = bool(body_html.strip())
-    if challenge_type in _CODE_TYPES or files or tests_raw or has_body or template.strip():
-        warning: str | None = None
-        fidelity = "full" if has_body else "partial"
-        if not template.strip():
-            template = _default_template(runtime, title)
-            warning = (
-                "starter file empty; scaffold template used"
-                if has_body
-                else "challenge body empty"
-            )
-        else:
-            if tests_raw:
-                warning = "FCC browser asserts are imported as text only"
-            if not has_body:
-                warning = "challenge instructions missing"
-        return (
-            {
-                "id": step_id,
-                "kind": "code",
-                "title": title,
-                "phase": "practice",
-                "fidelity": fidelity,
-                "payload": {
-                    "runtime": runtime,
-                    "runtime_version": runtime_version,
-                    "template": template,
-                    "body_html": body_html,
-                    "instructions": _html_to_text(body_html) or title,
-                    "tests": [],
-                    "fcc_tests": _fcc_tests_payload(tests_raw),
-                    "source_url": source_url,
-                    "external_step_id": challenge_id,
-                    "fcc_challenge_type": challenge_type,
-                    "fcc_test_count": len(tests_raw),
-                },
-            },
-            fidelity,
-            warning,
-        )
 
-    fidelity = "full" if body_html.strip() else "partial"
+class _ChallengeContext(NamedTuple):
+    step_id: str
+    challenge_id: str
+    title: str
+    block_slug: str
+    superblock: str
+    description: str
+    instructions: str
+    tests: list[object]
+    files: list[dict[str, object]]
+    questions: list[object]
+    video_url: str
+    body_html: str
+    help_category: str
+    challenge_type: int | None
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if isinstance(value, list) else []
+
+
+def _challenge_source_url(context: _ChallengeContext) -> str:
+    return (
+        f"https://www.freecodecamp.org/learn/{context.superblock}/"
+        f"{context.block_slug}/{_dashed_name(context.title)}"
+    )
+
+
+def _challenge_step(
+    context: _ChallengeContext,
+    *,
+    kind: str,
+    phase: str,
+    fidelity: str,
+    payload: dict[str, object],
+    warning: str | None,
+) -> tuple[dict[str, object], str, str | None]:
     return (
         {
-            "id": step_id,
-            "kind": "theory",
-            "title": title,
-            "phase": "study",
+            "id": context.step_id,
+            "kind": kind,
+            "title": context.title,
+            "phase": phase,
             "fidelity": fidelity,
-            "payload": {
-                "body_html": body_html or f"<p>{html.escape(title)}</p>",
-                "instructions": _html_to_text(body_html) or title,
-                "source_url": source_url,
-                "external_step_id": challenge_id,
-            },
+            "payload": payload,
         },
         fidelity,
-        None if fidelity == "full" else "challenge body empty",
+        warning,
     )
+
+
+def _map_quiz_challenge(
+    context: _ChallengeContext,
+    quiz: dict[str, object],
+) -> tuple[dict[str, object], str, str | None]:
+    content = context.body_html or context.description or context.instructions
+    payload = {
+        **quiz,
+        "body_html": content,
+        "instructions": _html_to_text(content or context.title),
+        "source_url": _challenge_source_url(context),
+        "external_step_id": context.challenge_id,
+        "fcc_challenge_type": context.challenge_type,
+    }
+    if context.video_url:
+        payload["video_url"] = context.video_url
+    fidelity = "full" if quiz.get("choices") and "answer" in quiz else "partial"
+    warning = None if fidelity == "full" else "quiz answer key incomplete"
+    return _challenge_step(
+        context,
+        kind="quiz",
+        phase="practice",
+        fidelity=fidelity,
+        payload=payload,
+        warning=warning,
+    )
+
+
+def _map_video_challenge(
+    context: _ChallengeContext,
+) -> tuple[dict[str, object], str, str | None]:
+    content = context.body_html or context.description
+    fidelity = "full" if context.description or context.instructions else "partial"
+    return _challenge_step(
+        context,
+        kind="video",
+        phase="study",
+        fidelity=fidelity,
+        payload={
+            "video_url": context.video_url,
+            "body_html": content,
+            "instructions": _html_to_text(content or context.title),
+            "source_url": _challenge_source_url(context),
+            "external_step_id": context.challenge_id,
+            "fcc_challenge_type": context.challenge_type,
+        },
+        warning=None,
+    )
+
+
+def _map_content_challenge(
+    context: _ChallengeContext,
+) -> tuple[dict[str, object], str, str | None]:
+    runtime, runtime_version = _runtime_for(
+        context.superblock,
+        context.help_category,
+        context.files,
+    )
+    template = _template_from_files(context.files, runtime=runtime)
+    has_body = bool(context.body_html.strip())
+    is_code = (
+        context.challenge_type in _CODE_TYPES
+        or bool(context.files)
+        or bool(context.tests)
+        or has_body
+        or bool(template.strip())
+    )
+    if not is_code:
+        fidelity = "full" if has_body else "partial"
+        return _challenge_step(
+            context,
+            kind="theory",
+            phase="study",
+            fidelity=fidelity,
+            payload={
+                "body_html": context.body_html or f"<p>{html.escape(context.title)}</p>",
+                "instructions": _html_to_text(context.body_html) or context.title,
+                "source_url": _challenge_source_url(context),
+                "external_step_id": context.challenge_id,
+            },
+            warning=None if fidelity == "full" else "challenge body empty",
+        )
+    template, warning = _code_template_and_warning(
+        context,
+        runtime=runtime,
+        template=template,
+        has_body=has_body,
+    )
+    fidelity = "full" if has_body else "partial"
+    return _challenge_step(
+        context,
+        kind="code",
+        phase="practice",
+        fidelity=fidelity,
+        payload={
+            "runtime": runtime,
+            "runtime_version": runtime_version,
+            "template": template,
+            "body_html": context.body_html,
+            "instructions": _html_to_text(context.body_html) or context.title,
+            "tests": [],
+            "fcc_tests": _fcc_tests_payload(context.tests),
+            "source_url": _challenge_source_url(context),
+            "external_step_id": context.challenge_id,
+            "fcc_challenge_type": context.challenge_type,
+            "fcc_test_count": len(context.tests),
+        },
+        warning=warning,
+    )
+
+
+def _code_template_and_warning(
+    context: _ChallengeContext,
+    *,
+    runtime: str,
+    template: str,
+    has_body: bool,
+) -> tuple[str, str | None]:
+    if not template.strip():
+        warning = (
+            "starter file empty; scaffold template used" if has_body else "challenge body empty"
+        )
+        return _default_template(runtime, context.title), warning
+    if not has_body:
+        return template, "challenge instructions missing"
+    if context.tests:
+        return template, "FCC browser asserts are imported as text only"
+    return template, None
 
 
 def _scaffold_challenge(

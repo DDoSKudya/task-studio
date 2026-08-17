@@ -9,7 +9,7 @@ from app.domain.course.page import (
     step_page_text,
     strip_html,
 )
-from studio_contracts.session_schemas import CourseDigest, CourseDigestStep, StepContent
+from studio_contracts.api.session_schemas import CourseDigest, CourseDigestStep, StepContent
 
 _starter_code = starter_code
 _strip_html = strip_html

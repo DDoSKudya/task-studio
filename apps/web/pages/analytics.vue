@@ -3,7 +3,7 @@ import type {
   AttemptTimelineEntry,
   ProgressResponse,
   StudySkipEntry,
-} from '~/composables/useAnalytics'
+} from '~/composables/analytics/useAnalytics'
 import {
   attemptPassStats,
   countActiveDays,

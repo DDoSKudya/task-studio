@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from app.domain.check.outcome import CheckOutcome
-from studio_contracts.tutor_schemas import TutorGradeResponse
+from studio_contracts.api.tutor_schemas import TutorGradeResponse
 
 _SOFT_ACCEPT_FLOOR = 0.55
 

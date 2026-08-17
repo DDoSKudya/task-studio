@@ -2,117 +2,131 @@ from __future__ import annotations
 
 from .core import PromptRequest
 
+_COURSE_ALWAYS_SKILLS = (
+    "course-stage-json",
+    "anti-hallucination-source",
+    "pack-manifest-contract",
+    "negative-constraints",
+    "instructional-design",
+)
+_COURSE_STAGE_SKILLS: dict[str, tuple[str, ...]] = {
+    "analyze": ("curriculum-synthesis",),
+    "theory": ("expand-dense-prose", "diagram-craft"),
+    "polish": ("book-polish",),
+    "quizzes": ("quiz-assessment-design",),
+    "code": ("code-task-ladder", "practice-as-drill"),
+    "tasks": ("open-task-ladder", "practice-as-drill"),
+    "quality": ("chapter-quality-gate",),
+}
 
-def skills_for(request: PromptRequest) -> list[str]:
-    if request.mode == "pack_studio":
-        return []
 
-    if request.mode == "article_from_url":
-        skills = [
-            "url-to-markdown",
-            "article-dechrome",
-            "anti-hallucination-source",
-            "negative-constraints",
+def course_skill_layers(request: PromptRequest) -> tuple[list[str], list[str], list[str]]:
+
+    from app.domain.course_from_article.common.runtime.course_context import get_course_parts
+    from app.domain.course_from_article.curriculum.outline.course_profile import (
+        profile_skill_overlay,
+    )
+    from app.domain.course_strategies import filter_skills_for_pack, parse_strategy_pack
+
+    always: list[str] = list(_COURSE_ALWAYS_SKILLS)
+    domain = [profile_skill_overlay(request.course_profile or "")]
+    stage: list[str] = list(_COURSE_STAGE_SKILLS.get((request.step_kind or "").strip().lower(), ()))
+    flags = get_course_parts()
+    if not flags.quizzes:
+        stage = [name for name in stage if name != "quiz-assessment-design"]
+    if not flags.practice:
+        stage = [
+            name
+            for name in stage
+            if name not in {"code-task-ladder", "practice-as-drill", "open-task-ladder"}
         ]
-        if request.compact:
-            skills.append("token-budget")
-        return skills
+    if pack_id := (request.strategy_pack or "").strip():
+        pack = parse_strategy_pack(pack_id)
 
-    if request.mode == "course_from_article":
-        skills = [
-            "course-stage-json",
-            "anti-hallucination-source",
-            "pack-manifest-contract",
-            "negative-constraints",
-            "instructional-design",
-        ]
-        stage = (request.step_kind or "").strip().lower()
-        if stage == "analyze":
-            skills.append("curriculum-synthesis")
-        elif stage == "theory":
-            skills.append("expand-dense-prose")
-            skills.append("diagram-craft")
-        elif stage == "polish":
-            skills.append("book-polish")
-        elif stage == "quizzes":
-            skills.append("quiz-assessment-design")
-        elif stage == "code":
-            skills.append("code-task-ladder")
-        elif stage == "tasks":
-            skills.append("open-task-ladder")
-        elif stage == "consistency":
-            skills.append("article-consistency")
-        from app.domain.course_from_article.course_profile import profile_skill_overlay
+        always = filter_skills_for_pack(always, pack)
+        stage = filter_skills_for_pack(stage, pack)
+    return always, domain, stage
 
-        # Только из запроса — без ContextVar domain (граница prompt ↔ course).
-        profile = (request.course_profile or "").strip().casefold().replace("-", "_")
-        if profile:
-            overlay = profile_skill_overlay(profile)
-            if overlay:
-                skills.append(overlay)
-        # Не вешаем chat-ский token-budget («≤80 words») на генерацию курсов —
-        # он убивает смысл статей. Бюджет курса задаётся stage prompts.
-        return skills
 
-    if request.mode == "grade":
-        skills = ["grade-json-contract", "grade-duty", "grade-evidence", "negative-constraints"]
-        kind = request.step_kind.strip().lower()
-        if kind == "quiz":
-            skills.append("grade-quiz")
-        elif kind == "code":
-            skills.append("grade-code")
-            if request.sql_aware:
-                skills.append("sql-coach")
-        elif kind == "task":
-            skills.append("grade-task")
-        elif kind == "lab":
-            skills.append("grade-lab")
-            skills.append("grade-task")
-        if request.compact:
-            skills.append("token-budget")
-        return skills
+_GRADE_KIND_SKILLS: dict[str, tuple[str, ...]] = {
+    "quiz": ("grade-quiz",),
+    "code": ("grade-code",),
+    "task": ("grade-task",),
+    "lab": ("grade-lab", "grade-task"),
+}
 
-    skills: list[str] = ["socratic", "atypical-cases", "negative-constraints"]
-    kind = request.step_kind.strip().lower()
-    if kind:
-        skills.append(f"kind-{kind}")
 
-    if request.mode == "chat" and request.phase == "practice":
-        skills.append("attempt-review")
-        skills.append("verify-with-checks")
-        skills.append("ground-on-page")
-        if not request.compact:
-            skills.append("light-cot")
-
-    if request.mode == "chat" and request.phase == "study":
-        skills.append("ground-on-page")
-
-    if request.mode == "hints":
-        if request.compact:
-            skills.append("few-shot-hints-compact")
-        else:
-            skills.append("few-shot-hints")
-
-    if request.sql_aware:
-        skills.append("sql-coach")
-
+def _article_from_url_skills(request: PromptRequest) -> list[str]:
+    skills = [
+        "url-to-markdown",
+        "article-dechrome",
+        "anti-hallucination-source",
+        "negative-constraints",
+    ]
     if request.compact:
         skills.append("token-budget")
+    return skills
 
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for name in skills:
-        if name not in seen:
-            seen.add(name)
-            ordered.append(name)
-    return ordered
+
+def _grade_skills(request: PromptRequest) -> list[str]:
+    kind = request.step_kind.strip().lower()
+    skills = [
+        "grade-json-contract",
+        "grade-duty",
+        "grade-evidence",
+        "negative-constraints",
+        *_GRADE_KIND_SKILLS.get(kind, ()),
+    ]
+    if kind == "code" and request.sql_aware:
+        skills.append("sql-coach")
+    if request.compact:
+        skills.append("token-budget")
+    return skills
+
+
+def _chat_hint_skills(request: PromptRequest) -> list[str]:
+    skills: list[str] = ["socratic", "atypical-cases", "negative-constraints"]
+    if kind := request.step_kind.strip().lower():
+        skills.append(f"kind-{kind}")
+    if request.mode == "chat":
+        match request.phase:
+            case "practice":
+                skills.extend(("attempt-review", "verify-with-checks", "ground-on-page"))
+                if not request.compact:
+                    skills.append("light-cot")
+            case "study":
+                skills.append("ground-on-page")
+    if request.mode == "hints":
+        skills.append("few-shot-hints-compact" if request.compact else "few-shot-hints")
+    if request.sql_aware:
+        skills.append("sql-coach")
+    if request.compact:
+        skills.append("token-budget")
+    return list(dict.fromkeys(skills))
+
+
+def skills_for(request: PromptRequest) -> list[str]:
+    match request.mode:
+        case "pack_studio":
+            return []
+        case "article_from_url":
+            return _article_from_url_skills(request)
+        case "course_from_article":
+            always, domain, stage = course_skill_layers(request)
+            return [*always, *domain, *stage]
+        case "grade":
+            return _grade_skills(request)
+        case _:
+            return _chat_hint_skills(request)
 
 
 def provider_parts(request: PromptRequest) -> list[str]:
     if request.mode == "pack_studio":
         return []
     if request.mode in {"grade", "course_from_article", "article_from_url"}:
-        return ["provider/ollama-quality"] if request.compact else ["provider/external"]
+        if request.compact or request.local_runtime:
+            return ["provider/ollama-quality"]
+        return ["provider/external"]
     if request.compact:
         return ["provider/ollama-quality"]
     return ["provider/external"]

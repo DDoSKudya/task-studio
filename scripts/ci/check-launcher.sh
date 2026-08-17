@@ -11,11 +11,10 @@ fail() {
 
 echo "==> bash -n (studio + install + lib)"
 bash_files=()
-for f in scripts/*.sh scripts/lib/*.sh scripts/ci/*.sh; do
-  if [[ -f "$f" ]]; then
-    bash_files+=("$f")
-  fi
-done
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  bash_files+=("$f")
+done < <(find scripts -type f -name '*.sh' | LC_ALL=C sort)
 [[ ${#bash_files[@]} -gt 0 ]] || fail "no bash scripts found under scripts/"
 for f in "${bash_files[@]}"; do
   bash -n "$f" || fail "syntax error: $f"
@@ -38,7 +37,7 @@ echo "==> install.ps1 must stay iex-safe (no #Requires / param at head)"
 python3 - <<'PY' || fail "install.ps1 is not iex-safe"
 from pathlib import Path
 text = Path("scripts/install.ps1").read_text(encoding="utf-8-sig")
-# Strip BOM / leading blank/comment-only lines for the first real statement window.
+
 lines = []
 for raw in text.splitlines():
     s = raw.strip()
@@ -125,7 +124,7 @@ if not isinstance(build, int) or build <= 0:
     sys.exit(1)
 
 out = subprocess.check_output(
-    [sys.executable, "scripts/compute-build-number.py", version],
+    [sys.executable, "scripts/maintenance/compute-build-number.py", version],
     text=True,
 ).strip()
 m = re.search(r"build=(\d+)", out)
@@ -137,7 +136,7 @@ if build != expected:
     print(f"build mismatch: file={build} expected={expected} for {version}", file=sys.stderr)
     sys.exit(1)
 if channel not in version and channel != "ga":
-    # pre-release channel label must appear in SemVer (alpha/beta/rc)
+
     print(f"channel {channel!r} not reflected in version {version!r}", file=sys.stderr)
     sys.exit(1)
 
@@ -170,7 +169,7 @@ if not isinstance(build, int) or build <= 0:
     sys.exit(1)
 
 out = subprocess.check_output(
-    [sys.executable, "scripts/compute-build-number.py", version],
+    [sys.executable, "scripts/maintenance/compute-build-number.py", version],
     text=True,
 ).strip()
 m = re.search(r"build=(\d+)", out)
@@ -222,14 +221,36 @@ if profiles and not Path(str(profiles)).is_file():
 print(f"ok commands={len(commands)} profiles_sot={profiles}")
 PY
 
+echo "==> rebuild stack wipes compose images, keeps data volumes"
+python3 - <<'PY'
+import sys
+from pathlib import Path
+
+sh = Path("scripts/lib/operations/ops.sh").read_text(encoding="utf-8")
+ps = Path("scripts/lib/operations/Ops.ps1").read_text(encoding="utf-8")
+if "down --rmi all" not in sh or "ops_reset_compose_images" not in sh:
+    print("ops.sh: missing ops_reset_compose_images / down --rmi all", file=sys.stderr)
+    raise SystemExit(1)
+if "down -v --rmi all" in sh or "down --volumes --rmi all" in sh:
+    print("ops.sh: rebuild must not pass -v with --rmi all", file=sys.stderr)
+    raise SystemExit(1)
+if "Reset-TsComposeImages" not in ps or '"--rmi", "all"' not in ps:
+    print("Ops.ps1: missing Reset-TsComposeImages / --rmi all", file=sys.stderr)
+    raise SystemExit(1)
+if "down -v --rmi all" in ps or '"-v", "--rmi", "all"' in ps:
+    print("Ops.ps1: rebuild must not pass -v with --rmi all", file=sys.stderr)
+    raise SystemExit(1)
+print("ok rebuild image reset keeps volumes")
+PY
+
 echo "==> i18n key parity (i18n.sh ↔ I18n.ps1)"
 python3 - <<'PY'
 import re
 import sys
 from pathlib import Path
 
-sh = Path("scripts/lib/i18n.sh").read_text(encoding="utf-8")
-ps = Path("scripts/lib/I18n.ps1").read_text(encoding="utf-8")
+sh = Path("scripts/lib/localization/i18n.sh").read_text(encoding="utf-8")
+ps = Path("scripts/lib/localization/I18n.ps1").read_text(encoding="utf-8")
 sh_keys = set(re.findall(r"^\s+([a-z0-9_]+)\)\s+en=", sh, re.M))
 ps_keys = set(re.findall(r"^\s+'([a-z0-9_]+)'\s*\{", ps, re.M))
 only_sh = sorted(sh_keys - ps_keys)
@@ -253,15 +274,15 @@ import re
 import sys
 
 paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1"), Path("scripts/install-bootstrap.ps1")]
-paths += sorted(Path("scripts/lib").glob("*.ps1"))
+paths += sorted(Path("scripts/lib").rglob("*.ps1"))
 bad = []
 for path in paths:
     if not path.is_file():
         continue
     text = path.read_text(encoding="utf-8-sig")
-    # rough: count markers outside strings is hard; flag orphan openers left as code
+
     if re.search(r"^\s*<#", text, re.M) and not re.search(r"^\s*#>", text, re.M):
-        # opener without any closer line
+
         opens = len(re.findall(r"<#", text))
         closes = len(re.findall(r"#>", text))
         if opens != closes:
@@ -298,7 +319,7 @@ if command -v pwsh >/dev/null 2>&1; then
       "scripts/studio.ps1",
       "scripts/install.ps1",
       "scripts/install-bootstrap.ps1"
-    ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
+    ) + (Get-ChildItem -Path "scripts/lib" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName })
     $failed = $false
     foreach ($path in $files) {
       $errors = Test-TsPsParseUtf8 -Path (Resolve-Path $path)
@@ -315,19 +336,24 @@ else
   echo "==> PowerShell parse skipped (pwsh not installed)"
 fi
 
-echo "==> PowerShell scripts must have UTF-8 BOM (Windows PS 5.1)"
+echo "==> PowerShell scripts must have UTF-8 BOM (Windows PS 5.1), except iex bootstrap"
 python3 - <<'PY' || fail "one or more .ps1 files missing UTF-8 BOM"
 from pathlib import Path
 import sys
 
 bom = b"\xef\xbb\xbf"
-paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1"), Path("scripts/install-bootstrap.ps1")]
-paths += sorted(Path("scripts/lib").glob("*.ps1"))
+
+bootstrap = Path("scripts/install-bootstrap.ps1")
+if bootstrap.is_file() and bootstrap.read_bytes().startswith(bom):
+    print("install-bootstrap.ps1 must NOT have UTF-8 BOM (iex-safe)", file=sys.stderr)
+    raise SystemExit(1)
+paths = [Path("scripts/studio.ps1"), Path("scripts/install.ps1")]
+paths += sorted(Path("scripts/lib").rglob("*.ps1"))
 missing = [str(p) for p in paths if p.is_file() and not p.read_bytes().startswith(bom)]
 if missing:
     print("missing UTF-8 BOM:", ", ".join(missing), file=sys.stderr)
     raise SystemExit(1)
-print(f"ok BOM on {len(paths)} files")
+print(f"ok BOM on {len(paths)} files; bootstrap iex-safe (no BOM)")
 PY
 
 echo "check-launcher: OK"

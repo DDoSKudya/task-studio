@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from aio_pika.abc import AbstractChannel
 from app.config import IntegrationsSettings
 from app.domain.cache import parse_catalog_course
-from studio_common.rabbitmq import declare_queue, publish_json
+from studio_common.messaging.rabbitmq import declare_queue, publish_json
 
 
 async def publish_external_courses(

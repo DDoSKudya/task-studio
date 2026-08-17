@@ -27,8 +27,8 @@ try {
   Set-Content -Path (Join-Path $dst "obsolete.txt") -Value "old" -Encoding UTF8
   Set-Content -Path (Join-Path $dst ".studio-update-cache.json") -Value '{"status":"available"}' -Encoding UTF8
 
-  . (Join-Path $Root "scripts\lib\I18n.ps1")
-  . (Join-Path $Root "scripts\lib\Ops.ps1")
+  . (Join-Path $Root "scripts\lib\localization\I18n.ps1")
+  . (Join-Path $Root "scripts\lib\operations\Ops.ps1")
   Sync-TsPayload -Source $src -Destination $dst
 
   $mustExist = @(

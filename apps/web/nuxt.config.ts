@@ -35,6 +35,10 @@ const appVersion = loadAppVersion()
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-11',
   css: ['~/assets/css/main.css'],
+  components: [{ path: '~/components', pathPrefix: false }],
+  imports: {
+    dirs: ['~/composables', '~/composables/**'],
+  },
   app: {
     head: {
       title: 'Task Studio',
@@ -52,6 +56,10 @@ export default defineNuxtConfig({
     tsConfig: {
       compilerOptions: {
         types: ['node'],
+        paths: {
+          'monaco-editor': ['../node_modules/monaco-editor'],
+          'monaco-editor/*': ['../node_modules/monaco-editor/*'],
+        },
       },
       exclude: ['**/*.spec.ts', 'e2e/**', 'playwright.config.ts'],
     },

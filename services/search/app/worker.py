@@ -6,12 +6,17 @@ import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from meilisearch.client import Client
-from studio_common.orchestrator_flags import (
+from studio_common.messaging.rabbitmq import (
+    consume_json,
+    declare_dlq,
+    declare_queue,
+    rabbit_connection,
+)
+from studio_common.orchestration.orchestrator_flags import (
     PAUSE_SEARCH_INDEX_KEY,
     redis_url_from_env,
     wait_while_orchestrator_paused,
 )
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 
 from app.config import SearchSettings
 from app.domain.worker_handle import handle_index_payload

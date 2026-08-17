@@ -6,12 +6,17 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from clickhouse_connect.driver.client import Client
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.orchestrator_flags import (
+from studio_common.messaging.rabbitmq import (
+    consume_json,
+    declare_dlq,
+    declare_queue,
+    rabbit_connection,
+)
+from studio_common.orchestration.orchestrator_flags import (
     ANALYTICS_BATCH_SLEEP_KEY,
     orchestrator_analytics_sleep_seconds,
     redis_url_from_env,
 )
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
 
 from app.config import AnalyticsSettings
 from app.domain.events import parse_event_message, process_event

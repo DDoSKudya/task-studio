@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from studio_contracts.tutor_schemas import TutorChatRequest
+from studio_contracts.api.tutor_schemas import TutorChatRequest
 
 
 def test_tutor_chat_request_accepts_uuid_string_from_json() -> None:

@@ -5,9 +5,14 @@ include **one** Mermaid fence — not decorative, not duplicate of the prose.
 
 ## When to draw
 
-- Foundation / architecture / pipeline / state / request-flow chapters → usually yes
-- Pure API trivia or a short tip → usually no
-- Never invent product logos or fake metrics; only relationships stated or implied by the source
+- Structure / pipeline / state / request-flow chapters **in technical or science
+  sources** → usually yes when the source implies parts and relations.
+- Two-sided contrast → prefer a markdown **table**, not mermaid.
+- Pure definition tip, short tip, or trivia → usually no.
+- **Humanities / language / most business essays** → rarely; only if the source itself
+  is about a process, timeline, or structure worth drawing.
+- Never invent product logos or fake metrics; only relationships stated or implied by the source.
+- Do not draw a diagram and a table for the same idea.
 
 ## Format
 
@@ -22,5 +27,5 @@ One diagram per chapter max unless the chapter is explicitly about comparing two
 
 ## Placement
 
-Put the diagram after the mental model section, before deep traps — so the reader can
-see the shape, then read the edges.
+Put the diagram immediately after the paragraph that names the parts. The next sentence
+is the caption (what to look at). Do not park the figure in its own "Diagram" section.

@@ -7,8 +7,8 @@ import httpx
 from aio_pika.abc import AbstractChannel
 from app.config import GradingSettings
 from app.domain.pack.materialize import ensure_local_pack_root
-from studio_common.rabbitmq import declare_queue, publish_json
-from studio_contracts.catalog_schemas import PackVersionContext
+from studio_common.messaging.rabbitmq import declare_queue, publish_json
+from studio_contracts.api.catalog_schemas import PackVersionContext
 
 
 async def fetch_pack_root(

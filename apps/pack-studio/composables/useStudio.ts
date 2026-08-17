@@ -154,7 +154,7 @@ export function useStudio() {
             streamError = event.message || 'course generation failed'
           }
         } catch {
-
+          continue
         }
       }
     }

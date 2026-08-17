@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.config import StudioApiSettings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream
-from studio_contracts.analytics_schemas import (
+from studio_contracts.api.analytics_schemas import (
     AttemptsTimelineResponse,
     ProgressResponse,
     SkipsResponse,

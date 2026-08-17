@@ -27,9 +27,9 @@ printf '{"status":"available"}\n' >"$dst/.studio-update-cache.json"
 
 bash -lc '
   set -euo pipefail
-  source "'"$ROOT"'/scripts/lib/i18n.sh"
-  source "'"$ROOT"'/scripts/lib/ui.sh"
-  source "'"$ROOT"'/scripts/lib/ops.sh"
+  source "'"$ROOT"'/scripts/lib/localization/i18n.sh"
+  source "'"$ROOT"'/scripts/lib/ui/ui.sh"
+  source "'"$ROOT"'/scripts/lib/operations/ops.sh"
   ops_sync_payload "$1" "$2"
 ' _ "$src" "$dst"
 
@@ -47,7 +47,6 @@ bash -lc '
 grep -q 'keep-data' "$dst/data/sub/data.txt"
 grep -q 'keep-env' "$dst/.env"
 
-# Checksums ignore user cache / .env and stay stable across identical trees.
 tree_a="$work/hash-a"
 tree_b="$work/hash-b"
 mkdir -p "$tree_a/app" "$tree_b/app"
@@ -58,24 +57,23 @@ printf '{"status":"available"}\n' >"$tree_a/.studio-update-cache.json"
 hash_a="$(
   bash -lc '
     set -euo pipefail
-    source "'"$ROOT"'/scripts/lib/i18n.sh"
-    source "'"$ROOT"'/scripts/lib/ui.sh"
-    source "'"$ROOT"'/scripts/lib/ops.sh"
+    source "'"$ROOT"'/scripts/lib/localization/i18n.sh"
+    source "'"$ROOT"'/scripts/lib/ui/ui.sh"
+    source "'"$ROOT"'/scripts/lib/operations/ops.sh"
     ops_content_sha256 "$1"
   ' _ "$tree_a"
 )"
 hash_b="$(
   bash -lc '
     set -euo pipefail
-    source "'"$ROOT"'/scripts/lib/i18n.sh"
-    source "'"$ROOT"'/scripts/lib/ui.sh"
-    source "'"$ROOT"'/scripts/lib/ops.sh"
+    source "'"$ROOT"'/scripts/lib/localization/i18n.sh"
+    source "'"$ROOT"'/scripts/lib/ui/ui.sh"
+    source "'"$ROOT"'/scripts/lib/operations/ops.sh"
     ops_content_sha256 "$1"
   ' _ "$tree_b"
 )"
 [[ -n "$hash_a" && "$hash_a" == "$hash_b" ]]
 
-# Unreadable file must fail fingerprint (not silently poison the digest).
 bad="$work/bad-hash"
 mkdir -p "$bad/app"
 printf 'x\n' >"$bad/app/x.txt"
@@ -84,9 +82,9 @@ chmod 000 "$bad/app/locked.bin"
 set +e
 bash -lc '
   set -euo pipefail
-  source "'"$ROOT"'/scripts/lib/i18n.sh"
-  source "'"$ROOT"'/scripts/lib/ui.sh"
-  source "'"$ROOT"'/scripts/lib/ops.sh"
+  source "'"$ROOT"'/scripts/lib/localization/i18n.sh"
+  source "'"$ROOT"'/scripts/lib/ui/ui.sh"
+  source "'"$ROOT"'/scripts/lib/operations/ops.sh"
   ops_content_sha256 "$1"
 ' _ "$bad" >/dev/null 2>&1
 fp_rc=$?

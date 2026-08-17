@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+import httpx
+from app.config import SessionsSettings
+from app.domain.common.session_errors import SessionError, SubmitOutcome
+from app.domain.grading.session_grading_client import create_attempt, upstream_error_detail
+from app.domain.lab.session_lab_policy import lab_should_sync_llm
+from app.infra.models import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from studio_contracts.api.grading_schemas import GradingCheckResponse, GradingLabSubmitResponse
+
+__all__ = ["lab_should_sync_llm", "submit_lab"]
+
+
+async def submit_lab(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    learning_session: Session,
+    submission: dict[str, object],
+    *,
+    step: dict[str, object],
+    settings: SessionsSettings,
+    client: httpx.AsyncClient,
+) -> SubmitOutcome:
+    attempt = await create_attempt(
+        session,
+        session_id=learning_session.id,
+        user_id=user_id,
+        topic_id=learning_session.current_topic_id,
+        phase=learning_session.current_phase,
+        step_id=learning_session.current_step_id,
+        submission=submission,
+        result={"status": "pending"},
+    )
+
+    try:
+        response = await client.post(
+            f"{settings.grading_service_url}/internal/v1/grading/lab",
+            json={
+                "step": step,
+                "submission": {**submission, "attempt_id": str(attempt.id)},
+                "user_id": str(user_id),
+                "pack_version_id": str(learning_session.pack_version_id),
+            },
+        )
+    except httpx.HTTPError as exc:
+        raise SessionError(503, "grading unavailable") from exc
+    if response.is_error:
+        raise SessionError(response.status_code, upstream_error_detail(response))
+
+    lab_response = GradingLabSubmitResponse.model_validate(response.json())
+    grading = GradingCheckResponse(
+        passed=False,
+        score=0.0,
+        feedback=None,
+        details={"status": lab_response.status},
+    )
+    learning_session.updated_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(attempt)
+    return SubmitOutcome(
+        attempt=attempt,
+        grading=grading,
+        phase_completed=False,
+        status="pending",
+    )

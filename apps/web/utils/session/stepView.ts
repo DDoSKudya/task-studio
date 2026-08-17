@@ -22,7 +22,6 @@ export function moduleDoneCount(
   return topic.steps.filter((lesson) => isLessonDone(lesson, passedStepIds, completedStepIds)).length
 }
 
-/** Фазы, которые реально есть в теме (study / practice / assess). */
 export function phasesInTopic(topic: OutlineTopic): Set<OutlineStep['phase']> {
   return new Set(topic.steps.map((step) => step.phase))
 }
@@ -34,10 +33,6 @@ function topicProgressRow(
   return phaseProgress.find((row) => row.topic_id === topicId)
 }
 
-/**
- * Тема считается пройденной, когда закрыты все её фазы (не каждый шаг отдельно).
- * Опирается на phase_progress с бэкенда; без него — все шаги в completed/passed.
- */
 export function isTopicComplete(
   topic: OutlineTopic,
   phaseProgress: readonly PhaseProgress[],

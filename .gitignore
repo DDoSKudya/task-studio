@@ -22,15 +22,15 @@ id_ed25519
 id_ed25519.*
 *.ppk
 
-# Credential dumps (filenames), not code like credentialAutofill.ts
+# Credential dumps (filenames / root dirs), not source packages named credentials/ or secrets/
 *credentials.json
 *credentials.yml
 *credentials.yaml
 *credentials.toml
 *.credentials
 .credentials/
-credentials/
-secrets/
+/credentials/
+/secrets/
 .secrets/
 *.secret
 *.secrets
@@ -50,11 +50,12 @@ secrets/
 *.kubeconfig
 
 # ---------------------------------------------------------------------------
-# Local IDE / tooling (not product code)
+# Local IDE / AI tooling (not product code)
 # ---------------------------------------------------------------------------
 .cursor/
 .cursor-sourcery-xdg-config/
 .cursor-sourcery-xdg-data/
+.cursor-sourcery-xdg-state/
 .serena/
 .claude/
 .codex/
@@ -70,6 +71,7 @@ secrets/
 .specs/
 .memory/
 .memories/
+.refact/
 CLAUDE.md
 AGENTS.md
 .cursorrules
@@ -117,14 +119,18 @@ __pycache__/
 .tox/
 .nox/
 .hypothesis/
+.benchmarks/
+.ipynb_checkpoints/
 .dmypy.json
 dmypy.json
 htmlcov/
 .coverage
 .coverage.*
+coverage/
 coverage.xml
 coverage.json
 *.cover
+.nyc_output/
 dist/
 build/
 *.egg-info/
@@ -132,11 +138,18 @@ build/
 pip-wheel-metadata/
 uv-cache/
 .uv/
+.pdm-python
+*.pid
 
 # ---------------------------------------------------------------------------
 # Node / Nuxt / Vite
 # ---------------------------------------------------------------------------
 node_modules/
+.pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 .nuxt/
 .output/
 .nitro/
@@ -145,6 +158,8 @@ node_modules/
 .vite/
 .turbo/
 .parcel-cache/
+.vercel/
+.netlify/
 dist/
 *.tsbuildinfo
 .eslintcache
@@ -188,9 +203,6 @@ temp/
 .tmp/
 *.tmp
 
-# ---------------------------------------------------------------------------
-# Playwright / e2e artifacts
-# ---------------------------------------------------------------------------
 test-results/
 playwright-report/
 blob-report/
@@ -198,20 +210,15 @@ playwright/.cache/
 storage.state
 **/storage.state
 
-# ---------------------------------------------------------------------------
-# Docker local overrides (keep examples in repo)
-# ---------------------------------------------------------------------------
 compose.override.yml
 docker-compose.override.yml
 **/compose.override.yml
 **/docker-compose.override.yml
 
-# Studio console local state (update check + installed version)
 .studio-update-check
 .studio-update-cache.json
 .studio-update-reexec
 .studio-state.json
 .studio-consumer
 
-# Optional local Charm gum binary for studio console menus
 scripts/.bin/

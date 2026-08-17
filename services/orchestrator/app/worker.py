@@ -7,10 +7,10 @@ import redis.asyncio as redis
 import structlog
 
 from app.config import OrchestratorSettings
-from app.domain.controller import OrchestratorController
-from app.domain.docker import DockerControl
-from app.domain.policies import OrchestratorPolicies
-from app.domain.state import ControllerState
+from app.domain.control.controller import OrchestratorController
+from app.domain.control.state import ControllerState
+from app.domain.infrastructure.docker import DockerControl
+from app.domain.policy.policies import OrchestratorPolicies
 
 log = structlog.get_logger("orchestrator.worker")
 

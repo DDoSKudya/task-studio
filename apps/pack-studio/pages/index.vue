@@ -175,7 +175,7 @@ function applyCourseEvent(event: CourseStageEvent) {
     courseTasks.value = detail.tasks as Array<{ id?: unknown; title?: unknown; tests?: unknown }>
   }
   if (Array.isArray(detail.warnings)) {
-    courseWarnings.value = detail.warnings.map((item) =>
+    courseWarnings.value = detail.warnings.map((item: unknown) =>
       localizeCourseWarning(String(item), t, te, 'editor.warningsMap'),
     )
   }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from studio_contracts.editor_schemas import (
+from studio_contracts.api.editor_schemas import (
     EditorSettings,
     lsp_enabled,
     parse_editor_settings,

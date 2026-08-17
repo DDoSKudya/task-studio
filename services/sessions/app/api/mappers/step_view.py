@@ -9,8 +9,8 @@ from app.api.mappers.step_view_meta import (
     _tutor_meta,
 )
 from app.infra.models import Session
-from studio_contracts.manifest import PhaseName, adjacent_positions, get_step, read_policies
-from studio_contracts.session_schemas import StepContent
+from studio_contracts.api.session_schemas import StepContent
+from studio_contracts.packs.manifest import PhaseName, adjacent_positions, get_step, read_policies
 
 _CODE_EDITOR_KEYS = frozenset({"runtime", "runtime_version", "template", "setup"})
 _HIDDEN_STEP_KEYS = frozenset(

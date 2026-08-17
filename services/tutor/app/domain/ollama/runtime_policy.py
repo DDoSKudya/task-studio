@@ -4,6 +4,13 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
+from app.domain.ollama.hardware import (
+    HostHardware,
+    probe_host_hardware,
+    recommend_chat_model,
+    recommend_profile,
+)
+
 OllamaAccelerator = Literal["auto", "gpu", "cpu"]
 OllamaProfile = Literal["cpu-light", "cpu-balanced", "gpu-light", "gpu-balanced"]
 LlmTaskKind = Literal[
@@ -20,14 +27,13 @@ LlmTaskKind = Literal[
 _PROFILE_DEFAULTS: dict[OllamaProfile, dict[str, str | int | float]] = {
     "cpu-light": {
         "chat": "qwen2.5:1.5b",
-        "course": "qwen2.5:1.5b",
-        "polish": "qwen2.5:1.5b",
+        "course": "qwen2.5:3b",
+        "polish": "qwen2.5:3b",
         "embed": "nomic-embed-text",
         "max_parallel": 1,
-        # Course prompts need room for syllabus + excerpt; 2k starves quality.
         "num_ctx_compact": 3072,
-        "num_ctx_full": 3072,
-        "read_timeout": 900.0,
+        "num_ctx_full": 4096,
+        "read_timeout": 1200.0,
     },
     "cpu-balanced": {
         "chat": "qwen2.5:3b",
@@ -37,27 +43,27 @@ _PROFILE_DEFAULTS: dict[OllamaProfile, dict[str, str | int | float]] = {
         "max_parallel": 1,
         "num_ctx_compact": 4096,
         "num_ctx_full": 4096,
-        "read_timeout": 720.0,
+        "read_timeout": 900.0,
     },
     "gpu-light": {
-        "chat": "qwen2.5:3b",
-        "course": "qwen2.5:3b",
-        "polish": "qwen2.5:3b",
+        "chat": "qwen2.5:7b",
+        "course": "qwen2.5:7b",
+        "polish": "qwen2.5:7b",
         "embed": "nomic-embed-text",
-        "max_parallel": 2,
+        "max_parallel": 1,
         "num_ctx_compact": 4096,
-        "num_ctx_full": 4096,
-        "read_timeout": 660.0,
+        "num_ctx_full": 8192,
+        "read_timeout": 900.0,
     },
     "gpu-balanced": {
         "chat": "qwen2.5:7b",
         "course": "qwen2.5:7b",
         "polish": "qwen2.5:7b",
         "embed": "nomic-embed-text",
-        "max_parallel": 2,
+        "max_parallel": 1,
         "num_ctx_compact": 4096,
         "num_ctx_full": 8192,
-        "read_timeout": 600.0,
+        "read_timeout": 720.0,
     },
 }
 
@@ -72,7 +78,6 @@ _TASK_TO_MODEL_KEY: dict[LlmTaskKind, str] = {
     "default": "chat",
 }
 
-# Короткие JSON/подсказки — compact ctx; курс и чат — full.
 _COMPACT_TASKS: frozenset[LlmTaskKind] = frozenset({"grade", "hints", "polish", "embeddings"})
 
 
@@ -91,6 +96,7 @@ class OllamaRuntimePolicy:
     num_ctx_full: int
     read_timeout_seconds: float
     task_routing_enabled: bool
+    hardware: HostHardware | None = None
 
 
 def _parse_accelerator(raw: str) -> OllamaAccelerator:
@@ -107,61 +113,43 @@ def _parse_profile(raw: str) -> OllamaProfile | None:
     return None
 
 
-def _env_float(name: str) -> float | None:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return None
-    try:
-        return float(raw)
-    except ValueError:
-        return None
-
-
-def _detect_system_ram_gb() -> float | None:
-    env_value = _env_float("OLLAMA_SYSTEM_RAM_GB")
-    if env_value is not None and env_value > 0:
-        return env_value
-    page_size = getattr(os, "sysconf", None)
-    if page_size is None:
-        return None
-    try:
-        bytes_total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
-    except (AttributeError, OSError, ValueError):
-        return None
-    if bytes_total <= 0:
-        return None
-    return bytes_total / (1024**3)
-
-
-def _gpu_available(accelerator: OllamaAccelerator) -> bool:
-    if accelerator == "gpu":
-        return True
-    if accelerator == "cpu":
-        return False
-    gpu_hint = os.getenv("OLLAMA_GPU_AVAILABLE", "").strip().casefold()
-    return gpu_hint in {"1", "true", "yes"}
-
-
-def resolve_profile(*, accelerator: OllamaAccelerator, explicit: str | None) -> OllamaProfile:
+def resolve_profile(
+    *,
+    accelerator: OllamaAccelerator,
+    explicit: str | None,
+    hardware: HostHardware | None = None,
+) -> OllamaProfile:
     parsed = _parse_profile(explicit or "")
     if parsed is not None:
         return parsed
-    if _gpu_available(accelerator):
-        gpu_vram_gb = _env_float("OLLAMA_GPU_VRAM_GB")
-        if gpu_vram_gb is not None and gpu_vram_gb < 10:
-            return "gpu-light"
-        return "gpu-balanced"
-    ram_gb = _detect_system_ram_gb()
-    if ram_gb is not None and ram_gb <= 8:
-        return "cpu-light"
-    return "cpu-balanced"
+    hw = hardware or probe_host_hardware()
+    if accelerator == "cpu":
+        ram = hw.system_ram_gb
+        return "cpu-light" if ram is not None and ram <= 8 else "cpu-balanced"
+    if accelerator == "gpu" or hw.gpu_available:
+        return recommend_profile(
+            HostHardware(
+                gpu_available=True,
+                gpu_vram_gb=hw.gpu_vram_gb,
+                system_ram_gb=hw.system_ram_gb,
+                source=hw.source,
+            )
+        )
+    return recommend_profile(hw)
+
+
+def _is_below_course_minimum(model: str) -> bool:
+    name = model.casefold()
+    return name.endswith(":1.5b") or ":1.5b" in name
 
 
 def load_ollama_runtime_policy(*, fallback_model: str) -> OllamaRuntimePolicy:
     accelerator = _parse_accelerator(os.getenv("OLLAMA_ACCELERATOR", "auto"))
+    hardware = probe_host_hardware()
     profile = resolve_profile(
         accelerator=accelerator,
         explicit=os.getenv("OLLAMA_PROFILE"),
+        hardware=hardware,
     )
     defaults = _PROFILE_DEFAULTS[profile]
     routing = os.getenv("OLLAMA_TASK_ROUTING", "true").strip().casefold() not in {
@@ -169,13 +157,32 @@ def load_ollama_runtime_policy(*, fallback_model: str) -> OllamaRuntimePolicy:
         "false",
         "no",
     }
+    chat_from_hw = recommend_chat_model(hardware)
+    profile_course = str(defaults["course"])
+
+    env_chat = (os.getenv("OLLAMA_MODEL_CHAT") or "").strip()
+    env_course = (os.getenv("OLLAMA_MODEL_COURSE") or "").strip()
+    env_polish = (os.getenv("OLLAMA_MODEL_POLISH") or "").strip()
+
+    model_course = (
+        env_course if env_course and not _is_below_course_minimum(env_course) else profile_course
+    )
+    model_polish = (
+        env_polish if env_polish and not _is_below_course_minimum(env_polish) else model_course
+    )
+    model_chat = env_chat or chat_from_hw or str(defaults["chat"])
+
+    safe_fallback = fallback_model
+    if _is_below_course_minimum(safe_fallback):
+        safe_fallback = model_course
+
     return OllamaRuntimePolicy(
         accelerator=accelerator,
         profile=profile,
-        fallback_model=fallback_model,
-        model_chat=os.getenv("OLLAMA_MODEL_CHAT") or str(defaults["chat"]),
-        model_course=os.getenv("OLLAMA_MODEL_COURSE") or str(defaults["course"]),
-        model_polish=os.getenv("OLLAMA_MODEL_POLISH") or str(defaults["polish"]),
+        fallback_model=safe_fallback,
+        model_chat=model_chat,
+        model_course=model_course,
+        model_polish=model_polish,
         model_embed=os.getenv("OLLAMA_MODEL_EMBED") or str(defaults["embed"]),
         request_retries=max(0, int(os.getenv("OLLAMA_REQUEST_RETRIES", "3"))),
         max_parallel=max(1, int(os.getenv("OLLAMA_MAX_PARALLEL") or defaults["max_parallel"])),
@@ -185,6 +192,7 @@ def load_ollama_runtime_policy(*, fallback_model: str) -> OllamaRuntimePolicy:
             os.getenv("OLLAMA_READ_TIMEOUT_SECONDS") or defaults["read_timeout"]
         ),
         task_routing_enabled=routing,
+        hardware=hardware,
     )
 
 
@@ -214,11 +222,9 @@ def num_ctx_for_task(
 
 
 def stage_task_kind(stage: str) -> LlmTaskKind:
-    # Одна course-модель на весь build — смена весов на CPU стоит минут.
     normalized = stage.strip().casefold()
     if normalized in {
         "analyze",
-        "consistency",
         "theory",
         "quizzes",
         "code",
@@ -244,3 +250,13 @@ def models_to_warm(policy: OllamaRuntimePolicy) -> list[str]:
             seen.add(name)
             ordered.append(name)
     return ordered
+
+
+def profile_default_models(profile: OllamaProfile) -> dict[str, str]:
+    defaults = _PROFILE_DEFAULTS[profile]
+    return {
+        "chat": str(defaults["chat"]),
+        "course": str(defaults["course"]),
+        "polish": str(defaults["polish"]),
+        "embed": str(defaults["embed"]),
+    }

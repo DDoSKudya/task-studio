@@ -5,8 +5,8 @@ from typing import cast
 from app.api.mappers.session_map_bits import attempt_info, phase_progress
 from app.api.mappers.session_outline import build_outline
 from app.infra.models import PhaseProgress, Session
-from studio_contracts.manifest import PhaseName, read_policies
-from studio_contracts.session_schemas import SessionState, SessionStatus, SessionSummary
+from studio_contracts.api.session_schemas import SessionState, SessionStatus, SessionSummary
+from studio_contracts.packs.manifest import PhaseName, read_policies
 
 __all__ = [
     "session_summary",

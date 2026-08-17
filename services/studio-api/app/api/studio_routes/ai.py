@@ -8,7 +8,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import parse_upstream
 from fastapi import APIRouter, Depends
-from studio_contracts.studio_schemas import (
+from studio_contracts.api.studio_schemas import (
     FetchArticleFromUrlRequest,
     FetchArticleFromUrlResponse,
     FetchArticlesFromUrlsRequest,
@@ -50,7 +50,7 @@ async def fetch_article_from_url(
         f"{settings.tutor_service_url}/internal/v1/tutor/studio/fetch-article-from-url",
         headers={"X-User-Id": str(user_id)},
         json=body.model_dump(mode="json"),
-        timeout=httpx.Timeout(connect=10.0, read=180.0, write=60.0, pool=10.0),
+        timeout=httpx.Timeout(connect=10.0, read=900.0, write=60.0, pool=10.0),
     )
     return parse_upstream(response, FetchArticleFromUrlResponse)
 
@@ -62,7 +62,6 @@ async def fetch_articles_from_urls(
     settings: Settings,
     client: UpstreamClient,
 ) -> FetchArticlesFromUrlsResponse:
-    # Sequential upstream fetches — allow long read for multi-URL paste.
     response = await client.post(
         f"{settings.tutor_service_url}/internal/v1/tutor/studio/fetch-articles-from-urls",
         headers={"X-User-Id": str(user_id)},

@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
 from app.config import CursorProxyConfig
-from app.domain import cursor_client
+from app.domain.cursor import client as cursor_client
 from app.domain.openai.format import openai_non_stream_response
 
 

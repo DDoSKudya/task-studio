@@ -5,7 +5,11 @@ import zipfile
 from io import BytesIO
 
 import pytest
-from studio_contracts.pack import build_pack_archive, collect_manifest_errors, decode_build_assets
+from studio_contracts.packs.pack import (
+    build_pack_archive,
+    collect_manifest_errors,
+    decode_build_assets,
+)
 
 LAB_MANIFEST = {
     "schema_version": 1,

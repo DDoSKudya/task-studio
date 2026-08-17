@@ -78,14 +78,14 @@ The terminal launcher (bash / PowerShell) reads [`scripts/launcher-version.json`
 ### Compute helper
 
 ```bash
-python3 scripts/compute-build-number.py 1.1.0-beta.1
+python3 scripts/maintenance/compute-build-number.py 1.1.0-beta.1
 # → version=1.1.0-beta.1 build=101002001 channel=beta n=1
 ```
 
 ## Release checklist
 
 1. Bump SemVer + iteration in `CHANGELOG.md` (Keep a Changelog section).
-2. Run `scripts/compute-build-number.py` and paste **Build** into the changelog entry.
+2. Run `scripts/maintenance/compute-build-number.py` and paste **Build** into the changelog entry.
 3. Sync `apps/web/app-version.json` (and, when releasing the launcher chrome, `scripts/launcher-version.json`) with the same SemVer / build / channel.
 4. For a consumer release channel, update `studio-version.json` `version` / `channel` / `ref` / archive URLs (leave `0.0.0-develop` on the develop tip).
 5. Tag git as `v{version}` (example: `v1.1.0-beta.1`).

@@ -28,7 +28,7 @@ $files = @(
   "scripts\install.ps1",
   "scripts\install-bootstrap.ps1",
   "scripts\studio.ps1"
-) + (Get-ChildItem -Path "scripts\lib" -Filter "*.ps1" | ForEach-Object { $_.FullName })
+) + (Get-ChildItem -Path "scripts\lib" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName })
 
 $failed = $false
 foreach ($path in $files) {

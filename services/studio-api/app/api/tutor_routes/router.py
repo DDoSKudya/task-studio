@@ -10,7 +10,7 @@ from app.deps import UpstreamClient, UserId
 from app.upstream import parse_upstream, upstream_detail
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from studio_contracts.tutor_schemas import TutorChatRequest, TutorHintResponse
+from studio_contracts.api.tutor_schemas import TutorChatRequest, TutorHintResponse
 
 router = APIRouter(prefix="/v1/tutor", tags=["tutor"])
 router.include_router(tutor_llm_router)

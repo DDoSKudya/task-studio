@@ -332,7 +332,6 @@ export function repairMarkdownFences(markdown: string): string {
       out.push(lang ? `\`\`\`${lang}` : '```')
       continue
     }
-    // LLM часто «закрывает» блок как ```text / ```bash — это закрытие, не новый язык.
     open = false
     out.push('```')
   }
@@ -382,7 +381,6 @@ function lineLooksLikePythonCode(line: string, prevWasCode: boolean): boolean {
   return false
 }
 
-/** LLM closes ``` early; leftover Python becomes Markdown and `__set__` → bold "set". */
 export function healOrphanedPythonFences(markdown: string): string {
   if (!markdown) {
     return markdown
@@ -644,7 +642,7 @@ function shouldUnwrapProseFence(lang: string, body: string): boolean {
   if (!trimmed || trimmed.length < 40) {
     return false
   }
-  // Pure diagram fences stay code/mermaid — only unwrap when prose/markdown leaked in.
+
   const hasHeading = /^#{1,6}\s+\S/m.test(trimmed)
   const hasPipeTable = /^\|.+\|\s*$/m.test(trimmed)
     && /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/m.test(trimmed)
@@ -703,7 +701,7 @@ export function markdownToStudyHtml(markdown: string): string {
 
       let codeBody = dedentFenceBody(raw)
       if (shouldUnwrapProseFence(lang, codeBody)) {
-        // LLM often wraps a whole theory slide in ```text … ``` — re-parse as markdown.
+
         const nested = markdownToStudyHtml(codeBody)
         if (nested.trim()) {
           parts.push(nested)

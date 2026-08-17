@@ -1,7 +1,7 @@
 # Task Studio LLM prompt map
 
-Prompts are modular **roles + skills + provider profiles** inside a small **harness**  
-(model + context builder + workflow stages + verifiers). Framing draws on:
+Prompts are modular **roles + skills + strategies + provider profiles** inside a small
+**harness** (model + context builder + workflow stages + verifiers). Framing draws on:
 
 - [Model vs effort](https://habr.com/ru/articles/1057268/)
 - [Harness / meta-harness](https://habr.com/ru/companies/postgrespro/articles/1045532/)
@@ -12,12 +12,18 @@ Prompts are modular **roles + skills + provider profiles** inside a small **harn
 | Lever | Meaning here |
 | --- | --- |
 | **Model** φ | Ollama / external / Cursor — capability ceiling |
-| **Harness** θ | Prompts, skills, budgets, polish/retry stages, delimiters |
+| **Harness** θ | Prompts, skills, strategies, budgets, polish/retry stages, delimiters |
 | **Effort** | How hard the harness tries (context size, polish, retries) |
 | **Skills** | Discrete patches — prefer patching skills over rewriting core |
+| **Strategies** | Product law for article→course (gates, forks, packs) — provider-agnostic |
+| **Provider** | How this runtime talks (Ollama thrift vs strong API) — see also `strategies/failure-modes.md` |
 
 Rule of thumb: fix context/skills first; raise effort for weak models; change model when it confidently fails despite good context.  
-Full prompt replacement is destructive — evolve skills as patches ([harness article](https://habr.com/ru/companies/postgrespro/articles/1045532/)).
+Full prompt replacement is destructive — evolve skills as patches ([harness article](https://habr.com/ru/companies/postgrespro/articles/1045532/)).  
+Course strategies live under `prompts/strategies/` and **override skills on conflict**
+(see `strategies/README.md`). Packs (`preserve-7b`, `author-full`, `blocked`) apply to
+every provider; only effort knobs change. Map local/cloud/agent failure modes to owners
+in `strategies/failure-modes.md` — do not duplicate kill-lists into stage messages.
 
 ## Harness stages (tutor chat)
 
@@ -37,7 +43,7 @@ parallel on external APIs only (Ollama stays serial) → light **book polish**
 → quizzes∥code parallel on external.
 Multi-item stages (quizzes, code/tasks, polish, analyze chapter details)
 emit **one item per LLM call** to avoid truncated JSON.
-Multi-article may pause on `consistency_gate`.
+Multi-article starts at analyze (no consistency gate).
 
 ## Layout
 
@@ -46,10 +52,12 @@ prompts/
   shared/          core + chat context
   roles/           study_chat, practice_chat, contextual_hints, pack_studio, grade_check, course_from_article
   skills/          socratic, atypical-cases, negative-constraints, expand-dense-prose, diagram-craft, …
+  strategies/      packs + curriculum/theory/quiz/practice/edit/visual (English MD; all providers)
   provider/        ollama-quality, ollama-polish, external
 ```
 
 Composer: `app.domain.prompts.build_system_prompt(PromptRequest)`.  
+Strategies: `app.domain.course_strategies` (`load_strategy`, `resolve_strategy_pack`).  
 Learner turn wrapper: `format_learner_turn` (`<learner_message>` + `<response_contract>`).
 
 ## AI contours (product — do not mix)
@@ -77,7 +85,7 @@ Do **not** share conversation_id / history across B↔C↔D. Do **not** reintrod
 | Grade check | `grade_check` | `grade-json-contract`, `grade-duty`, `grade-evidence`, `negative-constraints`, `grade-quiz`/`grade-code`/`grade-task`/`grade-lab` | `sql-coach` + `token-budget` if needed | ollama-quality / external |
 | Pack Studio | `pack_studio` | (JSON contract + shape example in role) | — | — |
 | Article URL → MD | `article_from_url` | `url-to-markdown`, `article-dechrome`, `anti-hallucination-source`, `negative-constraints` | `token-budget` if Ollama | ollama-quality / external |
-| Article → course | `course_from_article` | `course-stage-json`, `anti-hallucination-source`, `pack-manifest-contract`, `negative-constraints`, `instructional-design` | stage: `article-consistency` / `curriculum-synthesis` / `expand-dense-prose` + `diagram-craft` / `book-polish` / `quiz-assessment-design` / `code-task-ladder`; `token-budget` if Ollama; video steps from extracted URLs | ollama-quality / external |
+| Article → course | `course_from_article` | Skills from active **strategy pack** (`preserve-7b` / `author-full`); always include stage JSON + anti-hallucination + pack contract + negative-constraints | stage skills filtered by pack (`expand-dense-prose` only on `author-full`); `token-budget` if Ollama; video/figures from sources | ollama-quality / external |
 
 ## Context budgets
 
@@ -97,8 +105,8 @@ Sources: [squeeze local LLMs](https://habr.com/ru/articles/1025132/), [weak hard
 
 | Topic | Takeaway for Task Studio |
 | --- | --- |
-| Model choice | Prefer **qwen2.5:3b/7b** or **phi4-mini** for RU tutoring; `llama3.2` is weaker on Russian |
-| Tiny models | 0.6–1.7B are for classification/paraphrase, not SQL coaching |
+| Model choice | Course: **qwen2.5:7b on GPU**, **qwen2.5:3b on CPU** (`hardware.py`). Both build the full course; 3B uses more, smaller requests |
+| Below minimum | 1.5B and smaller are for chat/hints only — course build refuses them |
 | Context size | Huge `num_ctx` kills CPU t/s inside the container — compact budgets + `num_ctx=4096` |
 | Host tools | Do not assume `ollama` on the host PATH; always `compose … exec ollama …` |
 | Quantization | Library tags via `ollama pull` are enough for PET |
@@ -106,14 +114,15 @@ Sources: [squeeze local LLMs](https://habr.com/ru/articles/1025132/), [weak hard
 | Keep-alive | `OLLAMA_KEEP_ALIVE=30m` so draft+polish reuse a warm model in-container |
 
 ```bash
+docker compose -f deploy/docker-compose.yml --env-file .env --profile full exec ollama ollama pull qwen2.5:7b
+# CPU profile:
 docker compose -f deploy/docker-compose.yml --env-file .env --profile full exec ollama ollama pull qwen2.5:3b
-# Settings → Tutor → model qwen2.5:3b (or OLLAMA_MODEL in .env)
 ```
 
 ## Intentionally not in v1
 
 - Genetic / CoolPrompt auto-optimization loops
-- Self-consistency (N drafts) — too expensive on Ollama
+- Self-consistency (N independent drafts) — too expensive on Ollama; use per-chapter critique→patch instead (`chapter-quality-gate`, `theory_quality_rounds=2`)
 - RAG over pack corpus beyond course digest
 - Tool-calling tutor agent
 - LLM override of a **successful** Stepik/Piston/local harness result (fallback only)

@@ -6,19 +6,19 @@ import structlog
 from app.api.deps import DbSession, Settings
 from app.api.mappers import build_course_digest, build_step_view
 from app.api.session_views import build_session_state, session_position
-from app.domain import messaging as session_messaging
-from app.domain.analytics_events import analytics_event
-from app.domain.session_passed import passed_step_ids
-from app.domain.sessions import get_owned_session, navigate_session, skip_study
+from app.domain.analytics.analytics_events import analytics_event
+from app.domain.integrations import messaging as session_messaging
+from app.domain.lifecycle.session_passed import passed_step_ids
+from app.domain.queries.sessions import get_owned_session, navigate_session, skip_study
 from fastapi import APIRouter
-from studio_common.internal import InternalUserId
-from studio_contracts.manifest import get_step
-from studio_contracts.session_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.session_schemas import (
     CourseDigest,
     NavigateRequest,
     SessionState,
     StepContent,
 )
+from studio_contracts.packs.manifest import get_step
 
 router = APIRouter()
 log = structlog.get_logger("sessions.study")

@@ -6,7 +6,7 @@ from app.api.analytics_routes.proxy import proxy_analytics
 from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from fastapi import APIRouter, Depends, Query
-from studio_contracts.analytics_schemas import (
+from studio_contracts.api.analytics_schemas import (
     AttemptsTimelineResponse,
     ProgressResponse,
     SkipsResponse,

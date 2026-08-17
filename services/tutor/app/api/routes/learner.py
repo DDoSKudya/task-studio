@@ -5,7 +5,7 @@ from app.api.routes.learner_core import router as learner_core_router
 from app.domain.chat import prepare_chat, stream_chat
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from studio_contracts.tutor_schemas import TutorChatRequest
+from studio_contracts.api.tutor_schemas import TutorChatRequest
 
 router = APIRouter()
 router.include_router(learner_core_router)

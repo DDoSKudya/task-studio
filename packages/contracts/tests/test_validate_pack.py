@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from studio_contracts.fixtures import build_sample_pack_bytes
-from studio_contracts.pack import (
+from studio_contracts.packs.pack import (
     extract_pack_archive,
     read_manifest_from_archive,
     validate_manifest,

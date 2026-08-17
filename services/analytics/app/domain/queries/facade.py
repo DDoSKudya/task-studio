@@ -7,7 +7,7 @@ from app.domain.queries.progress import get_progress
 from app.infra.models import StudySkipCount
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import SkipsResponse, StudySkipEntry
+from studio_contracts.api.analytics_schemas import SkipsResponse, StudySkipEntry
 
 __all__ = [
     "get_progress",

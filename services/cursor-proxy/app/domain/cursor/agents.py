@@ -29,7 +29,7 @@ async def create_chat_run(
     api_key: str,
     prompt: str,
     model: str | None,
-    request_timeout: float = 180.0,
+    request_timeout: float = 900.0,
 ) -> tuple[str, str]:
     body: dict[str, Any] = {
         "prompt": {"text": prompt},

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from studio_common.lsp_framing import encode_lsp_message, read_lsp_message
+from studio_common.lsp.lsp_framing import encode_lsp_message, read_lsp_message
 
 
 async def bridge_lsp(websocket, host: str, port: int) -> None:

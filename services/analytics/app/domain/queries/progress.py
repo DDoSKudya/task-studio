@@ -10,7 +10,7 @@ from clickhouse_connect.driver.client import Client
 from clickhouse_connect.driver.exceptions import ClickHouseError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.analytics_schemas import DailyProgressPoint, ProgressResponse
+from studio_contracts.api.analytics_schemas import DailyProgressPoint, ProgressResponse
 
 
 async def get_progress(

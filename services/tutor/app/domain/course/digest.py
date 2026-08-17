@@ -7,7 +7,7 @@ from app.config import TutorConfig
 from app.domain.errors import TutorError
 from fastapi import status
 from redis.asyncio import Redis
-from studio_contracts.session_schemas import CourseDigest
+from studio_contracts.api.session_schemas import CourseDigest
 
 _CACHE_TTL_SECONDS = 60 * 60 * 6
 _DIGEST_UNAVAILABLE = "course digest unavailable"

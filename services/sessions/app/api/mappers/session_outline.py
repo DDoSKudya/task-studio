@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import cast
 
-from studio_contracts.manifest import (
+from studio_contracts.api.session_schemas import OutlineStep, OutlineTopic
+from studio_contracts.packs.manifest import (
     PhaseName,
     get_step,
     list_topics,
     phase_order_for,
     phase_step_ids,
 )
-from studio_contracts.session_schemas import OutlineStep, OutlineTopic
 
 
 def build_outline(manifest: dict[str, object]) -> list[OutlineTopic]:

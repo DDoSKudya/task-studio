@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import re
 
-from studio_contracts.studio_schemas import CourseArticleVideo, FetchArticleFromUrlResponse
-
-from .article_parse import article_response_from_dict
+from app.domain.fetch_article_from_url.parsing.article_parse import article_response_from_dict
+from studio_contracts.api.studio_schemas import CourseArticleVideo, FetchArticleFromUrlResponse
 
 
 def plaintext_article_response(
@@ -14,7 +13,6 @@ def plaintext_article_response(
     plaintext: str,
     page_videos: list[CourseArticleVideo] | None = None,
 ) -> FetchArticleFromUrlResponse:
-    """Собрать ответ ingest: полный markdown статьи (без сжатия)."""
     body = re.sub(r"\n{3,}", "\n\n", plaintext.strip())
     title = (page_title or "").strip() or source_url
     content = f"# {title}\n\n{body}" if title and not body.lstrip().startswith("#") else body

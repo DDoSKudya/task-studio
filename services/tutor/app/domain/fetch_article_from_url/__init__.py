@@ -1,14 +1,21 @@
 from __future__ import annotations
 
-from .html import _page_to_article_markdown, _page_to_plaintext
-from .images import extract_image_refs
-from .service import (
-    _parse_article_json,
+from app.domain.fetch_article_from_url.media.images import extract_image_refs
+from app.domain.fetch_article_from_url.media.videos import extract_video_refs
+from app.domain.fetch_article_from_url.parsing.html import (
+    page_to_article_markdown,
+    page_to_plaintext,
+)
+from app.domain.fetch_article_from_url.sources.service import (
     fetch_article_from_url,
     fetch_articles_from_urls,
+    parse_article_json,
 )
-from .url import _is_blocked_host, extract_http_urls, validate_public_http_url
-from .videos import extract_video_refs
+from app.domain.fetch_article_from_url.sources.url import (
+    extract_http_urls,
+    is_blocked_host,
+    validate_public_http_url,
+)
 
 __all__ = [
     "extract_http_urls",
@@ -17,8 +24,8 @@ __all__ = [
     "fetch_article_from_url",
     "fetch_articles_from_urls",
     "validate_public_http_url",
-    "_is_blocked_host",
-    "_page_to_plaintext",
-    "_page_to_article_markdown",
-    "_parse_article_json",
+    "is_blocked_host",
+    "page_to_plaintext",
+    "page_to_article_markdown",
+    "parse_article_json",
 ]

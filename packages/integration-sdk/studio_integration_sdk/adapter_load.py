@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from studio_contracts.integration_schemas import AdapterCapabilities, AdapterInfo
+from studio_contracts.api.integration_schemas import AdapterCapabilities, AdapterInfo
 
 from .adapter_load_helpers import (
     import_module_file,

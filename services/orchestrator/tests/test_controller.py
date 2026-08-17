@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
-from studio_contracts.orchestrator_schemas import OrchestratorMode, TutorLlmSummaryResponse
+from studio_contracts.api.orchestrator_schemas import OrchestratorMode, TutorLlmSummaryResponse
 
 
 def _settings(config, *, mode: OrchestratorMode = "balancing"):

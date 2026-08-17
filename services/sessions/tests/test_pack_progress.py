@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture
 def pack_progress(sessions_domain):
     del sessions_domain
-    from app.domain import session_pack_progress
+    from app.domain.progress import session_pack_progress
 
     return session_pack_progress
 

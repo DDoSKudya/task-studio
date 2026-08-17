@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from studio_contracts.integration_schemas import AdapterInfo
+from studio_contracts.api.integration_schemas import AdapterInfo
 
 
 @dataclass(frozen=True, slots=True)

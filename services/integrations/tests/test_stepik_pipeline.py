@@ -7,8 +7,8 @@ from types import ModuleType
 
 import httpx
 import pytest
-from studio_contracts.integration_schemas import ImportReport
-from studio_contracts.pack import validate_manifest
+from studio_contracts.api.integration_schemas import ImportReport
+from studio_contracts.packs.pack import validate_manifest
 from studio_integration_sdk.registry import discover_adapters
 
 
@@ -32,7 +32,7 @@ def test_discover_all_platform_adapters(modules_root: Path) -> None:
 
 
 def test_stepik_fixture_import_builds_valid_manifest(modules_root: Path, tmp_path: Path) -> None:
-    pack_builder = _load_integrations_module("app.domain.pack_builder")
+    pack_builder = _load_integrations_module("app.domain.pack.builder")
     adapter = discover_adapters(modules_root)["stepik"]
     pack_raw, report_raw = adapter.import_course(course_id="123")
     normalized = pack_builder.normalized_from_adapter(pack_raw)

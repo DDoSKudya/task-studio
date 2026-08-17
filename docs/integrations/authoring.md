@@ -104,7 +104,7 @@ integration_modules/
 fixtures/course_123.json
 ```
 
-В файле как минимум `title`, `topics` и `steps` в том виде, который ждёт ваш `import_course`. CI запускает `scripts/validate_integration_fixtures.py` — вызывает `health`, `import_course` для каждой фикстуры и проверяет собранный манифест.
+В файле как минимум `title`, `topics` и `steps` в том виде, который ждёт ваш `import_course`. CI запускает `scripts/validation/integration-fixtures.py` — вызывает `health`, `import_course` для каждой фикстуры и проверяет собранный манифест.
 
 В режиме фикстур без сети: читайте `fixtures/course_{id}.json`, как встроенные адаптеры.
 

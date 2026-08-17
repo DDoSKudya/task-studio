@@ -9,7 +9,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream, parse_upstream_list
 from fastapi import APIRouter, Depends, status
-from studio_contracts.catalog_schemas import PackDetail, PackSummary
+from studio_contracts.api.catalog_schemas import PackDetail, PackSummary
 
 router = APIRouter(prefix="/v1/catalog", tags=["catalog"])
 router.include_router(mutate_router)

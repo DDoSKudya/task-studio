@@ -5,12 +5,12 @@ from typing import Annotated
 
 import httpx
 from app.api.deps import Adapters, Settings
-from app.api.routes.discover_helpers import http_client
-from app.api.routes.helpers import require_adapter
+from app.api.routes.common.helpers import require_adapter
+from app.api.routes.discovery.discover_helpers import http_client
 from app.domain.credentials import fetch_platform_credentials
 from fastapi import APIRouter, Depends, HTTPException, status
-from studio_common.internal import InternalUserId
-from studio_contracts.integration_schemas import EnrollCourseRequest, EnrollCourseResponse
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.integration_schemas import EnrollCourseRequest, EnrollCourseResponse
 
 router = APIRouter()
 

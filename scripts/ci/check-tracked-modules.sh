@@ -17,7 +17,7 @@ required_paths=(
   services/catalog/app/domain/packs/__init__.py
   services/catalog/app/domain/packs/types.py
   services/catalog/app/domain/packs/store/__init__.py
-  services/catalog/app/domain/packs/store/upload.py
+  services/catalog/app/domain/packs/store/uploads/upload.py
 )
 
 echo "==> required source files exist"

@@ -1,71 +1,65 @@
 # Skill: instructional design (course quality)
 
-Translate proven ID practice into **concrete authoring rules** — not academic labels in output.
+Concrete authoring **invariants** — not academic labels in learner-facing output.
 
-Sources this skill encodes: Merrill's First Principles, backward design (outcomes →
-evidence → activities), Bloom's revised taxonomy, cognitive-load chunking, worked
-examples before practice.
+**Ownership:** chapter writing method (montage vs literary expand), figure policy,
+and assess shape come from the **active strategy pack**. This skill does not override
+strategy briefs. On preserve packs it may be omitted from compose entirely.
 
-## Course arc (one problem, one book)
+Genre craft lives in `domain-*.md`. Do not assume a coding stack, lab runtime, or
+named LMS product. Match the sources.
 
-1. **Problem-centered** — the course solves one real learner problem
-   (e.g. "understand when flush runs vs commit"), not a TOC photocopy.
-2. **Activation → demonstration → application → integration** — each chapter
-   micro-cycle:
-   - hook from prior knowledge or a failure the reader already met;
-   - show (worked example / diagram);
-   - name the idea;
-   - one trap or contrast;
-   - bridge to the next chapter (no full re-cap of the course).
-3. **Backward design** — course `outcomes` are observable; every chapter has a
-   **`learning_objective`** (one Bloom verb + one skill). Theory, quiz, and practice
-   for that chapter must evidence **the same objective** — not random trivia.
+## Quality invariants (every run)
 
-## Bloom verbs (use in objectives & outcomes)
+1. **Chapter 1 = epitome** — simplest *complete* story / case / utterance a beginner
+   could finish after that chapter alone. Forbidden: glossary dump, “what you will
+   learn”, TOC photocopy.
+2. **Later chapters elaborate** — one new condition, contrast, or voice on the same
+   whole problem. Spiral reuse; no restart.
+3. **Theory is self-sufficient** — calm running prose; assertion headings; no boxed
+   pedagogy frames. Worked example stays in theory even if quizzes/practice are OFF.
+4. **Assess only if ON** — quizzes *check* the objective (decision/contrast, not title
+   recall). Practice *drills* the same chapter skill (ladder when several tasks).
+5. **Parts flags are law** — never invent quizzes/homework in theory; never thin
+   theory because later parts are OFF.
 
-Prefer measurable verbs — avoid "understand", "know", "learn about".
+## Outcomes & objectives
 
-| Level | Use when | Example verbs (EN / RU) |
-| --- | --- | --- |
-| Remember / Understand | foundations only | define, describe / определить, описать |
-| Apply | most code courses | implement, use, predict / применить, предсказать |
-| Analyze | contrasts, debugging | compare, distinguish, explain why / сравнить, различить |
-| Evaluate | trade-offs | justify, choose / обосновать, выбрать |
+Prefer measurable Bloom verbs — avoid "understand", "know", "learn about".
 
-Chapter objective template: **After this chapter the learner can \<verb\> \<skill\>.**
+| Level | Example verbs (EN / RU) |
+| --- | --- |
+| Remember / Understand | define, describe / определить, описать |
+| Apply | use, predict, implement / применить, предсказать |
+| Analyze | compare, distinguish / сравнить, различить |
+| Evaluate | justify, choose / обосновать, выбрать |
 
-## Cognitive load (anti-bloat)
+Template: **After this chapter the learner can \<verb\> \<skill\>.**
+Course `outcomes` and every ON part (theory / quiz / practice) must evidence the
+**same** chapter objective.
 
-- **One primary idea per chapter** — if the title needs "and", split or pick one focus.
-- **7±2 chunks** inside a chapter: ≤6 `##` sections; each section = one move.
-- **Signal > noise:** every paragraph must advance the chapter objective or the worked
-  example. Delete throat-clearing, course-wide intros, and re-definitions of prior chapters.
-- **Density budget:** ~400–900 words of teaching prose per chapter (excluding code fences).
-  Shorter is fine when the source is thin; never pad to hit word count.
-- **Progressive complexity:** example-first for novices; name jargon only after the picture.
+Address: **ты** (ru) or **you** (en) unless `book_spine.address` says otherwise —
+one address for the whole book.
 
-## Worked examples & practice ladder
+## Alignment checklist (silent, every stage)
 
-- Theory: **one** complete worked example per chapter (≤40 lines code); second example
-  only if it teaches a distinct sub-skill.
-- Quiz: tests the chapter objective at **Apply** or **Analyze** — not recall of dates/names.
-- Code ladder: easy = one idea from the chapter; medium = combine 2–3; hard = realistic
-  constraint. Difficulty must **fade** scaffolding (less hint in template at hard level).
+- [ ] Title ↔ `learning_objective` ↔ theory (if ON) ↔ quiz (if ON) ↔ practice (if ON)
+- [ ] `must_not_reteach` not re-defined (harder reuse OK)
+- [ ] No homework / quiz / answer key inside theory
+- [ ] Quizzes check the objective; practice repeats it
 
-## Alignment checklist (every stage)
+## Forbidden
 
-Before emitting JSON, silently verify:
+- Essay stack (each chapter re-introduces the whole subject)
+- Worksheet layout (pedagogy `##`, blockquote callouts, key-takeaway boxes)
+- Generic filler (“важно понимать”, “рассмотрим основы”)
+- Trivia quizzes or tasks that leave the chapter skill
+- Unobservable outcomes (“понимать важность X”)
 
-- [ ] Chapter title ↔ `learning_objective` ↔ theory content ↔ quiz stem ↔ code brief
-      describe the **same skill**.
-- [ ] `must_not_reteach` topics are absent from this chapter's body.
-- [ ] No homework/quiz/answer-key material inside theory.
-- [ ] Assess/practice do not re-teach — they **check** what theory already showed.
+## When volume is capped
 
-## Forbidden quality failures
+Same invariants, fewer chapters: **depth over breadth**. One solid drill beats three
+invented stubs. Never inflate assess count to fill the UI.
 
-- Essay stack: each chapter re-introduces the whole subject.
-- Generic filler that could fit any course ("важно понимать", "рассмотрим основы").
-- Trivia quizzes disconnected from chapter objectives.
-- Three code tasks that differ only by variable names.
-- Outcomes that cannot be observed ("понимать важность X").
+Prose craft, density, and analogies → `expand-dense-prose` / montage briefs / domain
+overlays — do not duplicate them here.

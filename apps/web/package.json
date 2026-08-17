@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
+    "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

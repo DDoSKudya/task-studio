@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import uuid
 
-from studio_contracts.studio_schemas import CourseBuildDetail, CourseBuildSummary
+from studio_contracts.api.studio_schemas import CourseBuildDetail, CourseBuildSummary
 
 
 def test_course_build_summary_accepts_uuid_string_from_json() -> None:
-    """studio-api parses tutor JSON where build_id is a string (strict UUID would 500)."""
+
     summary = CourseBuildSummary.model_validate(
         {
             "build_id": "c128676c-8b79-42f4-9f07-81d234fe4597",

@@ -27,15 +27,15 @@ describe('studioCourseStream', () => {
     expect(finalizeCourseStream(state)).toEqual({ kind: 'error', message: 'boom' })
   })
 
-  it('prefers consistency gate over done', () => {
-    const gate = { type: 'consistency_gate' as const, message: 'check' }
+  it('prefers code suitability gate over done', () => {
+    const gate = { type: 'code_suitability_gate' as const, message: 'check' }
     expect(
       finalizeCourseStream({
         doneResult: { manifest: {}, meta: { outcomes: [], warnings: [], chapters: [] } },
         gateEvent: gate,
         streamError: null,
       }),
-    ).toEqual({ kind: 'consistency_gate', event: gate })
+    ).toEqual({ kind: 'code_suitability_gate', event: gate })
   })
 
   it('ignores ping keepalive frames', () => {

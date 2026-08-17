@@ -6,7 +6,7 @@ import jwt
 from app.config import StudioApiSettings
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse, Response
-from studio_common.jwt_tokens import decode_user_id
+from studio_common.security.jwt_tokens import decode_user_id
 
 PUBLIC_AUTH_PATHS = frozenset(
     {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from studio_contracts.manifest import PhaseName
+from studio_contracts.packs.manifest import PhaseName
 
 from .core import (
     BUDGET_COMPACT,
@@ -14,7 +14,7 @@ from .core import (
     render_prompt,
     step_looks_like_sql,
 )
-from .skills import provider_parts, role_path, skills_for
+from .skills import course_skill_layers, provider_parts, role_path, skills_for
 
 __all__ = [
     "BUDGET_COMPACT",
@@ -27,6 +27,7 @@ __all__ = [
     "compose_prompt",
     "context_budget",
     "course_from_article_system_prompt",
+    "course_from_article_theory_prose_prompt",
     "format_learner_turn",
     "grade_system_prompt",
     "hints_system_prompt",
@@ -40,9 +41,75 @@ __all__ = [
     "system_prompt_for_phase",
 ]
 
+_JSON_STAGE_SKILLS = frozenset({"course-stage-json", "pack-manifest-contract"})
+
+
+def _skill_texts(names: list[str], *, skip: frozenset[str] = frozenset()) -> list[str]:
+    return [load_prompt(f"skills/{name}") for name in names if name not in skip]
+
+
+def _on_off(enabled: bool) -> str:
+    return "ON" if enabled else "OFF"
+
+
+def _author_parts_block() -> str:
+    from app.domain.course_from_article.common.runtime.course_context import get_course_parts
+
+    parts = get_course_parts()
+    lines = [
+        "## Author settings for THIS run (source of truth)",
+        f"- Theory: {_on_off(parts.theory)}",
+        f"- Quizzes: {_on_off(parts.quizzes)}",
+        f"- Practice: {_on_off(parts.practice)}",
+        "Emit only the parts that are ON. Do not invent a missing part "
+        "because a skill mentions it.",
+        "Turning a part OFF does not shrink the remaining parts. "
+        "No filler. Cover the excerpt fully.",
+    ]
+    if not parts.quizzes:
+        lines.append(
+            "Quizzes OFF: no MCQs, self-checks, or «проверьте себя». "
+            "Teach the decision inside the worked example."
+        )
+    if not parts.practice:
+        lines.append(
+            "Practice OFF: no homework, stubs, or «попробуй сам» as a task. "
+            "Keep the worked example inside theory."
+        )
+    if not parts.theory:
+        lines.append(
+            "Theory OFF: do not write teaching chapters. "
+            "Assess/practice (if ON) use the source excerpt."
+        )
+    return "\n".join(lines)
+
+
+def _compose_course_prompt(request: PromptRequest, *, prose_output: bool = False) -> str:
+    always, domain, stage = course_skill_layers(request)
+    skip = _JSON_STAGE_SKILLS if prose_output else frozenset()
+    parts: list[str] = []
+    if prose_output:
+        parts.append(load_prompt("shared/course_theory_prose_output"))
+    parts.extend((load_prompt(role_path(request)), _author_parts_block()))
+    if pack_id := (request.strategy_pack or "").strip():
+        from app.domain.course_strategies import parse_strategy_pack, strategy_briefs
+
+        parts.append(strategy_briefs(parse_strategy_pack(pack_id)))
+    parts.extend(_skill_texts(always, skip=skip))
+    parts.extend(load_prompt(path) for path in provider_parts(request))
+    parts.extend(_skill_texts(domain))
+    parts.extend(_skill_texts(stage))
+    return render_prompt(
+        compose_prompt(*parts),
+        step_kind=request.step_kind,
+        step_title=request.step_title,
+    )
+
 
 def build_system_prompt(request: PromptRequest) -> str:
-    if request.mode in {"grade", "course_from_article", "article_from_url"}:
+    if request.mode == "course_from_article":
+        return _compose_course_prompt(request)
+    if request.mode in {"grade", "article_from_url"}:
         parts: list[str] = [load_prompt(role_path(request))]
     else:
         parts = [load_prompt("shared/core"), load_prompt(role_path(request))]
@@ -122,6 +189,8 @@ def course_from_article_system_prompt(
     stage: str,
     compact: bool = False,
     course_profile: str = "",
+    local_runtime: bool = False,
+    strategy_pack: str = "",
 ) -> str:
     return build_system_prompt(
         PromptRequest(
@@ -132,7 +201,32 @@ def course_from_article_system_prompt(
             compact=compact,
             sql_aware=False,
             course_profile=course_profile,
+            local_runtime=local_runtime,
+            strategy_pack=strategy_pack,
         )
+    )
+
+
+def course_from_article_theory_prose_prompt(
+    *,
+    compact: bool = False,
+    course_profile: str = "",
+    local_runtime: bool = False,
+    strategy_pack: str = "",
+) -> str:
+    return _compose_course_prompt(
+        PromptRequest(
+            mode="course_from_article",
+            phase=None,
+            step_kind="theory",
+            step_title="theory",
+            compact=compact,
+            sql_aware=False,
+            course_profile=course_profile,
+            local_runtime=local_runtime,
+            strategy_pack=strategy_pack,
+        ),
+        prose_output=True,
     )
 
 

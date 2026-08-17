@@ -180,13 +180,6 @@ function chapterLabel(item: { id?: string; title?: string } | string): string {
       </div>
     </div>
 
-    <div v-if="warnings.length" class="course-progress-warnings">
-      <h4>{{ t('editor.courseWarnings') }}</h4>
-      <ul>
-        <li v-for="(item, i) in warnings" :key="`w-${i}`">{{ item }}</li>
-      </ul>
-    </div>
-
     <details v-if="log.length" class="course-progress-log">
       <summary>{{ t('editor.progressLog') }} ({{ log.length }})</summary>
       <ul>

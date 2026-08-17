@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from app.api.routes.discover_block_status import resolve_platform_catalog_state
+from app.api.routes.discovery.discover_block_status import resolve_platform_catalog_state
 
 
 def test_stepik_ready_without_credentials_when_public_import_allowed() -> None:

@@ -15,20 +15,21 @@ First pass — syllabus skeleton (short JSON):
   "title": "Course title",
   "locale": "ru",
   "domain": "code",
+  "course_profile": "programming",
   "audience_level": "middle",
   "outcomes": ["measurable outcome 1", "outcome 2"],
   "book_spine": {
-    "voice": "calm second-person technical essayist",
+    "voice": "calm second-person essayist",
     "address": "ты",
     "throughline": "one recurring mental model that ties the arc",
-    "glossary": [{"term": "Session", "sense": "desk before commit"}],
-    "recurring_metaphors": ["desk / warehouse"]
+    "glossary": [{"term": "key term", "sense": "short sense from the sources"}],
+    "recurring_metaphors": ["one metaphor from the source world"]
   },
   "chapters": [
     {
       "id": "ch-foundations",
-      "title": "What SQLAlchemy is and why Session exists",
-      "learning_objective": "After this chapter the learner can describe what Session tracks before commit"
+      "title": "Short assertion title for chapter 1",
+      "learning_objective": "After this chapter the learner can <verb> <skill>"
     }
   ]
 }
@@ -37,11 +38,20 @@ First pass — syllabus skeleton (short JSON):
 Follow-up passes may request one chapter detail object (`purpose`, `learning_objective`,
 bridges, `source_excerpt` ≤3500 chars).
 
-`domain` (required):
+`domain` (required, coarse — practice routing):
 
-- `code` — programming / SQL / APIs; practice = code ladder
-- `language` — language learning (English etc.); practice = open `task` ladder
-- `general` — humanities / soft skills / conceptual; practice = open `task` ladder
+- `code` — software / data / APIs; practice = code ladder when profile is technical
+- `language` — natural-language learning; practice = open `task` ladder
+- `general` — humanities / business / science / mixed conceptual; open `task` ladder
+
+`course_profile` (strongly preferred — picks `domain-*.md` overlay):
+
+- `programming` | `data` | `language_learning` | `humanities` | `business` |
+  `science_general` | `general`
+
+If you only know the fine genre, you may put it in `domain`; the harness maps
+`programming`/`data` → `code`, `language_learning` → `language`, other fine values →
+`general`. Prefer emitting **both** fields when sure.
 
 Max 12 chapters. Aim for **6–12** when multiple sources exist.
 
@@ -53,14 +63,16 @@ Max 12 chapters. Aim for **6–12** when multiple sources exist.
 
 **Curriculum rules (critical):**
 
-- Build **one** progressive course: foundations → core → depth → traps.
+- Build **one** progressive course: epitome (simplest whole task) → one new
+  condition per chapter → traps.
 - Cover **all** sources; do not skip an intro article because another source is denser.
 - Re-order freely for learning dependency (ignore upload order).
 - One idea per chapter; split mixed TOC headings.
 - Overlaps across articles → merge into one well-named chapter.
 - `purpose` = one short line: role of this chapter in the arc.
 - `learning_objective` = observable skill after the chapter (Bloom verb + one capability).
-  Theory, quiz, and practice for this chapter must align to it.
+  Every part that is ON for this run must align to it. Do not emit quizzes or practice
+  when those parts are OFF, and do not plan them as required syllabus steps.
 - `source_titles` = which sources feed this chapter (use exact source titles from the prompt).
 - `source_excerpt` supports **only** that chapter; verbatim from those sources.
 - Course `title` names the whole subject (not a single advanced subtopic).
@@ -102,7 +114,7 @@ Prefer `opening` over full `content`. Omit unchanged chapters. Empty `edits` is 
 Prefer one quiz per call when the harness asks for a single item:
 
 ```json
-{ "quiz": { "id": "quiz-1", "kind": "quiz", "title": "...", "question": "...", "choices": ["a","b","c","d"], "answer": 0 } }
+{ "quiz": { "id": "quiz-1", "kind": "quiz", "title": "...", "question": "...", "choices": ["full text one", "full text two", "full text three", "full text four"], "answer": 0 } }
 ```
 
 Legacy batch form `{ "quizzes": [ ... ] }` is also accepted. Cover the whole arc; no invented facts.
@@ -138,7 +150,7 @@ Batch `{ "tasks": [ ... ] }` is accepted only when asked. When tests cannot hone
 
 ## Stage: task_ladder
 
-For `domain` = `language` or `general` (no code practice), prefer one open task per call:
+For `domain` = `language` or `general` (and non-technical `course_profile`), prefer one open task per call:
 
 ```json
 {

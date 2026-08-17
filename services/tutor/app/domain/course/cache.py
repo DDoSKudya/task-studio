@@ -8,7 +8,7 @@ from app.domain.course.format import (
     parse_hint_lines,
     step_page_text,
 )
-from studio_contracts.session_schemas import CourseDigest, CourseDigestStep, StepContent
+from studio_contracts.api.session_schemas import CourseDigest, CourseDigestStep, StepContent
 
 __all__ = [
     "CourseDigest",

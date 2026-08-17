@@ -9,13 +9,13 @@ import structlog
 from clickhouse_connect.driver.client import Client
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
-from studio_common.app import register_ops_routes
-from studio_common.db import create_engine, create_session_factory
-from studio_common.logging import configure_logging
-from studio_common.middleware import register_request_id_middleware
-from studio_common.migrations import ensure_schema as ensure_pg_schema
-from studio_common.migrations import upgrade_head
-from studio_common.otel import configure_otel
+from studio_common.database.db import create_engine, create_session_factory
+from studio_common.database.migrations import ensure_schema as ensure_pg_schema
+from studio_common.database.migrations import upgrade_head
+from studio_common.observability.logging import configure_logging
+from studio_common.observability.otel import configure_otel
+from studio_common.web.app import register_ops_routes
+from studio_common.web.middleware import register_request_id_middleware
 
 from app.api.ingest import router as ingest_router
 from app.api.router import router as analytics_router

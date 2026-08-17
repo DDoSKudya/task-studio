@@ -5,8 +5,8 @@ from typing import Annotated
 from app.api.deps import ClickHouseClient, DbSession, Settings
 from app.domain.queries import get_attempts_timeline, get_progress, get_skips
 from fastapi import APIRouter, Query
-from studio_common.internal import InternalUserId
-from studio_contracts.analytics_schemas import (
+from studio_common.security.internal import InternalUserId
+from studio_contracts.api.analytics_schemas import (
     AttemptsTimelineResponse,
     ProgressResponse,
     SkipsResponse,

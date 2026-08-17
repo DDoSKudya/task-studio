@@ -7,7 +7,7 @@ import structlog
 
 from app.api.openai_api.stream_run import iter_chat_run_frames
 from app.config import CursorProxyConfig
-from app.domain import cursor_client
+from app.domain.cursor import client as cursor_client
 from app.domain.openai.sse import (
     chunk_text,
     openai_content_chunk,

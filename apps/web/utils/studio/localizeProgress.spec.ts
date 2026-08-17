@@ -6,7 +6,10 @@ import {
 } from './localizeProgress'
 
 const ru: Record<string, string> = {
+  'courseBuild.messages.analyzePreparing': 'Готовим модель для сборки курса',
+  'courseBuild.messages.analyzeCompiling': 'Собираем программу из источников',
   'courseBuild.messages.analyzeRunning': 'Собираем единую прогрессивную программу из всех источников',
+  'courseBuild.messages.topicBundleRunning': 'Собираем тему: {title}',
   'courseBuild.messages.analyzeOutlineReady': 'Каркас программы готов — уточняем главы',
   'courseBuild.messages.analyzeEnriching': 'Уточняем главу: {title}',
   'courseBuild.messages.theoryExpanding': 'Раскрываем главу: {title}',
@@ -18,10 +21,22 @@ const ru: Record<string, string> = {
   'courseBuild.warningsMap.continuedDespiteDeviations': 'Продолжили несмотря на расхождения между статьями',
   'courseBuild.warningsMap.theorySlidesShort':
     'По источникам получилось {got} из {wanted} запрошенных слайдов теории',
+  'courseBuild.warningsMap.theoryOutlineThinCorpus':
+    'Корпус слишком тонкий для {wanted} слайдов теории; оставили {got}',
+  'courseBuild.warningsMap.theoryOutlineShortAfterExpand':
+    'После расширения outline: {got} из {wanted} слайдов теории',
   'courseBuild.warningsMap.bookPolishSkipped': 'Редактуру пропустили: {reason}',
   'courseBuild.warningsMap.bookPolishSkippedCapacity': 'Редактуру главы «{id}» пропустили: лимит модели (попробуйте позже)',
   'courseBuild.warningsMap.bookPolishSkippedFor': 'Редактуру главы «{id}» пропустили: {reason}',
   'courseBuild.errors.noProvider': 'Не настроен ИИ-провайдер помощника',
+  'courseBuild.errors.localTheoryFailed':
+    'Не удалось написать теорию главы: модель не покрыла источник. Попробуйте снова.',
+  'courseBuild.errors.localPracticeFailed':
+    'Не удалось составить практику по главе «{title}». Попробуйте снова.',
+  'courseBuild.errors.noTeachableSyllabus':
+    'В источниках нет глав с текстом, который можно преподавать. Добавьте более содержательные статьи.',
+  'courseBuild.warningsMap.localUniqueTopics':
+    'По источникам получилось {got} плотных глав (запрашивали {wanted}) — не раздували оглавление',
   'courseBuild.errors.network':
     'Связь оборвалась на долгой генерации. Нажмите «Возобновить» — уже сделанное сохранится.',
 }
@@ -44,6 +59,15 @@ describe('localizeCourseProgressMessage', () => {
         t,
       ),
     ).toBe('Собираем единую прогрессивную программу из всех источников')
+    expect(
+      localizeCourseProgressMessage({ message_key: 'analyzePreparing' }, t),
+    ).toBe('Готовим модель для сборки курса')
+    expect(
+      localizeCourseProgressMessage(
+        { message_key: 'topicBundleRunning', message_params: { title: 'Routers' } },
+        t,
+      ),
+    ).toBe('Собираем тему: Routers')
   })
 
   it('translates analyze enrich progress', () => {
@@ -122,6 +146,12 @@ describe('localizeCourseWarning', () => {
     expect(
       localizeCourseWarning('sources supported 4 of 12 requested theory slides', t),
     ).toBe('По источникам получилось 4 из 12 запрошенных слайдов теории')
+    expect(
+      localizeCourseWarning('corpus too thin for 8 theory slides; kept 5', t),
+    ).toBe('Корпус слишком тонкий для 8 слайдов теории; оставили 5')
+    expect(
+      localizeCourseWarning('outline short after expand: 5 of 8 theory slides', t),
+    ).toBe('После расширения outline: 5 из 8 слайдов теории')
   })
 
   it('translates book polish skip warnings', () => {
@@ -135,6 +165,12 @@ describe('localizeCourseWarning', () => {
       'Редактуру главы «ch-2» пропустили: timeout',
     )
   })
+
+  it('translates local compiler unique-topic notice', () => {
+    expect(
+      localizeCourseWarning('local compiler: 5 unique topics from sources (requested 8)', t),
+    ).toBe('По источникам получилось 5 плотных глав (запрашивали 8) — не раздували оглавление')
+  })
 })
 
 describe('localizeCourseError', () => {
@@ -147,5 +183,20 @@ describe('localizeCourseError', () => {
   it('translates network drops during long builds', () => {
     expect(localizeCourseError('NETWORK ERROR', t)).toMatch(/Возобновить|связ/i)
     expect(localizeCourseError('Failed to fetch', t)).toMatch(/Возобновить|связ/i)
+  })
+
+  it('translates local ollama course failures', () => {
+    expect(
+      localizeCourseError('local theory failed for «Routers»: window 1/2 LLM error', t),
+    ).toMatch(/теорию главы/i)
+    expect(
+      localizeCourseError('local syllabus has no teachable chapter excerpts', t),
+    ).toMatch(/преподавать/i)
+    expect(
+      localizeCourseError(
+        'local practice failed for «Почему FastAPI»: no usable tasks after retries',
+        t,
+      ),
+    ).toMatch(/практику по главе «Почему FastAPI»/i)
   })
 })

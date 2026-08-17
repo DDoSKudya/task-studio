@@ -60,8 +60,6 @@ pythonpath = [
     "packages/contracts",
     "packages/integration-sdk",
 ]
-# Service roots are NOT on pythonpath: every service uses the top-level package
-# name ``app``. Isolation is handled by conftest.py (repo root) and `just test`.
 
 [tool.mypy]
 python_version = "3.12"

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from app.api.deps import DbSession, load_progress
 from app.api.mappers import session_state
-from app.domain.sessions import list_passed_step_ids
+from app.domain.queries.sessions import list_passed_step_ids
 from app.infra.models import Session
-from studio_contracts.session_schemas import SessionState
+from studio_contracts.api.session_schemas import SessionState
 
 
 async def build_session_state(session: DbSession, learning_session: Session) -> SessionState:

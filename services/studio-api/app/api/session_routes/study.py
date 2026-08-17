@@ -7,7 +7,7 @@ from app.config import StudioApiSettings, get_settings
 from app.deps import UpstreamClient, UserId
 from app.upstream import call_service, parse_upstream
 from fastapi import APIRouter, Depends
-from studio_contracts.session_schemas import (
+from studio_contracts.api.session_schemas import (
     NavigateRequest,
     SessionState,
     StepContent,

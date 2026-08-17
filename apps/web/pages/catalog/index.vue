@@ -17,9 +17,9 @@ import type {
   ExternalCourseSummary,
   PlatformCatalogBlock,
   SearchHit,
-} from '~/composables/useSearch'
-import type { PackSummary } from '~/composables/useCatalog'
-import { useCatalogDownloads } from '~/composables/useCatalogDownloads'
+} from '~/composables/search/useSearch'
+import type { PackSummary } from '~/composables/catalog/useCatalog'
+import { useCatalogDownloads } from '~/composables/catalog/useCatalogDownloads'
 import {
   relativeTime,
   sortSessionsByActivity,
@@ -78,9 +78,7 @@ const tagFilter = ref('')
 const activeTab = ref<'library' | 'external'>(catalogTabFromQuery(route.query.tab))
 
 const workspaceTab = ref<'library' | 'external'>(activeTab.value)
-// Snapshot state used inside Transition leaves/enters.
-// `activeTab` changes immediately on click, but Transition leave/enter should keep
-// the old DOM stable until the leave animation finishes.
+
 const paneTab = ref<'library' | 'external'>(activeTab.value)
 const showCourseCreate = ref(false)
 const resumeBuildId = ref<string | null>(null)
@@ -153,10 +151,7 @@ const libraryRailVisible = computed(
 )
 
 const workspaceHasRail = computed(() => {
-  // IMPORTANT: use `workspaceTab`, not `activeTab`.
-  // `activeTab` changes immediately, while `workspaceTab` is updated in Transition
-  // leave/enter hooks. If we depend on `activeTab`, `.has-rail` flips mid-animation,
-  // and the rail column changes width (visible size "jump").
+
   if (workspaceTab.value === 'library') {
     return libraryRailVisible.value
   }
@@ -574,7 +569,6 @@ async function onCourseInstalled() {
     refreshPacks(),
     loadDiscover(query.value.trim(), { force: true }),
   ])
-  closeCourseCreate()
   setTab('library')
 }
 
@@ -602,7 +596,7 @@ async function removeLocalPack(pack: PackSummary) {
 }
 
 async function redownloadPack(pack: PackSummary) {
-  if (!canRedownloadPack(pack) || !pack.external_id) {
+  if (!canRedownloadPack(pack) || !pack.source || !pack.external_id) {
     return
   }
   const key = courseDownloadKey(pack)

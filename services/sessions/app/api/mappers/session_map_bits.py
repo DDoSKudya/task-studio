@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import cast
 
 from app.infra.models import Attempt, PhaseProgress
-from studio_contracts.manifest import PhaseName
-from studio_contracts.session_schemas import AttemptInfo, PhaseProgressInfo
+from studio_contracts.api.session_schemas import AttemptInfo, PhaseProgressInfo
+from studio_contracts.packs.manifest import PhaseName
 
 
 def phase_progress(row: PhaseProgress) -> PhaseProgressInfo:

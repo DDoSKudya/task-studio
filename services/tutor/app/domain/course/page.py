@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from html import unescape
 
-from studio_contracts.session_schemas import StepContent
+from studio_contracts.api.session_schemas import StepContent
 
 _PAGE_TEXT_KEYS = (
     "instructions",

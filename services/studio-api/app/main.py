@@ -7,10 +7,10 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
-from studio_common.app import register_ops_routes
-from studio_common.logging import configure_logging
-from studio_common.middleware import register_request_id_middleware
-from studio_common.otel import configure_otel
+from studio_common.observability.logging import configure_logging
+from studio_common.observability.otel import configure_otel
+from studio_common.web.app import register_ops_routes
+from studio_common.web.middleware import register_request_id_middleware
 
 from app.api.analytics_routes.router import router as analytics_router
 from app.api.auth_routes.router import router as auth_router

@@ -36,7 +36,6 @@
     "buildCourseRunning": "Building…",
     "courseWorking": "Building course (analyze → theory → quizzes → tasks). This can take several minutes…",
     "courseReady": "Course ready. Chapters: {chapters}. Review JSON and upload to catalog.",
-    "courseWarnings": "Warnings",
     "progressTitle": "Building course",
     "progressDone": "Course ready",
     "progressFailed": "Build failed",

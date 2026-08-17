@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from studio_contracts.step_dependencies import (
+from studio_contracts.packs.step_dependencies import (
     apply_code_step_dependencies,
     merge_setup_with_dependencies,
     normalize_dependency_list,

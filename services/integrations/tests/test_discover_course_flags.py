@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.api.routes.discover_course_map import course_summary_from_raw
+from app.api.routes.discovery.discover_course_map import course_summary_from_raw
 from app.domain.cache.parse import parse_catalog_course
 
 

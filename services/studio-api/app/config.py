@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 
 from fastapi import Request
-from studio_common.system_auth import resolve_jwt_secret
+from studio_common.security.system_auth import resolve_jwt_secret
 
 
 @dataclass(frozen=True, slots=True)

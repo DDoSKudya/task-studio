@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.infra.models import User, UserSetting
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from studio_contracts.orchestrator_schemas import TutorLlmSummaryResponse
+from studio_contracts.api.orchestrator_schemas import TutorLlmSummaryResponse
 
 
 async def summarize_tutor_llm(session: AsyncSession) -> TutorLlmSummaryResponse:

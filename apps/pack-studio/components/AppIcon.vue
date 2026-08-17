@@ -8,5 +8,5 @@ const src = `${config.app.baseURL || '/'}favicon.svg`.replace(/([^:]\/)\/+/g, '$
 </script>
 
 <template>
-  <img :src="src" alt="" :class="iconClass" aria-hidden="true" />
+  <img :src="src" alt="" :class="iconClass" aria-hidden="true">
 </template>

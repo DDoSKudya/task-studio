@@ -6,7 +6,12 @@ import httpx
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from studio_common.rabbitmq import consume_json, declare_dlq, declare_queue, rabbit_connection
+from studio_common.messaging.rabbitmq import (
+    consume_json,
+    declare_dlq,
+    declare_queue,
+    rabbit_connection,
+)
 
 from app.config import GradingSettings
 from app.worker_jobs import process_grading_job
